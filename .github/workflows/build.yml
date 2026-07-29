@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - master
       - main
+      - master
     paths-ignore:
       - "**/*.md"
 
@@ -34,7 +34,7 @@ jobs:
           path: builds
           fetch-depth: 0
 
-      - name: Clean old build files
+      - name: Clean old published files
         shell: bash
         run: |
           find "$GITHUB_WORKSPACE/builds" -maxdepth 1 -type f \
@@ -54,38 +54,69 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Show detected modules
+      - name: Show detected Gradle projects
         working-directory: src
+        shell: bash
         run: |
           chmod +x gradlew
           ./gradlew projects --no-daemon --console=plain
 
-      - name: Update optional provider constants
+      - name: Update optional Anoboy constants
         working-directory: src
         shell: bash
         run: |
           if [ -f "Anoboy/update-constants.js" ]; then
             node Anoboy/update-constants.js
           else
-            echo "Anoboy/update-constants.js tidak ditemukan; langkah dilewati."
+            echo "Anoboy/update-constants.js tidak ditemukan; dilewati."
           fi
 
-      - name: Build all plugins
+      - name: Build every detected module
         working-directory: src
+        shell: bash
         run: |
-          ./gradlew clean make makePluginsJson ensureJarCompatibility \
+          set -euo pipefail
+
+          MODULE_COUNT=0
+
+          for module_dir in */; do
+            if [ -f "${module_dir}build.gradle.kts" ] || [ -f "${module_dir}build.gradle" ]; then
+              module="${module_dir%/}"
+              echo "========================================"
+              echo "Building module: ${module}"
+              echo "========================================"
+
+              ./gradlew ":${module}:make" \
+                --no-daemon \
+                --console=plain \
+                --stacktrace
+
+              MODULE_COUNT=$((MODULE_COUNT + 1))
+            fi
+          done
+
+          if [ "$MODULE_COUNT" -eq 0 ]; then
+            echo "ERROR: Tidak ada modul Gradle yang ditemukan."
+            exit 1
+          fi
+
+          echo "Total module dibuild: $MODULE_COUNT"
+
+      - name: Generate plugins.json
+        working-directory: src
+        shell: bash
+        run: |
+          ./gradlew makePluginsJson \
             --no-daemon \
             --console=plain \
             --stacktrace
 
-      - name: Collect all build outputs
+      - name: Collect publish files
         shell: bash
         run: |
-          find "$GITHUB_WORKSPACE/src" -type f -name "*.cs3" \
-            -exec cp -f {} "$GITHUB_WORKSPACE/builds/" \;
+          set -euo pipefail
 
-          find "$GITHUB_WORKSPACE/src" -type f -name "*.jar" \
-            -path "*/build/*" \
+          find "$GITHUB_WORKSPACE/src" -type f -name "*.cs3" \
             -exec cp -f {} "$GITHUB_WORKSPACE/builds/" \;
 
           if [ ! -f "$GITHUB_WORKSPACE/src/build/plugins.json" ]; then
@@ -97,15 +128,17 @@ jobs:
             "$GITHUB_WORKSPACE/builds/plugins.json"
 
           echo "File yang akan dipublikasikan:"
-          ls -lah "$GITHUB_WORKSPACE/builds"
+          find "$GITHUB_WORKSPACE/builds" -maxdepth 1 -type f -printf "%f\n" | sort
 
           CS3_COUNT=$(find "$GITHUB_WORKSPACE/builds" -maxdepth 1 -type f -name "*.cs3" | wc -l)
+          echo "Jumlah file .cs3: $CS3_COUNT"
+
           if [ "$CS3_COUNT" -eq 0 ]; then
-            echo "ERROR: Tidak ada file .cs3 yang ditemukan."
+            echo "ERROR: Tidak ada file .cs3 yang dihasilkan."
             exit 1
           fi
 
-      - name: Push builds
+      - name: Publish builds branch
         working-directory: builds
         shell: bash
         run: |
