@@ -4,6 +4,6 @@
   "iconUrl": "https://khadr.dev/MyLogo.svg",
   "manifestVersion": 1,
   "pluginLists": [
-    "https://raw.githubusercontent.com/mj1Per127/agoosestreamcloud/builds/plugins.json"
+    "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/plugins.json"
   ]
 }
