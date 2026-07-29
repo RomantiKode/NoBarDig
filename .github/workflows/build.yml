@@ -1,74 +1,123 @@
 name: Build
 
-# https://docs.github.com/en/actions/learn-github-actions/workflow-syntax-for-github-actions#concurrency
 concurrency:
-  group: "build"
+  group: build
   cancel-in-progress: true
 
 on:
   workflow_dispatch:
   push:
     branches:
-      # choose your default branch
       - master
       - main
     paths-ignore:
-      - "*.md"
+      - "**/*.md"
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@master
+      - name: Checkout source
+        uses: actions/checkout@v4
         with:
-          path: "src"
+          path: src
+          fetch-depth: 0
 
-      - name: Checkout builds
-        uses: actions/checkout@master
+      - name: Checkout builds branch
+        uses: actions/checkout@v4
         with:
-          ref: "builds"
-          path: "builds"
+          ref: builds
+          path: builds
+          fetch-depth: 0
 
-      - name: Clean old builds
+      - name: Clean old build files
+        shell: bash
         run: |
-          rm $GITHUB_WORKSPACE/builds/*.cs3 || true
-          rm $GITHUB_WORKSPACE/builds/*.jar || true
+          find "$GITHUB_WORKSPACE/builds" -maxdepth 1 -type f \
+            \( -name "*.cs3" -o -name "*.jar" -o -name "plugins.json" \) \
+            -delete
 
       - name: Setup JDK 17
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v4
         with:
-          java-version: 17
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            src/**/*.gradle*
+            src/**/gradle-wrapper.properties
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
+        uses: android-actions/setup-android@v3
 
-      - name: Build Plugins
+      - name: Show detected modules
+        working-directory: src
         run: |
-          cd $GITHUB_WORKSPACE/src
-          node Anoboy/update-constants.js
-          
-          # Commit and push source updates back to repo
-          git config --local user.email "actions@github.com"
-          git config --local user.name "GitHub Actions"
-          git add Anoboy/src/main/kotlin/com/Anoboy/Anoboy.kt Anoboy/src/main/kotlin/com/Anoboy/Extractor.kt Anoboy/build.gradle.kts
-          git commit -m "Auto-update provider constants [skip ci]" || echo "No source changes to commit"
-          git push origin HEAD:${{ github.ref_name }} || echo "No source changes to push"
-
           chmod +x gradlew
-          ./gradlew make makePluginsJson
-          ./gradlew ensureJarCompatibility
-          cp **/build/*.cs3 $GITHUB_WORKSPACE/builds || true
-          cp **/build/*.jar $GITHUB_WORKSPACE/builds || true
-          cp build/plugins.json $GITHUB_WORKSPACE/builds || true
+          ./gradlew projects --no-daemon --console=plain
+
+      - name: Update optional provider constants
+        working-directory: src
+        shell: bash
+        run: |
+          if [ -f "Anoboy/update-constants.js" ]; then
+            node Anoboy/update-constants.js
+          else
+            echo "Anoboy/update-constants.js tidak ditemukan; langkah dilewati."
+          fi
+
+      - name: Build all plugins
+        working-directory: src
+        run: |
+          ./gradlew clean make makePluginsJson ensureJarCompatibility \
+            --no-daemon \
+            --console=plain \
+            --stacktrace
+
+      - name: Collect all build outputs
+        shell: bash
+        run: |
+          find "$GITHUB_WORKSPACE/src" -type f -name "*.cs3" \
+            -exec cp -f {} "$GITHUB_WORKSPACE/builds/" \;
+
+          find "$GITHUB_WORKSPACE/src" -type f -name "*.jar" \
+            -path "*/build/*" \
+            -exec cp -f {} "$GITHUB_WORKSPACE/builds/" \;
+
+          if [ ! -f "$GITHUB_WORKSPACE/src/build/plugins.json" ]; then
+            echo "ERROR: src/build/plugins.json tidak ditemukan."
+            exit 1
+          fi
+
+          cp -f "$GITHUB_WORKSPACE/src/build/plugins.json" \
+            "$GITHUB_WORKSPACE/builds/plugins.json"
+
+          echo "File yang akan dipublikasikan:"
+          ls -lah "$GITHUB_WORKSPACE/builds"
+
+          CS3_COUNT=$(find "$GITHUB_WORKSPACE/builds" -maxdepth 1 -type f -name "*.cs3" | wc -l)
+          if [ "$CS3_COUNT" -eq 0 ]; then
+            echo "ERROR: Tidak ada file .cs3 yang ditemukan."
+            exit 1
+          fi
 
       - name: Push builds
+        working-directory: builds
+        shell: bash
         run: |
-          cd $GITHUB_WORKSPACE/builds
-          git config --local user.email "actions@github.com"
-          git config --local user.name "GitHub Actions"
-          git add .
-          git commit --amend -m "Build $GITHUB_SHA" || exit 0   # do not error if nothing to commit
-          git push --force
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan hasil build."
+            exit 0
+          fi
+
+          git commit -m "Build $GITHUB_SHA"
+          git push origin HEAD:builds
