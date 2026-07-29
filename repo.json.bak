@@ -1,9 +1,0 @@
-{
-  "name": "Agoose CloudStream",
-  "description": "Repository ekstensi CloudStream Agoose",
-  "iconUrl": "https://khadr.dev/MyLogo.svg",
-  "manifestVersion": 1,
-  "pluginLists": [
-    "https://raw.githubusercontent.com/mj1Per127/agoose-cloudstream/builds/plugins.json"
-  ]
-}
