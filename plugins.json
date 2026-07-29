@@ -20,5 +20,27 @@
         "description": "Anoboy - Streaming Anime Sub Indo",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Anoboy.cs3",
         "name": "Anoboy"
+    },
+    {
+        "iconUrl": "https://ww11.pencurimovie.sbs/favicon.ico",
+        "fileHash": "sha256-03c12dbc4a8be471824c85f6401a59d089e8e019c77abb2c7d372c0e23e53c12",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 50301,
+        "status": 1,
+        "language": "ms",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries",
+            "AsianDrama"
+        ],
+        "version": 1,
+        "internalName": "Pencurimovie",
+        "description": "Provider untuk Pencurimovie",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Pencurimovie.cs3",
+        "name": "Pencurimovie"
     }
 ]
