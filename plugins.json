@@ -45,6 +45,26 @@
         "name": "Dubbindo"
     },
     {
+        "fileHash": "sha256-ee48c018cdc4161abea7d369c784ac35ab5d5729badba07e11ed36f6e065b4fb",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 25352,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries"
+        ],
+        "version": 2,
+        "internalName": "Nomat",
+        "description": "Nomat adalah situs nonton film online gratis dan juga tempat download film bioskop dengan subtitle Indonesia.",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Nomat.cs3",
+        "name": "Nomat"
+    },
+    {
         "iconUrl": "https://ww21.pencurimovie.sbs/wp-content/uploads/fbrfg/favicon-32x32.png",
         "fileHash": "sha256-63c8d12914b41704191b341506e8f4b2931ba9bb366aea436b7e21d9b5df7954",
         "apiVersion": 1,
