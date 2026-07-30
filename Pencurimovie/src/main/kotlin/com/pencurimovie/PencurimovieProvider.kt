@@ -114,7 +114,7 @@ class PencurimovieProvider : MainAPI() {
             throw ErrorLoadingException("Katalog PencuriMovie tidak ditemukan")
         }
 
-        return HomePageResponse(lists)
+        return newHomePageResponse(lists)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
