@@ -11,5 +11,6 @@ class PencurimoviePlugin : Plugin() {
         registerExtractorAPI(Dsvplay())
         registerExtractorAPI(Hgcloud())
         registerExtractorAPI(Hglink())
+        registerExtractorAPI(MixdropTop())
     }
 }

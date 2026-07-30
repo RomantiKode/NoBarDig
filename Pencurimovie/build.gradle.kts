@@ -2,7 +2,7 @@ version = 3
 
 cloudstream {
     language = "ms"
-    description = "PencuriMovie - filem, serial, season, episode dan player episode dengan parser ringan"
+    description = "PencuriMovie v5.1 HTML Validated - parser ringan, player terisolasi dari popup, dan mirror MixDrop"
     authors = listOf("Agoose")
     status = 1
     tvTypes = listOf("Movie", "TvSeries")

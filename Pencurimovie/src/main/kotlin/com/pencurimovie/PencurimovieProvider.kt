@@ -7,6 +7,7 @@ import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import java.net.URI
 import java.net.URLEncoder
 
 class PencurimovieProvider : MainAPI() {
@@ -26,6 +27,22 @@ class PencurimovieProvider : MainAPI() {
     private val seasonNumberRegex = Regex("""(?i)\bseason\s*(\d+)\b""")
     private val episodeNumberRegex = Regex("""(?i)\bepisode\s*(\d+)\b""")
     private val episodePathRegex = Regex("""(?i)season[-_\s]*(\d+)[-_\s]*episode[-_\s]*(\d+)""")
+    private val durationHourRegex = Regex("""(?i)(\d+)\s*(?:h|hour|hours|jam)\b""")
+    private val durationMinuteRegex = Regex("""(?i)(\d+)\s*(?:m|min|mins|minute|minutes|menit)\b""")
+
+    // Pertahanan tambahan bila tema suatu saat menyisipkan iframe iklan ke area player.
+    // Script popup di <head> tidak dijalankan oleh app.get()/Jsoup, tetapi URL iframe
+    // tetap disaring agar tracker/iklan tidak dikirim ke registry extractor.
+    private val blockedPlayerHosts = setOf(
+        "push-sdk.net",
+        "bvtpk.com",
+        "googletagmanager.com",
+        "google-analytics.com",
+        "doubleclick.net",
+        "hcaptcha.com",
+        "gstatic.com",
+        "ay267.com"
+    )
 
     private fun parseTitle(raw: String): Pair<String, Int?> {
         val clean = raw.trim()
@@ -35,6 +52,22 @@ class PencurimovieProvider : MainAPI() {
         return title to year
     }
 
+    private fun normalizeImageUrl(raw: String?): String? {
+        val clean = raw?.trim().orEmpty()
+        if (
+            clean.isBlank() ||
+            clean.startsWith("data:", ignoreCase = true) ||
+            clean.startsWith("javascript:", ignoreCase = true) ||
+            clean.startsWith("blob:", ignoreCase = true)
+        ) return null
+
+        return when {
+            clean.startsWith("//") -> "https:$clean"
+            clean.startsWith("http://") || clean.startsWith("https://") -> clean
+            else -> fixUrlNull(clean)
+        }
+    }
+
     private fun Element.httpImageUrl(): String? {
         return listOf(
             attr("data-src"),
@@ -42,7 +75,27 @@ class PencurimovieProvider : MainAPI() {
             attr("data-lazy-src"),
             attr("src"),
             attr("content")
-        ).firstOrNull { it.startsWith("http://") || it.startsWith("https://") }
+        ).asSequence().mapNotNull(::normalizeImageUrl).firstOrNull()
+    }
+
+    private fun parseDurationMinutes(raw: String?): Int? {
+        val text = raw?.trim().orEmpty()
+        if (text.isBlank()) return null
+
+        val hours = durationHourRegex.find(text)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+        val minutes = durationMinuteRegex.find(text)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+
+        if (hours != null || minutes != null) {
+            return (hours ?: 0) * 60 + (minutes ?: 0)
+        }
+
+        return Regex("""\d+""").find(text)?.value?.toIntOrNull()
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
@@ -102,12 +155,14 @@ class PencurimovieProvider : MainAPI() {
 
             // Latest Episodes sengaja tidak dimasukkan karena URL-nya menunjuk
             // halaman episode, bukan halaman induk serial.
-            if (sectionName !in setOf("Latest Movies", "Latest TV Series")) {
-                return@mapNotNull null
+            val displayName = when {
+                sectionName.equals("Latest Movies", ignoreCase = true) -> "Latest Movies"
+                sectionName.equals("Latest TV Series", ignoreCase = true) -> "Latest TV Series"
+                else -> return@mapNotNull null
             }
 
             val items = section.select(".ml-item").mapNotNull { it.toSearchResult() }
-            if (items.isEmpty()) null else HomePageList(sectionName, items)
+            if (items.isEmpty()) null else HomePageList(displayName, items)
         }
 
         if (lists.isEmpty()) {
@@ -299,12 +354,23 @@ class PencurimovieProvider : MainAPI() {
 
         val poster = document.selectFirst(".mvic-thumb img")?.httpImageUrl()
             ?: document.selectFirst("meta[property=og:image]")?.httpImageUrl()
+            ?: document.selectFirst("meta[name=twitter:image]")?.httpImageUrl()
 
-        val description = document.selectFirst(".mvic-desc .desc .f-desc, .mvic-desc .desc[itemprop=description]")
-            ?.text()
-            ?.trim()
-            .orEmpty()
-            .ifBlank { document.selectFirst("meta[name=description]")?.attr("content")?.trim().orEmpty() }
+        val description = document.selectFirst(
+            ".mvic-desc .desc .f-desc, " +
+                ".mvic-desc .desc[itemprop=description], " +
+                ".mvic-desc .desc"
+        )?.text()?.trim().orEmpty().ifBlank {
+            document.selectFirst("meta[property=og:description]")
+                ?.attr("content")
+                ?.trim()
+                .orEmpty()
+        }.ifBlank {
+            document.selectFirst("meta[name=description]")
+                ?.attr("content")
+                ?.trim()
+                .orEmpty()
+        }
 
         val genreRow = document.infoRow("Genre")
         val actorRow = document.infoRow("Actors")
@@ -348,8 +414,7 @@ class PencurimovieProvider : MainAPI() {
             ?.trim()
             ?.toIntOrNull()
             ?: titleYear
-        val duration = durationRow?.text()
-            ?.let { Regex("""\d+""").find(it)?.value?.toIntOrNull() }
+        val duration = parseDurationMinutes(durationRow?.text())
         val rating = document.selectFirst(".imdb-r[itemprop=ratingValue], .imdb-r")
             ?.text()
             ?.trim()
@@ -408,16 +473,35 @@ class PencurimovieProvider : MainAPI() {
         }
     }
 
+    private fun playerHost(url: String): String? {
+        return runCatching { URI(url).host?.lowercase() }.getOrNull()
+    }
+
+    private fun isBlockedPlayerHost(host: String): Boolean {
+        return blockedPlayerHosts.any { blocked ->
+            host == blocked || host.endsWith(".$blocked")
+        }
+    }
+
     private fun normalizePlayerUrl(raw: String): String? {
         val clean = raw.trim()
-        if (clean.isBlank() || clean.startsWith("javascript", ignoreCase = true)) return null
+        if (
+            clean.isBlank() ||
+            clean.startsWith("javascript:", ignoreCase = true) ||
+            clean.startsWith("data:", ignoreCase = true) ||
+            clean.startsWith("blob:", ignoreCase = true) ||
+            clean.startsWith("about:", ignoreCase = true)
+        ) return null
 
-        return when {
+        val normalized = when {
             clean.startsWith("//") -> "https:$clean"
             clean.startsWith("/") -> fixUrl(clean)
             clean.startsWith("http://") || clean.startsWith("https://") -> clean
-            else -> null
+            else -> return null
         }
+
+        val host = playerHost(normalized) ?: return null
+        return normalized.takeUnless { isBlockedPlayerHost(host) }
     }
 
     override suspend fun loadLinks(
@@ -434,8 +518,9 @@ class PencurimovieProvider : MainAPI() {
         val embeds = document.select(
             "#player2 iframe[data-src], #player2 iframe[src], " +
                 "#player2 iframe[data-litespeed-src], " +
-                "#content-embed iframe[data-src], #content-embed iframe[src], " +
-                "#content-embed iframe[data-litespeed-src]"
+                "#content-embed .movieplay iframe[data-src], " +
+                "#content-embed .movieplay iframe[src], " +
+                "#content-embed .movieplay iframe[data-litespeed-src]"
         ).mapNotNull { iframe ->
             iframe.attr("data-src")
                 .ifBlank { iframe.attr("data-litespeed-src") }
@@ -452,7 +537,8 @@ class PencurimovieProvider : MainAPI() {
 
         document.select(
             "#player2 source[src], #player2 video[src], " +
-                "#content-embed source[src], #content-embed video[src]"
+                "#content-embed .movieplay source[src], " +
+                "#content-embed .movieplay video[src]"
         ).mapNotNull { it.attr("src").let(::normalizePlayerUrl) }
             .distinct()
             .forEach { directUrl ->
@@ -478,29 +564,33 @@ class PencurimovieProvider : MainAPI() {
         // ke registry loadExtractor agar kompatibel dengan extractor aplikasi.
         embeds.forEach { embedUrl ->
             val before = emittedUrls.size
-            val lower = embedUrl.lowercase()
+            val host = playerHost(embedUrl).orEmpty()
             var usedExplicitExtractor = false
 
             try {
                 when {
-                    "dsvplay.com" in lower -> {
+                    host == "dsvplay.com" || host.endsWith(".dsvplay.com") -> {
                         usedExplicitExtractor = true
                         Dsvplay().getUrl(embedUrl, data, subtitleCallback, uniqueCallback)
                     }
-                    "hgcloud.to" in lower -> {
+                    host == "hgcloud.to" || host.endsWith(".hgcloud.to") -> {
                         usedExplicitExtractor = true
                         Hgcloud().getUrl(embedUrl, data, subtitleCallback, uniqueCallback)
                     }
-                    "hglink.to" in lower -> {
+                    host == "hglink.to" || host.endsWith(".hglink.to") -> {
                         usedExplicitExtractor = true
                         Hglink().getUrl(embedUrl, data, subtitleCallback, uniqueCallback)
                     }
-                    "voe.sx" in lower -> {
+                    host == "mixdrop.top" || host.endsWith(".mixdrop.top") -> {
+                        usedExplicitExtractor = true
+                        MixdropTop().getUrl(embedUrl, data, subtitleCallback, uniqueCallback)
+                    }
+                    host == "voe.sx" || host.endsWith(".voe.sx") -> {
                         usedExplicitExtractor = true
                         com.lagradost.cloudstream3.extractors.Voe()
                             .getUrl(embedUrl, data, subtitleCallback, uniqueCallback)
                     }
-                    "streamtape.com" in lower -> {
+                    host == "streamtape.com" || host.endsWith(".streamtape.com") -> {
                         usedExplicitExtractor = true
                         com.lagradost.cloudstream3.extractors.StreamTape()
                             .getUrl(embedUrl, data, subtitleCallback, uniqueCallback)

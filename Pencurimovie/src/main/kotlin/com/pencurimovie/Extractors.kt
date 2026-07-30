@@ -1,6 +1,7 @@
 package com.pencurimovie
 
 import com.lagradost.cloudstream3.extractors.DoodLaExtractor
+import com.lagradost.cloudstream3.extractors.MixDrop
 import com.lagradost.cloudstream3.extractors.StreamWishExtractor
 
 /** Alias Dood untuk domain yang digunakan PencuriMovie. */
@@ -18,4 +19,9 @@ class Hgcloud : StreamWishExtractor() {
 class Hglink : StreamWishExtractor() {
     override val name = "Hglink"
     override val mainUrl = "https://hglink.to"
+}
+
+/** Alias MixDrop untuk mirror aktual yang ditemukan pada HTML episode. */
+class MixdropTop : MixDrop() {
+    override var mainUrl = "https://mixdrop.top"
 }
