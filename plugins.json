@@ -23,10 +23,10 @@
     },
     {
         "iconUrl": "https://ww21.pencurimovie.sbs/wp-content/uploads/fbrfg/favicon-32x32.png",
-        "fileHash": "sha256-310f914ce80237ade4ddda43edb4f9809a4e6ddd1e5143f7e510cfe3214704d0",
+        "fileHash": "sha256-63c8d12914b41704191b341506e8f4b2931ba9bb366aea436b7e21d9b5df7954",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 31103,
+        "fileSize": 33211,
         "status": 1,
         "language": "ms",
         "authors": [
@@ -38,7 +38,7 @@
         ],
         "version": 3,
         "internalName": "Pencurimovie",
-        "description": "PencuriMovie - filem, serial, season, episode dan player episode dengan parser ringan",
+        "description": "PencuriMovie v5.1 HTML Validated - parser ringan, player terisolasi dari popup, dan mirror MixDrop",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Pencurimovie.cs3",
         "name": "Pencurimovie"
     }
