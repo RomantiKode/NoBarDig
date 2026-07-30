@@ -260,36 +260,22 @@ class Dubbindo : MainAPI() {
         )
     }
 
-    override suspend fun search(query: String, page: Int): SearchResponseList {
+    /**
+     * Memakai API pencarian legacy agar plugin dapat dimuat oleh CloudStream
+     * stable maupun versi yang belum memiliki API pencarian berpaginasi.
+     * Pagination tetap digunakan pada halaman utama, tetapi pencarian cukup
+     * mengambil halaman pertama agar tidak membuat banyak request.
+     */
+    override suspend fun search(query: String): List<SearchResponse> {
         val cleanQuery = query.cleanDisplayText()
-        if (cleanQuery.isBlank()) return newSearchResponseList(emptyList(), hasNext = false)
+        if (cleanQuery.isBlank()) return emptyList()
 
         val encoded = URLEncoder.encode(cleanQuery, "UTF-8")
-        val urls = buildList {
-            add("$mainUrl/search?keyword=$encoded&page_id=$page")
-            if (page > 1) add("$mainUrl/page/$page/search?keyword=$encoded")
-        }
+        val document = app.get("$mainUrl/search?keyword=$encoded&page_id=1").document
 
-        var lastDocument: Document? = null
-        for (url in urls) {
-            val document = app.get(url).document
-            lastDocument = document
-            val results = document.videoCards()
-                .mapNotNull { it.toSearchResult() }
-                .distinctBy { it.url }
-
-            if (results.isNotEmpty() || page == 1) {
-                return newSearchResponseList(
-                    results,
-                    hasNext = results.isNotEmpty() && document.hasNextPage(page)
-                )
-            }
-        }
-
-        return newSearchResponseList(
-            emptyList(),
-            hasNext = lastDocument?.hasNextPage(page) == true
-        )
+        return document.videoCards()
+            .mapNotNull { it.toSearchResult() }
+            .distinctBy { it.url }
     }
 
     private fun parseDurationMinutes(raw: String?): Int? {
