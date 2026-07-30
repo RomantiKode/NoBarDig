@@ -22,6 +22,29 @@
         "name": "Anoboy"
     },
     {
+        "iconUrl": "https://www.dubbindo.site/themes/dubbindo/img/icon.png",
+        "fileHash": "sha256-2e67d5bafdd6170e27d11f522c345830380cf44f3719d68a4ca1e21c46faa3df",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 32639,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "ByAyzen",
+            "Hexated",
+            "TeKuma25"
+        ],
+        "tvTypes": [
+            "Movie",
+            "AnimeMovie"
+        ],
+        "version": 3,
+        "internalName": "Dubbindo",
+        "description": "Dubbindo: kategori lengkap, Shorts, pagination, multi-quality direct video, internal embed fallback, dan subtitle",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Dubbindo.cs3",
+        "name": "Dubbindo"
+    },
+    {
         "iconUrl": "https://ww21.pencurimovie.sbs/wp-content/uploads/fbrfg/favicon-32x32.png",
         "fileHash": "sha256-63c8d12914b41704191b341506e8f4b2931ba9bb366aea436b7e21d9b5df7954",
         "apiVersion": 1,
