@@ -22,29 +22,6 @@
         "name": "Anoboy"
     },
     {
-        "iconUrl": "https://www.dubbindo.site/themes/dubbindo/img/icon.png",
-        "fileHash": "sha256-c646994eeb7581444fa8720654ce1b1f79ded0a36a05bd273e32558434a31aeb",
-        "apiVersion": 1,
-        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 32032,
-        "status": 1,
-        "language": "id",
-        "authors": [
-            "ByAyzen",
-            "Hexated",
-            "TeKuma25"
-        ],
-        "tvTypes": [
-            "Movie",
-            "AnimeMovie"
-        ],
-        "version": 3,
-        "internalName": "Dubbindo",
-        "description": "Dubbindo v7: kompatibel CloudStream stable, kategori lengkap, Shorts, multi-quality, embed fallback, dan subtitle",
-        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Dubbindo.cs3",
-        "name": "Dubbindo"
-    },
-    {
         "fileHash": "sha256-ee48c018cdc4161abea7d369c784ac35ab5d5729badba07e11ed36f6e065b4fb",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
