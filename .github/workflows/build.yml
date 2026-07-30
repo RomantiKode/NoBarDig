@@ -19,6 +19,13 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      GRADLE_OPTS: >-
+        -Dorg.gradle.daemon=false
+        -Dorg.gradle.workers.max=1
+        -Dfile.encoding=UTF-8
 
     steps:
       - name: Checkout source
@@ -37,7 +44,11 @@ jobs:
       - name: Clean old published files
         shell: bash
         run: |
-          find "$GITHUB_WORKSPACE/builds" -maxdepth 1 -type f \
+          set -euo pipefail
+
+          find "$GITHUB_WORKSPACE/builds" \
+            -maxdepth 1 \
+            -type f \
             \( -name "*.cs3" -o -name "*.jar" -o -name "plugins.json" \) \
             -delete
 
@@ -52,20 +63,48 @@ jobs:
             src/**/gradle-wrapper.properties
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+
+      - name: Show Java and Android environment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Java version:"
+          java -version
+
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "ANDROID_HOME=${ANDROID_HOME:-}"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-}"
+
+          echo "SDK Manager:"
+          command -v sdkmanager || true
+          sdkmanager --version || true
 
       - name: Show detected Gradle projects
         working-directory: src
         shell: bash
         run: |
+          set -euo pipefail
+
           chmod +x gradlew
-          ./gradlew projects --no-daemon --console=plain
+
+          ./gradlew projects \
+            --no-daemon \
+            --max-workers=1 \
+            --console=plain \
+            --stacktrace
 
       - name: Update optional Anoboy constants
         working-directory: src
         shell: bash
         run: |
+          set -euo pipefail
+
           if [ -f "Anoboy/update-constants.js" ]; then
+            echo "Menjalankan Anoboy/update-constants.js"
             node Anoboy/update-constants.js
           else
             echo "Anoboy/update-constants.js tidak ditemukan; dilewati."
@@ -80,14 +119,18 @@ jobs:
           MODULE_COUNT=0
 
           for module_dir in */; do
-            if [ -f "${module_dir}build.gradle.kts" ] || [ -f "${module_dir}build.gradle" ]; then
+            if [ -f "${module_dir}build.gradle.kts" ] || \
+               [ -f "${module_dir}build.gradle" ]; then
+
               module="${module_dir%/}"
+
               echo "========================================"
               echo "Building module: ${module}"
               echo "========================================"
 
               ./gradlew ":${module}:make" \
                 --no-daemon \
+                --max-workers=1 \
                 --console=plain \
                 --stacktrace
 
@@ -100,14 +143,17 @@ jobs:
             exit 1
           fi
 
-          echo "Total module dibuild: $MODULE_COUNT"
+          echo "Total module berhasil dibuild: $MODULE_COUNT"
 
       - name: Generate plugins.json
         working-directory: src
         shell: bash
         run: |
+          set -euo pipefail
+
           ./gradlew makePluginsJson \
             --no-daemon \
+            --max-workers=1 \
             --console=plain \
             --stacktrace
 
@@ -116,34 +162,76 @@ jobs:
         run: |
           set -euo pipefail
 
-          find "$GITHUB_WORKSPACE/src" -type f -name "*.cs3" \
+          find "$GITHUB_WORKSPACE/src" \
+            -type f \
+            -name "*.cs3" \
             -exec cp -f {} "$GITHUB_WORKSPACE/builds/" \;
 
-          if [ ! -f "$GITHUB_WORKSPACE/src/build/plugins.json" ]; then
+          PLUGINS_JSON="$GITHUB_WORKSPACE/src/build/plugins.json"
+
+          if [ ! -f "$PLUGINS_JSON" ]; then
             echo "ERROR: src/build/plugins.json tidak ditemukan."
             exit 1
           fi
 
-          cp -f "$GITHUB_WORKSPACE/src/build/plugins.json" \
+          cp -f "$PLUGINS_JSON" \
             "$GITHUB_WORKSPACE/builds/plugins.json"
 
-          echo "File yang akan dipublikasikan:"
-          find "$GITHUB_WORKSPACE/builds" -maxdepth 1 -type f -printf "%f\n" | sort
+          echo "========================================"
+          echo "File yang akan dipublikasikan"
+          echo "========================================"
 
-          CS3_COUNT=$(find "$GITHUB_WORKSPACE/builds" -maxdepth 1 -type f -name "*.cs3" | wc -l)
+          find "$GITHUB_WORKSPACE/builds" \
+            -maxdepth 1 \
+            -type f \
+            -printf "%f\n" |
+            sort
+
+          CS3_COUNT=$(
+            find "$GITHUB_WORKSPACE/builds" \
+              -maxdepth 1 \
+              -type f \
+              -name "*.cs3" |
+            wc -l
+          )
+
+          JSON_COUNT=$(
+            find "$GITHUB_WORKSPACE/builds" \
+              -maxdepth 1 \
+              -type f \
+              -name "plugins.json" |
+            wc -l
+          )
+
           echo "Jumlah file .cs3: $CS3_COUNT"
+          echo "Jumlah plugins.json: $JSON_COUNT"
 
           if [ "$CS3_COUNT" -eq 0 ]; then
             echo "ERROR: Tidak ada file .cs3 yang dihasilkan."
             exit 1
           fi
 
+          if [ "$JSON_COUNT" -ne 1 ]; then
+            echo "ERROR: plugins.json tidak tersedia."
+            exit 1
+          fi
+
+          echo "Isi plugins.json:"
+          cat "$GITHUB_WORKSPACE/builds/plugins.json"
+
       - name: Publish builds branch
         working-directory: builds
         shell: bash
         run: |
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
+          set -euo pipefail
+
+          git config \
+            user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git config \
+            user.name \
+            "github-actions[bot]"
 
           git add -A
 
@@ -152,5 +240,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Build $GITHUB_SHA"
+          git commit -m "Build ${GITHUB_SHA}"
           git push origin HEAD:builds
