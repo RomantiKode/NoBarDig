@@ -88,6 +88,28 @@
         "name": "Layarkaca21"
     },
     {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=otakupoi.org&sz=%size%",
+        "fileHash": "sha256-512ed37c633d9e33e508d9f0cd85f317e9b0ed58690c7db959a8aed1a29ddd45",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 22861,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Anime",
+            "AnimeMovie",
+            "OVA"
+        ],
+        "version": 2,
+        "internalName": "Neonime",
+        "description": "Portal Download dan Nonton, Streaming Anime Online Subtitle Indo BD Batch Complete, Eps Lengkap, Ongoing dan Terbaru dalam Format 1080p Mkv 480p, 720p dan Mp4 240p, 360p 3GP dengan link Google Drive, Zippyshare, Otaku Desu, Meownime, Anitoki, Samhadaku.",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Neonime.cs3",
+        "name": "Neonime"
+    },
+    {
         "fileHash": "sha256-ee48c018cdc4161abea7d369c784ac35ab5d5729badba07e11ed36f6e065b4fb",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
