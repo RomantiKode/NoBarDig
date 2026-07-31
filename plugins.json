@@ -44,10 +44,10 @@
     },
     {
         "iconUrl": "https://www.google.com/s2/favicons?domain=tv12.lk21official.cc&sz=%size%",
-        "fileHash": "sha256-636f5cec3bc5aeb1e68170b42dc602ef935ac372a57fbebe7664cb5439351d46",
+        "fileHash": "sha256-18715812096c4ef213d5acdefc68a2155e9a2abc94399a2b3522289abee55fbc",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 59422,
+        "fileSize": 59423,
         "status": 1,
         "language": "id",
         "authors": [
@@ -57,7 +57,7 @@
             "Movie",
             "TvSeries"
         ],
-        "version": 3,
+        "version": 4,
         "internalName": "Layarkaca21",
         "description": "Nonton dan download film & series terbaru di LK21. Streaming sub Indo gratis, kualitas HD. Tersedia drama Korea, anime, film barat, dan Asia lengkap!",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Layarkaca21.cs3",
