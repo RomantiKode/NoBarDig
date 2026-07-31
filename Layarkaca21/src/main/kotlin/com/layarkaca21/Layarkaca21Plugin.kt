@@ -16,5 +16,6 @@ class Layarkaca21Plugin : Plugin() {
         registerExtractorAPI(Lk21Turbovidhls())
         registerExtractorAPI(Lk21Abyss())
         registerExtractorAPI(Lk21ShortInk())
+        registerExtractorAPI(Lk21VideoNode())
     }
 }
