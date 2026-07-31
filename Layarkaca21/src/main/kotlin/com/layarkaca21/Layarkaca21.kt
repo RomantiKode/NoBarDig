@@ -162,16 +162,100 @@ class Layarkaca21 : MainAPI() {
                 continue
             }
 
-            // Registered extractors take priority. Version 2 registers a dedicated
-            // VideoNode extractor for /iframe/p2p, /hydrax, /turbovip and /cast.
+            // VideoNode is an intermediary wrapper, not the final extractor URL.
+            // Its path token (especially /iframe/p2p/{token}) must never be treated
+            // as a Hownetwork id. Open the wrapper first, read the nested iframe, then
+            // dispatch that destination with VideoNode's origin as the referer.
+            val beforeUnwrap = emitted.size
+            val targets = unwrapVideoNode(playerUrl, pageOrigin)
+            for (target in targets) {
+                if (isDirectMedia(target)) {
+                    emitDirect(target, originOf(playerUrl), serverName(playerUrl), safeCallback)
+                    continue
+                }
+
+                val beforeTarget = emitted.size
+                loadExtractor(target, originOf(playerUrl), subtitleCallback, safeCallback)
+                if (emitted.size == beforeTarget) {
+                    scrapePlayerPage(
+                        target,
+                        originOf(playerUrl),
+                        subtitleCallback,
+                        safeCallback,
+                        emitted,
+                    )
+                }
+            }
+            if (emitted.size > beforeUnwrap) continue
+
+            // Keep the registered VideoNode extractor and generic scraper only as
+            // fallbacks for wrapper variants whose destination is script-generated.
             val beforeExtractor = emitted.size
             loadExtractor(playerUrl, pageUrl, subtitleCallback, safeCallback)
             if (emitted.size > beforeExtractor) continue
 
-            // Generic fallback for mirrors that expose a nested iframe or direct media.
             scrapePlayerPage(playerUrl, pageUrl, subtitleCallback, safeCallback, emitted)
         }
         return emitted.isNotEmpty()
+    }
+
+    private suspend fun unwrapVideoNode(playerUrl: String, pageOrigin: String): List<String> {
+        if (hostOf(playerUrl) != "videonode.de") return emptyList()
+
+        // The working LayarKaca flow requests the wrapper with the series origin and
+        // extracts `div.embed-container iframe, iframe`. Try the real page origin first,
+        // then both known LK21 origins to survive movie/series cross-domain mirrors.
+        val referers = listOf(
+            "${pageOrigin.trimEnd('/')}/",
+            "$SERIES_URL/",
+            "$MOVIE_URL/",
+        ).distinct()
+
+        for (referer in referers) {
+            val response = runCatching {
+                app.get(playerUrl, referer = referer, allowRedirects = true)
+            }.getOrNull() ?: continue
+
+            val document = response.document.cleanPlayerPage()
+            val scriptTexts = document.select("script:not([src])").flatMap { script ->
+                val raw = script.data()
+                listOf(raw, getAndUnpack(raw))
+            }.distinct()
+
+            val rawTargets = linkedSetOf<String>()
+            if (response.url != playerUrl) rawTargets += response.url
+
+            document.select(
+                "div.embed-container iframe[src], iframe[src], " +
+                    "video[src], video source[src], source[src], [data-url], [data-src]"
+            ).forEach { element ->
+                listOf("src", "data-url", "data-src")
+                    .firstNotNullOfOrNull { key -> element.attr(key).takeIf { it.isNotBlank() } }
+                    ?.let(rawTargets::add)
+            }
+            document.select("meta[http-equiv=refresh]").forEach { meta ->
+                REFRESH_URL_REGEX.find(meta.attr("content"))
+                    ?.groupValues?.getOrNull(1)?.let(rawTargets::add)
+            }
+            for (text in scriptTexts) {
+                MEDIA_REGEX.findAll(text).forEach { rawTargets += it.value }
+                URL_ASSIGNMENT_REGEX.findAll(text).forEach { rawTargets += it.groupValues[1] }
+                LOCATION_REGEX.findAll(text).forEach { rawTargets += it.groupValues[1] }
+                ATOB_REGEX.findAll(text).forEach { match ->
+                    decodeBase64Url(match.groupValues[1])?.let(rawTargets::add)
+                }
+            }
+
+            val targets = rawTargets
+                .map(::decodeEscapedUrl)
+                .mapNotNull { absoluteUrl(response.url, it) }
+                .filter(::isSafePlayerUrl)
+                .filter { it != playerUrl }
+                .distinct()
+
+            if (targets.isNotEmpty()) return targets
+        }
+        return emptyList()
     }
 
     private suspend fun scrapePlayerPage(
@@ -553,6 +637,10 @@ class Layarkaca21 : MainAPI() {
         private val EPISODE_PATH_REGEX = Regex("season[-_ ]?(\\d+).*?episode[-_ ]?(\\d+)", RegexOption.IGNORE_CASE)
         private val MEDIA_REGEX = Regex("https?://[^\\s\\\"'<>]+?\\.(?:m3u8|mp4|mkv|webm)(?:\\?[^\\s\\\"'<>]*)?", RegexOption.IGNORE_CASE)
         private val URL_ASSIGNMENT_REGEX = Regex("""(?:file|src|url|source)\s*[:=]\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+        private val LOCATION_REGEX = Regex(
+            """(?:window\.)?(?:document\.)?location(?:\.href)?\s*=\s*["']([^"']+)["']""",
+            RegexOption.IGNORE_CASE,
+        )
         private val ATOB_REGEX = Regex("""atob\(["']([A-Za-z0-9+/=_-]+)["']\)""", RegexOption.IGNORE_CASE)
         private val REFRESH_URL_REGEX = Regex("""url\s*=\s*([^;]+)""", RegexOption.IGNORE_CASE)
         private val PART_OF_SERIES_URL_REGEX = Regex(""""partOfSeries"[\s\S]*?"url"\s*:\s*"([^"]+)"""", RegexOption.IGNORE_CASE)

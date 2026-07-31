@@ -42,17 +42,6 @@ class Lk21VideoNode : ExtractorApi() {
             if (isSafeUrl(link.url) && emitted.add(link.url)) callback(link)
         }
 
-        // The current VideoNode P2P wrapper can reject non-browser navigation with
-        // HTTP 403. Resolve its Hownetwork target first so series playback does not
-        // depend on successfully downloading the intermediary wrapper page.
-        if (url.contains("/iframe/p2p/", ignoreCase = true)) {
-            for (candidate in compatibilityCandidates(url)) {
-                val before = emitted.size
-                loadExtractor(candidate, referer ?: url, subtitleCallback, safeCallback)
-                if (emitted.size > before) return
-            }
-        }
-
         resolveNode(
             url = url,
             referer = referer ?: SERIES_REFERER,
@@ -94,15 +83,25 @@ class Lk21VideoNode : ExtractorApi() {
         ).filter { it.isNotBlank() }.distinct()
 
         for (requestReferer in referers.take(3)) {
-            val response = runCatching {
+            // Start with the same plain iframe navigation used by the active provider.
+            // Some VideoNode routes reject the extra browser headers even when the
+            // simple referer-only request succeeds.
+            val plainResponse = runCatching {
+                app.get(url, referer = requestReferer, allowRedirects = true)
+            }.getOrNull()
+            val browserResponse = runCatching {
                 app.get(
                     url,
                     referer = requestReferer,
                     headers = PLAYER_HEADERS,
                     allowRedirects = true,
                 )
-            }.getOrNull() ?: continue
+            }.getOrNull()
 
+            val responses = listOfNotNull(plainResponse, browserResponse)
+                .distinctBy { it.url to it.text.hashCode() }
+
+            for (response in responses) {
             if (response.url != url && isSafeUrl(response.url)) {
                 val before = emitted.size
                 dispatchCandidate(
@@ -168,6 +167,7 @@ class Lk21VideoNode : ExtractorApi() {
             }
 
             if (emitted.isNotEmpty()) return
+            }
         }
     }
 
@@ -228,10 +228,8 @@ class Lk21VideoNode : ExtractorApi() {
             "hydrax" -> listOf("https://short.ink/$id", "https://abyssplayer.com/$id")
             "turbovip" -> listOf("https://turbovidhls.com/e/$id", "https://turbovidhls.com/$id")
             "cast" -> listOf("https://co4nxtrl.com/e/$id", "https://furher.in/e/$id")
-            "p2p" -> listOf(
-                "https://cloud.hownetwork.xyz/?id=$id",
-                "https://stream.hownetwork.xyz/?id=$id",
-            )
+            // P2P wrapper tokens are opaque VideoNode tokens, not Hownetwork ids.
+            "p2p" -> emptyList()
             else -> emptyList()
         }
     }
@@ -354,47 +352,66 @@ open class Lk21Hownetwork : ExtractorApi() {
             "Accept" to "application/json, text/javascript, */*; q=0.01",
         )
 
-        // Hownetwork currently validates both form values. The first body mirrors
-        // the playeriframe request used by the website; the second preserves a
-        // defensive fallback for host variants.
+        // Current deployments use api2.php with a single object, while older
+        // Hownetwork variants used api.php and wrapped the sources in `data`.
         val requestBodies = listOf(
             mapOf("r" to "https://playeriframe.sbs/", "d" to host),
+            mapOf("r" to "https://playeriframe.sbs/", "d" to "cloud.hownetwork.xyz"),
+            mapOf("r" to "https://playeriframe.sbs/", "d" to "stream.hownetwork.xyz"),
             mapOf("r" to (referer ?: "https://playeriframe.sbs/"), "d" to host),
         ).distinct()
+        val endpoints = listOf("api2.php", "api.php")
 
-        val response = requestBodies.firstNotNullOfOrNull { body ->
-            runCatching {
-                app.post(
-                    "$mainUrl/api2.php?id=$encodedId",
-                    data = body,
-                    referer = url,
-                    headers = headers,
-                ).parsedSafe<HownetworkResponse>()
-            }.getOrNull()?.takeIf { !it.file.isNullOrBlank() || !it.link.isNullOrBlank() }
-        } ?: return
+        for (endpoint in endpoints) {
+            for (body in requestBodies) {
+                val apiResponse = runCatching {
+                    app.post(
+                        "$mainUrl/$endpoint?id=$encodedId",
+                        data = body,
+                        referer = url,
+                        headers = headers,
+                    )
+                }.getOrNull() ?: continue
 
-        val file = (response.file ?: response.link)
-            ?.trim()
-            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
-            ?: return
-        callback(newExtractorLink(name, response.label?.takeIf { it.isNotBlank() } ?: name, file) {
-            this.referer = "$mainUrl/"
-            this.type = if (file.contains(".m3u8", true)) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
-            this.quality = getQualityFromName(response.label)
-                .takeIf { it != Qualities.Unknown.value }
-                ?: getQualityFromName(file)
-            this.headers = mapOf(
-                "User-Agent" to browserUserAgent,
-                "Referer" to "$mainUrl/",
-                "Origin" to mainUrl,
-            )
-        })
+                val sources = buildList {
+                    apiResponse.parsedSafe<HownetworkResponse>()?.let(::add)
+                    addAll(apiResponse.parsedSafe<HownetworkEnvelope>()?.data.orEmpty())
+                    addAll(apiResponse.parsedSafe<List<HownetworkResponse>>().orEmpty())
+                }.distinctBy { (it.file ?: it.link).orEmpty() }
+
+                var emitted = false
+                for (source in sources) {
+                    val file = (source.file ?: source.link)
+                        ?.trim()
+                        ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+                        ?: continue
+                    callback(newExtractorLink(name, source.label?.takeIf { it.isNotBlank() } ?: name, file) {
+                        this.referer = mainUrl
+                        this.type = if (file.contains(".m3u8", true)) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
+                        this.quality = getQualityFromName(source.label)
+                            .takeIf { it != Qualities.Unknown.value }
+                            ?: getQualityFromName(file)
+                        this.headers = mapOf(
+                            "User-Agent" to browserUserAgent,
+                            "Referer" to mainUrl,
+                            "Origin" to mainUrl,
+                        )
+                    })
+                    emitted = true
+                }
+                if (emitted) return
+            }
+        }
     }
 
     private data class HownetworkResponse(
         @JsonProperty("file") val file: String? = null,
         @JsonProperty("link") val link: String? = null,
         @JsonProperty("label") val label: String? = null,
+    )
+
+    private data class HownetworkEnvelope(
+        @JsonProperty("data") val data: List<HownetworkResponse>? = null,
     )
 }
 
