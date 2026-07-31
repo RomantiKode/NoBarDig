@@ -12,6 +12,8 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.jsoup.nodes.Document
 import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 /**
  * Resolves the intermediary player used by current LK21 movie and series pages.
@@ -38,6 +40,17 @@ class Lk21VideoNode : ExtractorApi() {
         val visited = linkedSetOf<String>()
         val safeCallback: (ExtractorLink) -> Unit = { link ->
             if (isSafeUrl(link.url) && emitted.add(link.url)) callback(link)
+        }
+
+        // The current VideoNode P2P wrapper can reject non-browser navigation with
+        // HTTP 403. Resolve its Hownetwork target first so series playback does not
+        // depend on successfully downloading the intermediary wrapper page.
+        if (url.contains("/iframe/p2p/", ignoreCase = true)) {
+            for (candidate in compatibilityCandidates(url)) {
+                val before = emitted.size
+                loadExtractor(candidate, referer ?: url, subtitleCallback, safeCallback)
+                if (emitted.size > before) return
+            }
         }
 
         resolveNode(
@@ -216,8 +229,8 @@ class Lk21VideoNode : ExtractorApi() {
             "turbovip" -> listOf("https://turbovidhls.com/e/$id", "https://turbovidhls.com/$id")
             "cast" -> listOf("https://co4nxtrl.com/e/$id", "https://furher.in/e/$id")
             "p2p" -> listOf(
-                "https://stream.hownetwork.xyz/?id=$id",
                 "https://cloud.hownetwork.xyz/?id=$id",
+                "https://stream.hownetwork.xyz/?id=$id",
             )
             else -> emptyList()
         }
@@ -316,7 +329,7 @@ class Lk21VideoNode : ExtractorApi() {
 open class Lk21Hownetwork : ExtractorApi() {
     override val name = "Hownetwork"
     override val mainUrl = "https://stream.hownetwork.xyz"
-    override val requiresReferer = true
+    override val requiresReferer = false
 
     override suspend fun getUrl(
         url: String,
@@ -326,21 +339,63 @@ open class Lk21Hownetwork : ExtractorApi() {
     ) {
         val id = url.substringAfter("id=", "").substringBefore('&')
         if (id.isBlank()) return
-        val response = app.post(
-            "$mainUrl/api2.php?id=$id",
-            data = mapOf("r" to (referer ?: ""), "d" to mainUrl),
-            referer = url,
-            headers = mapOf("X-Requested-With" to "XMLHttpRequest"),
-        ).parsedSafe<HownetworkResponse>() ?: return
-        val file = response.file?.takeIf { it.startsWith("http") } ?: return
-        callback(newExtractorLink(name, name, file) {
-            this.referer = url
+
+        val host = runCatching { URI(mainUrl).host.orEmpty() }.getOrDefault("")
+        if (host.isBlank()) return
+        val encodedId = URLEncoder.encode(id, StandardCharsets.UTF_8.toString())
+        val browserUserAgent =
+            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36"
+        val headers = mapOf(
+            "User-Agent" to browserUserAgent,
+            "Referer" to url,
+            "Origin" to mainUrl,
+            "X-Requested-With" to "XMLHttpRequest",
+            "Accept" to "application/json, text/javascript, */*; q=0.01",
+        )
+
+        // Hownetwork currently validates both form values. The first body mirrors
+        // the playeriframe request used by the website; the second preserves a
+        // defensive fallback for host variants.
+        val requestBodies = listOf(
+            mapOf("r" to "https://playeriframe.sbs/", "d" to host),
+            mapOf("r" to (referer ?: "https://playeriframe.sbs/"), "d" to host),
+        ).distinct()
+
+        val response = requestBodies.firstNotNullOfOrNull { body ->
+            runCatching {
+                app.post(
+                    "$mainUrl/api2.php?id=$encodedId",
+                    data = body,
+                    referer = url,
+                    headers = headers,
+                ).parsedSafe<HownetworkResponse>()
+            }.getOrNull()?.takeIf { !it.file.isNullOrBlank() || !it.link.isNullOrBlank() }
+        } ?: return
+
+        val file = (response.file ?: response.link)
+            ?.trim()
+            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+            ?: return
+        callback(newExtractorLink(name, response.label?.takeIf { it.isNotBlank() } ?: name, file) {
+            this.referer = "$mainUrl/"
             this.type = if (file.contains(".m3u8", true)) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
-            this.quality = Qualities.Unknown.value
+            this.quality = getQualityFromName(response.label)
+                .takeIf { it != Qualities.Unknown.value }
+                ?: getQualityFromName(file)
+            this.headers = mapOf(
+                "User-Agent" to browserUserAgent,
+                "Referer" to "$mainUrl/",
+                "Origin" to mainUrl,
+            )
         })
     }
 
-    private data class HownetworkResponse(@JsonProperty("file") val file: String? = null)
+    private data class HownetworkResponse(
+        @JsonProperty("file") val file: String? = null,
+        @JsonProperty("link") val link: String? = null,
+        @JsonProperty("label") val label: String? = null,
+    )
 }
 
 class Lk21CloudHownetwork : Lk21Hownetwork() {
