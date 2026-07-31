@@ -22,6 +22,27 @@
         "name": "Anoboy"
     },
     {
+        "iconUrl": "https://www.dubbindo.site/themes/dubbindo/img/icon.png",
+        "fileHash": "sha256-aeb37a5b4242a6133d6492e206f702b6fe354521fc409917c3f067e4255342e4",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 24982,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "AnimeMovie"
+        ],
+        "version": 10,
+        "internalName": "Dubbindo",
+        "description": "Nonton Movie & Serial TV Bahasa Indonesia",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Dubbindo.cs3",
+        "name": "Dubbindo"
+    },
+    {
         "iconUrl": "https://www.google.com/s2/favicons?domain=tv12.lk21official.cc&sz=%size%",
         "fileHash": "sha256-636f5cec3bc5aeb1e68170b42dc602ef935ac372a57fbebe7664cb5439351d46",
         "apiVersion": 1,
