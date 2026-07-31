@@ -22,6 +22,28 @@
         "name": "Anoboy"
     },
     {
+        "fileHash": "sha256-dbf0d62f4be862fc5eab2a72e88af522e3a3a81193c1feeae332811bce5fd79f",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 29729,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries",
+            "Anime",
+            "AsianDrama"
+        ],
+        "version": 3,
+        "internalName": "KlikXXi",
+        "description": "KlikXXi \u2013 Streaming Film terbaru sub indo",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/KlikXXi.cs3",
+        "name": "KlikXXi"
+    },
+    {
         "iconUrl": "https://www.google.com/s2/favicons?domain=tv12.lk21official.cc&sz=%size%",
         "fileHash": "sha256-18715812096c4ef213d5acdefc68a2155e9a2abc94399a2b3522289abee55fbc",
         "apiVersion": 1,
