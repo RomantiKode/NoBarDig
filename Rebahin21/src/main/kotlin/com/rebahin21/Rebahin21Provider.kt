@@ -3,6 +3,8 @@ package com.rebahin21
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.loadExtractor
+import com.lagradost.cloudstream3.utils.getAndUnpack
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -18,14 +20,14 @@ class Rebahin21Provider : MainAPI() {
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
     override val mainPage = mainPageOf(
-        "" to "Update Terbaru",
-        "movie" to "Movie",
-        "tv" to "TV Series",
+        HOME_MOVIES to "Movies",
+        HOME_TV_SERIES to "TV Series",
+        HOME_DRAMA_SHORT to "Drama Short",
         "drama-korea" to "Drama Korea",
         "drama-china" to "Drama China",
         "west-series" to "West Series",
         "film-action-terbaru" to "Action",
-        "film-horror-terbaru" to "Horror",
+        "tag/thriller" to "Thriller",
         "drama" to "Drama",
         "comedy" to "Comedy",
         "romance" to "Romance",
@@ -42,15 +44,75 @@ class Rebahin21Provider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         return try {
-            val path = request.data.trim('/')
-            val base = if (path.isBlank()) mainUrl else "$mainUrl/$path"
-            val pageUrl = if (page <= 1) "${base.trimEnd('/')}/" else "${base.trimEnd('/')}/page/$page/"
-            val results = app.get(pageUrl, headers = requestHeaders()).document.toSearchResults()
+            val results = when (request.data) {
+                HOME_MOVIES -> loadHomeSection(
+                    page = page,
+                    selector = "#muvipro-posts-6 .gmr-item-modulepost",
+                    archivePaths = listOf("movie"),
+                    forcedType = ContentKind.MOVIE
+                )
+                HOME_TV_SERIES -> loadHomeSection(
+                    page = page,
+                    selector = "#muvipro-posts-2 .gmr-item-modulepost",
+                    archivePaths = listOf("series-update", "tv"),
+                    forcedType = ContentKind.SERIES
+                )
+                HOME_DRAMA_SHORT -> loadHomeSection(
+                    page = page,
+                    selector = "#muvipro-posts-5 .gmr-item-modulepost",
+                    archivePaths = listOf("drashot"),
+                    forcedType = ContentKind.SERIES
+                )
+                else -> {
+                    val path = request.data.trim('/')
+                    val base = if (path.isBlank()) mainUrl else "$mainUrl/$path"
+                    val pageUrl = if (page <= 1) {
+                        "${base.trimEnd('/')}/"
+                    } else {
+                        "${base.trimEnd('/')}/page/$page/"
+                    }
+                    val forcedType = when (path) {
+                        "drama-korea", "drama-china", "west-series" -> ContentKind.SERIES
+                        else -> null
+                    }
+                    app.get(pageUrl, headers = requestHeaders()).document.toSearchResults(
+                        forcedType = forcedType
+                    )
+                }
+            }
             newHomePageResponse(request.name, results)
         } catch (error: Exception) {
             error.rethrowCancellation()
             newHomePageResponse(request.name, emptyList())
         }
+    }
+
+    private suspend fun loadHomeSection(
+        page: Int,
+        selector: String,
+        archivePaths: List<String>,
+        forcedType: ContentKind
+    ): List<SearchResponse> {
+        if (page <= 1) {
+            val homepage = app.get("$mainUrl/", headers = requestHeaders()).document
+            val sectionResults = homepage.toSearchResults(selector, forcedType)
+            if (sectionResults.isNotEmpty()) return sectionResults
+        }
+
+        for (path in archivePaths) {
+            val base = "$mainUrl/${path.trim('/')}"
+            val pageUrl = if (page <= 1) "$base/" else "$base/page/$page/"
+            val results = try {
+                app.get(pageUrl, headers = requestHeaders()).document.toSearchResults(
+                    forcedType = forcedType
+                )
+            } catch (error: Exception) {
+                error.rethrowCancellation()
+                emptyList()
+            }
+            if (results.isNotEmpty()) return results
+        }
+        return emptyList()
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
@@ -107,6 +169,7 @@ class Rebahin21Provider : MainAPI() {
         }
 
         val isSeries = episodeNumbers.size > 1 ||
+            pageUrl.contains("/tv/", ignoreCase = true) ||
             categoryText.contains("series") ||
             categoryText.contains("drama short") ||
             document.select(".muvipro-player-tabs").text().contains("ALL EPISODE", true)
@@ -153,28 +216,54 @@ class Rebahin21Provider : MainAPI() {
         val decoded = decodeData(data)
         val pageUrl = decoded.pageUrl
         val episode = decoded.episode
-        val initialPlayer = decoded.playerUrl ?: try {
-            app.get(pageUrl, headers = requestHeaders()).document.firstSafePlayerUrl(pageUrl)
+        val players = linkedSetOf<String>()
+        decoded.playerUrl?.let(players::add)
+
+        try {
+            val detailDocument = app.get(pageUrl, headers = requestHeaders()).document
+            players.addAll(detailDocument.safePlayerUrls(pageUrl))
         } catch (error: Exception) {
             error.rethrowCancellation()
-            null
-        } ?: return false
+        }
 
-        val candidates = episodeCandidateUrls(initialPlayer, episode)
-        for (candidate in candidates) {
-            val emitted = try {
-                extractFromPlayer(
-                    playerUrl = candidate,
-                    pageReferer = pageUrl,
-                    requestedEpisode = episode,
-                    subtitleCallback = subtitleCallback,
-                    callback = callback
-                )
-            } catch (error: Exception) {
-                error.rethrowCancellation()
-                false
+        if (players.isEmpty()) return false
+
+        for (initialPlayer in players) {
+            for (candidate in episodeCandidateUrls(initialPlayer, episode)) {
+                if (isDirectVideo(candidate)) {
+                    callback(createLegacyLink(candidate, pageUrl))
+                    return true
+                }
+
+                var extractorEmitted = false
+                try {
+                    loadExtractor(
+                        url = candidate,
+                        referer = pageUrl,
+                        subtitleCallback = subtitleCallback
+                    ) { link ->
+                        extractorEmitted = true
+                        callback(link)
+                    }
+                } catch (error: Exception) {
+                    error.rethrowCancellation()
+                }
+                if (extractorEmitted) return true
+
+                val manuallyEmitted = try {
+                    extractFromPlayer(
+                        playerUrl = candidate,
+                        pageReferer = pageUrl,
+                        requestedEpisode = episode,
+                        subtitleCallback = subtitleCallback,
+                        callback = callback
+                    )
+                } catch (error: Exception) {
+                    error.rethrowCancellation()
+                    false
+                }
+                if (manuallyEmitted) return true
             }
-            if (emitted) return true
         }
         return false
     }
@@ -211,6 +300,24 @@ class Rebahin21Provider : MainAPI() {
                 continue
             }
 
+            var extractorEmitted = false
+            try {
+                loadExtractor(
+                    url = target,
+                    referer = playerUrl,
+                    subtitleCallback = subtitleCallback
+                ) { link ->
+                    extractorEmitted = true
+                    callback(link)
+                }
+            } catch (error: Exception) {
+                error.rethrowCancellation()
+            }
+            if (extractorEmitted) {
+                emitted = true
+                continue
+            }
+
             // Hanya satu lapis wrapper. Tidak menjalankan JavaScript dan tidak mengikuti popup.
             val nested = try {
                 app.get(target, headers = requestHeaders(playerUrl)).text
@@ -224,22 +331,42 @@ class Rebahin21Provider : MainAPI() {
             collectSubtitles(nestedDocument, target, subtitleCallback)
             val nestedTargets = collectGlobalTargets(nestedDocument, target)
             for (nestedTarget in nestedTargets) {
-                if (isSafeMediaUrl(nestedTarget) && isDirectVideo(nestedTarget)) {
+                if (!isSafeMediaUrl(nestedTarget)) continue
+                if (isDirectVideo(nestedTarget)) {
                     callback(createLegacyLink(nestedTarget, target))
                     emitted = true
+                    continue
                 }
+
+                var nestedExtractorEmitted = false
+                try {
+                    loadExtractor(
+                        url = nestedTarget,
+                        referer = target,
+                        subtitleCallback = subtitleCallback
+                    ) { link ->
+                        nestedExtractorEmitted = true
+                        callback(link)
+                    }
+                } catch (error: Exception) {
+                    error.rethrowCancellation()
+                }
+                if (nestedExtractorEmitted) emitted = true
             }
         }
         return emitted
     }
 
-    private fun Document.toSearchResults(): List<SearchResponse> {
-        return select(".gmr-item-modulepost")
-            .mapNotNull { it.toSearchResponse() }
+    private fun Document.toSearchResults(
+        selector: String = ".gmr-item-modulepost",
+        forcedType: ContentKind? = null
+    ): List<SearchResponse> {
+        return select(selector)
+            .mapNotNull { it.toSearchResponse(forcedType) }
             .distinctBy { it.url }
     }
 
-    private fun Element.toSearchResponse(): SearchResponse? {
+    private fun Element.toSearchResponse(forcedType: ContentKind? = null): SearchResponse? {
         val link = selectFirst("h2.entry-title a[href], a[rel=bookmark][href]") ?: return null
         val href = resolveUrl(mainUrl, link.attr("href")) ?: return null
         if (!isSiteContentUrl(href)) return null
@@ -250,7 +377,18 @@ class Rebahin21Provider : MainAPI() {
 
         val poster = selectFirst(".content-thumbnail img, img")?.imageUrl(href)
         val category = select(".gmr-movie-on, a[rel='category tag']").text().lowercase()
-        val series = category.contains("series") || category.contains("drama short")
+        val hrefLower = href.lowercase()
+        val titleLower = title.lowercase()
+        val series = when (forcedType) {
+            ContentKind.SERIES -> true
+            ContentKind.MOVIE -> false
+            null -> category.contains("series") ||
+                category.contains("drama short") ||
+                hrefLower.contains("/tv/") ||
+                hrefLower.contains("/series/") ||
+                titleLower.contains(" season ") ||
+                EPISODE_TITLE_REGEX.containsMatchIn(titleLower)
+        }
 
         return if (series) {
             newTvSeriesSearchResponse(title, href, TvType.TvSeries) {
@@ -263,15 +401,26 @@ class Rebahin21Provider : MainAPI() {
         }
     }
 
-    private fun Document.firstSafePlayerUrl(baseUrl: String): String? {
-        val frames = select(".gmr-server-wrap iframe[src], .gmr-server-wrap iframe[data-src]")
+    private fun Document.safePlayerUrls(baseUrl: String): List<String> {
+        val urls = linkedSetOf<String>()
+        val frames = select(
+            ".gmr-server-wrap iframe[src], .gmr-server-wrap iframe[data-src], " +
+                ".gmr-server-wrap iframe[data-lazy-src], .gmr-server-wrap iframe[data-litespeed-src]"
+        )
         for (frame in frames) {
             if (frame.isHiddenFrame()) continue
-            val raw = frame.attr("src").ifBlank { frame.attr("data-src") }
+            val raw = frame.attr("src")
+                .ifBlank { frame.attr("data-src") }
+                .ifBlank { frame.attr("data-lazy-src") }
+                .ifBlank { frame.attr("data-litespeed-src") }
             val resolved = resolveUrl(baseUrl, raw) ?: continue
-            if (isSafeMediaUrl(resolved)) return resolved
+            if (isSafeMediaUrl(resolved)) urls.add(resolved)
         }
-        return null
+        return urls.toList()
+    }
+
+    private fun Document.firstSafePlayerUrl(baseUrl: String): String? {
+        return safePlayerUrls(baseUrl).firstOrNull()
     }
 
     private fun collectEpisodeTargets(
@@ -310,9 +459,14 @@ class Rebahin21Provider : MainAPI() {
             if (resolved != null) targets.add(resolved)
         }
 
-        for (element in document.select("iframe[src], iframe[data-src]")) {
+        for (element in document.select(
+            "iframe[src], iframe[data-src], iframe[data-lazy-src], iframe[data-litespeed-src]"
+        )) {
             if (element.isHiddenFrame()) continue
-            val raw = element.attr("src").ifBlank { element.attr("data-src") }
+            val raw = element.attr("src")
+                .ifBlank { element.attr("data-src") }
+                .ifBlank { element.attr("data-lazy-src") }
+                .ifBlank { element.attr("data-litespeed-src") }
             val resolved = resolveUrl(baseUrl, raw)
             if (resolved != null) targets.add(resolved)
         }
@@ -328,8 +482,22 @@ class Rebahin21Provider : MainAPI() {
 
         for (script in document.select("script")) {
             val text = script.data()
-            if (text.length > MAX_SCRIPT_SIZE || !containsMediaHint(text)) continue
-            targets.addAll(extractUrlsFromText(text, baseUrl))
+            if (text.length > MAX_SCRIPT_SIZE) continue
+
+            if (containsMediaHint(text)) {
+                targets.addAll(extractUrlsFromText(text, baseUrl))
+            }
+
+            if (text.contains("eval(function(p,a,c,k,e", ignoreCase = true)) {
+                val unpacked = try {
+                    getAndUnpack(text)
+                } catch (_: Exception) {
+                    ""
+                }
+                if (unpacked.isNotBlank() && unpacked.length <= MAX_SCRIPT_SIZE) {
+                    targets.addAll(extractUrlsFromText(unpacked, baseUrl))
+                }
+            }
         }
         return targets
     }
@@ -443,7 +611,11 @@ class Rebahin21Provider : MainAPI() {
     }
 
     private fun Element.isHiddenFrame(): Boolean {
-        val src = attr("src").ifBlank { attr("data-src") }.trim()
+        val src = attr("src")
+            .ifBlank { attr("data-src") }
+            .ifBlank { attr("data-lazy-src") }
+            .ifBlank { attr("data-litespeed-src") }
+            .trim()
         val style = attr("style").lowercase()
         return src.isBlank() || src.startsWith("javascript:", true) || src == "about:blank" ||
             attr("width") == "0" || attr("height") == "0" ||
@@ -564,7 +736,15 @@ class Rebahin21Provider : MainAPI() {
         val episode: Int
     )
 
+    private enum class ContentKind {
+        MOVIE,
+        SERIES
+    }
+
     companion object {
+        private const val HOME_MOVIES = "__home_movies__"
+        private const val HOME_TV_SERIES = "__home_tv_series__"
+        private const val HOME_DRAMA_SHORT = "__home_drama_short__"
         private const val DATA_SEPARATOR = "|cs3|"
         private const val MAX_PLAYER_HTML_SIZE = 1_500_000
         private const val MAX_WRAPPER_HTML_SIZE = 750_000
@@ -572,6 +752,7 @@ class Rebahin21Provider : MainAPI() {
 
         private val YEAR_REGEX = Regex("(?:19|20)\\d{2}")
         private val DIGIT_REGEX = Regex("\\d+")
+        private val EPISODE_TITLE_REGEX = Regex("(?:^|\\s)(?:ep|episode)\\s*\\d+", RegexOption.IGNORE_CASE)
         private val DATA_EP_REGEX = Regex(
             """data-(?:ep|episode)\s*=\s*[\"']?(\d+)""",
             RegexOption.IGNORE_CASE
@@ -602,7 +783,8 @@ class Rebahin21Provider : MainAPI() {
 
         private val IMAGE_ATTRIBUTES = listOf("data-src", "data-lazy-src", "data-original", "src")
         private val MEDIA_ATTRIBUTES = listOf(
-            "data-src", "data-url", "data-file", "data-video", "data-stream", "data-link", "src", "href"
+            "data-src", "data-lazy-src", "data-litespeed-src", "data-url", "data-file",
+            "data-video", "data-stream", "data-link", "src", "href"
         )
         private val AD_HOST_MARKERS = listOf(
             "doubleclick.", "googlesyndication.", "googleadservices.", "adservice.",
