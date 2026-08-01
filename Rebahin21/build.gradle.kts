@@ -1,12 +1,11 @@
-version = 2
+version = 3
 
 cloudstream {
     language = "id"
-    description = "REBAHIN21 tempat Nonton Movie Film Online Bioskop Online Sub Indo. Kamu harus mencoba nonton film disini. 154.93.73.212, Bioskop Online Terbaik Indonesia."
+    description = "REBAHIN21 - provider film dan serial Sub Indo. Crash-fix dengan parser HTML ringan dan pemblokiran frame iklan."
     authors = listOf("Agoose")
     status = 1
-    tvTypes = listOf("Movie", "TvSeries", "AsianDrama")
-    iconUrl = "http://154.93.73.212/favicon.ico"
+    tvTypes = listOf("Movie", "TvSeries")
 }
 
 android {

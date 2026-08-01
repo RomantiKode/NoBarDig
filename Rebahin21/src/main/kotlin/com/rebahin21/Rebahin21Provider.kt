@@ -2,10 +2,7 @@ package com.rebahin21
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
-import com.lagradost.cloudstream3.utils.loadExtractor
-import com.lagradost.cloudstream3.utils.newExtractorLink
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -18,7 +15,7 @@ class Rebahin21Provider : MainAPI() {
     override var name = "Rebahin21"
     override var lang = "id"
     override val hasMainPage = true
-    override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries, TvType.AsianDrama)
+    override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
     override val mainPage = mainPageOf(
         "" to "Update Terbaru",
@@ -32,75 +29,93 @@ class Rebahin21Provider : MainAPI() {
         "drama" to "Drama",
         "comedy" to "Comedy",
         "romance" to "Romance",
-        "anime" to "Anime",
+        "anime" to "Anime"
     )
 
-    private val pageHeaders: Map<String, String>
-        get() = mapOf(
+    private fun requestHeaders(referer: String = "$mainUrl/"): Map<String, String> {
+        return mapOf(
             "User-Agent" to USER_AGENT,
             "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Referer" to "$mainUrl/",
+            "Referer" to referer
         )
+    }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val base = if (request.data.isBlank()) mainUrl else "$mainUrl/${request.data.trim('/')}"
-        val pageUrl = if (page <= 1) "$base/" else "${base.trimEnd('/')}/page/$page/"
-        val items = app.get(pageUrl, headers = pageHeaders).document.toSearchResults()
-        return newHomePageResponse(request.name, items)
+        return try {
+            val path = request.data.trim('/')
+            val base = if (path.isBlank()) mainUrl else "$mainUrl/$path"
+            val pageUrl = if (page <= 1) "${base.trimEnd('/')}/" else "${base.trimEnd('/')}/page/$page/"
+            val results = app.get(pageUrl, headers = requestHeaders()).document.toSearchResults()
+            newHomePageResponse(request.name, results)
+        } catch (error: Exception) {
+            error.rethrowCancellation()
+            newHomePageResponse(request.name, emptyList())
+        }
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val encoded = URLEncoder.encode(query.trim(), "UTF-8")
-        return app.get("$mainUrl/?s=$encoded", headers = pageHeaders).document.toSearchResults()
+        return try {
+            val encoded = URLEncoder.encode(query.trim(), "UTF-8")
+            app.get("$mainUrl/?s=$encoded", headers = requestHeaders()).document.toSearchResults()
+        } catch (error: Exception) {
+            error.rethrowCancellation()
+            emptyList()
+        }
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val response = app.get(url, headers = pageHeaders)
-        val document = response.document
+        val pageUrl = url.substringBefore(DATA_SEPARATOR)
+        val document = app.get(pageUrl, headers = requestHeaders()).document
 
         val title = document.selectFirst("h1.entry-title")?.text()?.trim()
             ?: document.selectFirst("meta[property=og:title]")?.attr("content")?.trim()
             ?: throw ErrorLoadingException("Judul tidak ditemukan")
 
-        val poster = document.selectFirst("meta[property=og:image]")?.attr("content")
-            ?.takeIf(String::isNotBlank)
-            ?: document.selectFirst(".gmr-movie-data img, img.wp-post-image")?.imageUrl()
+        val poster = document.selectFirst(
+            ".gmr-movie-data img, .content-thumbnail img, img.wp-post-image"
+        )?.imageUrl(pageUrl)
+            ?: document.selectFirst("meta[property=og:image]")?.attr("content")
+                ?.trim()?.takeIf { it.isNotBlank() }
 
         val plot = document.selectFirst("meta[name=description]")?.attr("content")
-            ?.trim()?.takeIf(String::isNotBlank)
+            ?.trim()?.takeIf { it.isNotBlank() }
             ?: document.selectFirst("meta[property=og:description]")?.attr("content")
-                ?.trim()?.takeIf(String::isNotBlank)
+                ?.trim()?.takeIf { it.isNotBlank() }
 
         val year = YEAR_REGEX.find(title)?.value?.toIntOrNull()
         val tags = document.select(
             ".content-moviedata a[rel='category tag'], .tags-links-content a[rel=tag]"
-        ).map { it.text().trim() }.filter(String::isNotBlank).distinct()
+        ).map { it.text().trim() }.filter { it.isNotBlank() }.distinct()
 
-        val playerUrls = document.playerFrames(url)
+        val categoryText = document.select(
+            ".content-moviedata a[rel='category tag'], a[rel='category tag']"
+        ).text().lowercase()
+
+        val playerUrl = document.firstSafePlayerUrl(pageUrl)
         val episodeNumbers = linkedSetOf<Int>()
-        episodeNumbers += parseEpisodeNumbers(document.html())
 
-        for (playerUrl in playerUrls.take(MAX_PLAYER_PAGES)) {
-            val playerHtml = try {
-                app.get(
+        if (playerUrl != null) {
+            try {
+                val playerHtml = app.get(
                     playerUrl,
-                    headers = mapOf("User-Agent" to USER_AGENT, "Referer" to url),
+                    headers = requestHeaders(pageUrl)
                 ).text
+                episodeNumbers.addAll(parseEpisodeNumbers(playerHtml))
             } catch (error: Exception) {
                 error.rethrowCancellation()
-                continue
             }
-            episodeNumbers += parseEpisodeNumbers(playerHtml)
         }
 
-        val pageSignalsSeries = document.select(".muvipro-player-tabs").text()
-            .contains("ALL EPISODE", ignoreCase = true)
-        val isSeries = episodeNumbers.size > 1 || pageSignalsSeries
+        val isSeries = episodeNumbers.size > 1 ||
+            categoryText.contains("series") ||
+            categoryText.contains("drama short") ||
+            document.select(".muvipro-player-tabs").text().contains("ALL EPISODE", true)
 
-        return if (isSeries) {
-            val numbers = episodeNumbers.ifEmpty { linkedSetOf(1) }.sorted()
-            val episodes = numbers.map { number ->
-                newEpisode("${url.substringBefore('#')}#$EPISODE_MARKER$number") {
+        if (isSeries) {
+            if (episodeNumbers.isEmpty()) episodeNumbers.add(1)
+            val episodes = episodeNumbers.sorted().map { number ->
+                val data = encodeData(pageUrl, playerUrl, number)
+                newEpisode(data) {
                     name = "Episode $number"
                     episode = number
                     season = 1
@@ -108,19 +123,24 @@ class Rebahin21Provider : MainAPI() {
                 }
             }
 
-            newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
+            return newTvSeriesLoadResponse(title, pageUrl, TvType.TvSeries, episodes) {
                 this.posterUrl = poster
                 this.plot = plot
                 this.year = year
                 this.tags = tags
             }
-        } else {
-            newMovieLoadResponse(title, url, TvType.Movie, url) {
-                this.posterUrl = poster
-                this.plot = plot
-                this.year = year
-                this.tags = tags
-            }
+        }
+
+        return newMovieLoadResponse(
+            title,
+            pageUrl,
+            TvType.Movie,
+            encodeData(pageUrl, playerUrl, 1)
+        ) {
+            this.posterUrl = poster
+            this.plot = plot
+            this.year = year
+            this.tags = tags
         }
     }
 
@@ -128,24 +148,89 @@ class Rebahin21Provider : MainAPI() {
         data: String,
         isCasting: Boolean,
         subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit,
+        callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val pageUrl = data.substringBefore("#$EPISODE_MARKER")
-        val episode = data.substringAfter("#$EPISODE_MARKER", "1").toIntOrNull() ?: 1
-        val document = app.get(pageUrl, headers = pageHeaders).document
-        val playerUrls = document.playerFrames(pageUrl)
+        val decoded = decodeData(data)
+        val pageUrl = decoded.pageUrl
+        val episode = decoded.episode
+        val initialPlayer = decoded.playerUrl ?: try {
+            app.get(pageUrl, headers = requestHeaders()).document.firstSafePlayerUrl(pageUrl)
+        } catch (error: Exception) {
+            error.rethrowCancellation()
+            null
+        } ?: return false
 
-        var handled = false
-        for (playerUrl in playerUrls.take(MAX_PLAYER_PAGES)) {
-            handled = extractPlayer(
-                playerUrl = playerUrl,
-                pageReferer = pageUrl,
-                episode = episode,
-                subtitleCallback = subtitleCallback,
-                callback = callback,
-            ) || handled
+        val candidates = episodeCandidateUrls(initialPlayer, episode)
+        for (candidate in candidates) {
+            val emitted = try {
+                extractFromPlayer(
+                    playerUrl = candidate,
+                    pageReferer = pageUrl,
+                    requestedEpisode = episode,
+                    subtitleCallback = subtitleCallback,
+                    callback = callback
+                )
+            } catch (error: Exception) {
+                error.rethrowCancellation()
+                false
+            }
+            if (emitted) return true
         }
-        return handled
+        return false
+    }
+
+    private suspend fun extractFromPlayer(
+        playerUrl: String,
+        pageReferer: String,
+        requestedEpisode: Int,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val html = app.get(playerUrl, headers = requestHeaders(pageReferer)).text
+        if (html.length > MAX_PLAYER_HTML_SIZE) return false
+
+        val document = Jsoup.parse(html, playerUrl)
+        val activeEpisode = detectActiveEpisode(document)
+        val episodeMatches = requestedEpisode <= 1 || activeEpisode == requestedEpisode ||
+            playerUrl.contains("ep=$requestedEpisode") ||
+            playerUrl.contains("episode=$requestedEpisode")
+
+        val targets = linkedSetOf<String>()
+        targets.addAll(collectEpisodeTargets(document, playerUrl, requestedEpisode))
+        if (episodeMatches || targets.isNotEmpty()) {
+            targets.addAll(collectGlobalTargets(document, playerUrl))
+            collectSubtitles(document, playerUrl, subtitleCallback)
+        }
+
+        var emitted = false
+        for (target in targets) {
+            if (!isSafeMediaUrl(target)) continue
+            if (isDirectVideo(target)) {
+                callback(createLegacyLink(target, playerUrl))
+                emitted = true
+                continue
+            }
+
+            // Hanya satu lapis wrapper. Tidak menjalankan JavaScript dan tidak mengikuti popup.
+            val nested = try {
+                app.get(target, headers = requestHeaders(playerUrl)).text
+            } catch (error: Exception) {
+                error.rethrowCancellation()
+                continue
+            }
+            if (nested.length > MAX_WRAPPER_HTML_SIZE) continue
+
+            val nestedDocument = Jsoup.parse(nested, target)
+            collectSubtitles(nestedDocument, target, subtitleCallback)
+            val nestedTargets = collectGlobalTargets(nestedDocument, target)
+            for (nestedTarget in nestedTargets) {
+                if (isSafeMediaUrl(nestedTarget) && isDirectVideo(nestedTarget)) {
+                    callback(createLegacyLink(nestedTarget, target))
+                    emitted = true
+                }
+            }
+        }
+        return emitted
     }
 
     private fun Document.toSearchResults(): List<SearchResponse> {
@@ -159,17 +244,15 @@ class Rebahin21Provider : MainAPI() {
         val href = resolveUrl(mainUrl, link.attr("href")) ?: return null
         if (!isSiteContentUrl(href)) return null
 
-        val title = link.attr("title")
-            .removePrefix("Permalink ke:")
-            .trim()
-            .ifBlank { link.text().trim() }
+        val titleAttribute = link.attr("title").removePrefix("Permalink ke:").trim()
+        val title = if (titleAttribute.isNotBlank()) titleAttribute else link.text().trim()
         if (title.isBlank()) return null
 
-        val poster = selectFirst("img")?.imageUrl()
+        val poster = selectFirst(".content-thumbnail img, img")?.imageUrl(href)
         val category = select(".gmr-movie-on, a[rel='category tag']").text().lowercase()
-        val looksLikeSeries = category.contains("series") || category.contains("drama short")
+        val series = category.contains("series") || category.contains("drama short")
 
-        return if (looksLikeSeries) {
+        return if (series) {
             newTvSeriesSearchResponse(title, href, TvType.TvSeries) {
                 posterUrl = poster
             }
@@ -180,229 +263,73 @@ class Rebahin21Provider : MainAPI() {
         }
     }
 
-    private fun Document.playerFrames(baseUrl: String): List<String> {
-        return select(".gmr-server-wrap iframe[src], .gmr-server-wrap iframe[data-src]")
-            .asSequence()
-            .filterNot { it.isHiddenFrame() }
-            .mapNotNull { frame ->
-                val raw = frame.attr("src").ifBlank { frame.attr("data-src") }
-                resolveUrl(baseUrl, raw)
-            }
-            .filter(::isSafeMediaUrl)
-            .distinct()
-            .toList()
+    private fun Document.firstSafePlayerUrl(baseUrl: String): String? {
+        val frames = select(".gmr-server-wrap iframe[src], .gmr-server-wrap iframe[data-src]")
+        for (frame in frames) {
+            if (frame.isHiddenFrame()) continue
+            val raw = frame.attr("src").ifBlank { frame.attr("data-src") }
+            val resolved = resolveUrl(baseUrl, raw) ?: continue
+            if (isSafeMediaUrl(resolved)) return resolved
+        }
+        return null
     }
 
-    private suspend fun extractPlayer(
-        playerUrl: String,
-        pageReferer: String,
-        episode: Int,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit,
-    ): Boolean {
-        val candidateUrls = episodeCandidateUrls(playerUrl, episode)
-        var baseFingerprint: Set<String>? = null
-        var handled = false
-
-        for ((index, candidateUrl) in candidateUrls.withIndex()) {
-            val html = try {
-                app.get(
-                    candidateUrl,
-                    headers = mapOf("User-Agent" to USER_AGENT, "Referer" to pageReferer),
-                ).text
-            } catch (error: Exception) {
-                error.rethrowCancellation()
-                continue
-            }
-
-            val playerDoc = Jsoup.parse(html, candidateUrl)
-            val activeEpisode = detectActiveEpisode(playerDoc)
-            val targetSpecific = collectEpisodeTargets(playerDoc, candidateUrl, episode)
-            val globalTargets = collectGlobalPlayerTargets(playerDoc, candidateUrl)
-            val fingerprint = globalTargets.filter(::isPlaybackFingerprintUrl).toSet()
-            if (index == 0) baseFingerprint = fingerprint
-            val changedPlaybackTarget = index > 0 && fingerprint.isNotEmpty() && fingerprint != baseFingerprint
-            val candidateMatchesEpisode = episode == 1 || activeEpisode == episode ||
-                targetSpecific.isNotEmpty() || changedPlaybackTarget
-
-            val targets = linkedSetOf<String>()
-            targets += targetSpecific
-            if (candidateMatchesEpisode) {
-                targets += globalTargets
-                collectSubtitles(playerDoc, candidateUrl, subtitleCallback)
-            }
-
-            for (target in targets.filter(::isSafeMediaUrl)) {
-                handled = emitOrDelegateTarget(
-                    target = target,
-                    referer = candidateUrl,
-                    subtitleCallback = subtitleCallback,
-                    callback = callback,
-                ) || handled
-            }
-
-            if (!handled && candidateMatchesEpisode) {
-                try {
-                    handled = loadExtractor(
-                        candidateUrl,
-                        pageReferer,
-                        subtitleCallback,
-                        callback,
-                    ) || handled
-                } catch (error: Exception) {
-                    error.rethrowCancellation()
-                }
-            }
-
-            if (handled && candidateMatchesEpisode) break
-        }
-
-        // Jangan fallback ke player episode 1 untuk episode lain karena dapat menghasilkan video yang salah.
-        if (!handled && episode == 1) {
-            try {
-                handled = loadExtractor(playerUrl, pageReferer, subtitleCallback, callback)
-            } catch (error: Exception) {
-                error.rethrowCancellation()
-            }
-        }
-        return handled
-    }
-
-    private fun episodeCandidateUrls(playerUrl: String, episode: Int): List<String> {
-        if (episode <= 1) return listOf(playerUrl)
-        return buildList {
-            add(playerUrl)
-            addQuery(playerUrl, "ep", episode)?.let(::add)
-            addQuery(playerUrl, "episode", episode)?.let(::add)
-            addQuery(playerUrl, "e", episode)?.let(::add)
-        }.distinct()
-    }
-
-    private suspend fun emitOrDelegateTarget(
-        target: String,
-        referer: String,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit,
-    ): Boolean {
-        val normalized = normalizeEscapedUrl(target)
-        if (!isSafeMediaUrl(normalized)) return false
-
-        if (DIRECT_VIDEO_REGEX.containsMatchIn(normalized)) {
-            val type = if (normalized.contains(".m3u8", ignoreCase = true)) {
-                ExtractorLinkType.M3U8
-            } else {
-                ExtractorLinkType.VIDEO
-            }
-            callback(
-                newExtractorLink(
-                    source = name,
-                    name = name,
-                    url = normalized,
-                    type = type,
-                ) {
-                    this.referer = referer
-                    this.headers = mapOf("User-Agent" to USER_AGENT, "Referer" to referer)
-                    this.quality = qualityFromUrl(normalized)
-                }
-            )
-            return true
-        }
-
-        try {
-            if (loadExtractor(normalized, referer, subtitleCallback, callback)) return true
-        } catch (error: Exception) {
-            error.rethrowCancellation()
-        }
-
-        // Satu pemindaian wrapper HTML terkontrol; tidak merambat tanpa batas.
-        val nestedHtml = try {
-            app.get(
-                normalized,
-                headers = mapOf("User-Agent" to USER_AGENT, "Referer" to referer),
-            ).text
-        } catch (error: Exception) {
-            error.rethrowCancellation()
-            return false
-        }
-        val nestedDoc = Jsoup.parse(nestedHtml, normalized)
-        collectSubtitles(nestedDoc, normalized, subtitleCallback)
-
-        var emitted = false
-        for (nestedTarget in collectGlobalPlayerTargets(nestedDoc, normalized).filter(::isSafeMediaUrl)) {
-            if (nestedTarget == normalized) continue
-            if (DIRECT_VIDEO_REGEX.containsMatchIn(nestedTarget)) {
-                val type = if (nestedTarget.contains(".m3u8", true)) {
-                    ExtractorLinkType.M3U8
-                } else {
-                    ExtractorLinkType.VIDEO
-                }
-                callback(
-                    newExtractorLink(name, name, nestedTarget, type) {
-                        this.referer = normalized
-                        this.headers = mapOf("User-Agent" to USER_AGENT, "Referer" to normalized)
-                        this.quality = qualityFromUrl(nestedTarget)
-                    }
-                )
-                emitted = true
-            } else {
-                try {
-                    emitted = loadExtractor(
-                        nestedTarget,
-                        normalized,
-                        subtitleCallback,
-                        callback,
-                    ) || emitted
-                } catch (error: Exception) {
-                    error.rethrowCancellation()
-                }
-            }
-        }
-        return emitted
-    }
-
-    private fun collectEpisodeTargets(document: Document, baseUrl: String, episode: Int): Set<String> {
+    private fun collectEpisodeTargets(
+        document: Document,
+        baseUrl: String,
+        episode: Int
+    ): Set<String> {
         val targets = linkedSetOf<String>()
-        val selectors = listOf("[data-ep='$episode']", "[data-episode='$episode']")
-        for (selector in selectors) {
-            document.select(selector).filterNot { it.hasClass("off") }.forEach { element ->
-                MEDIA_ATTRIBUTES.forEach { attribute ->
-                    resolveUrl(baseUrl, element.attr(attribute))?.let(targets::add)
-                }
-                extractUrlsFromText(element.attr("onclick"), baseUrl).forEach(targets::add)
+        val elements = document.select("[data-ep='$episode'], [data-episode='$episode']")
+        for (element in elements) {
+            if (element.hasClass("off") || element.attr("aria-disabled") == "true") continue
+            for (attribute in MEDIA_ATTRIBUTES) {
+                val raw = element.attr(attribute)
+                if (raw.isBlank()) continue
+                val resolved = resolveUrl(baseUrl, raw)
+                if (resolved != null) targets.add(resolved)
             }
+            val onclick = element.attr("onclick")
+            targets.addAll(extractUrlsFromText(onclick, baseUrl))
         }
 
-        val scripts = document.select("script").joinToString("\n") { it.data() }
-        val episodeBlocks = EPISODE_OBJECT_REGEX(episode)
-            .findAll(scripts)
-            .joinToString("\n") { it.value }
-        targets += extractUrlsFromText(episodeBlocks, baseUrl)
-        targets += extractEpisodeMapTargets(scripts, baseUrl, episode)
-        targets += extractIndexedEpisodeTargets(scripts, baseUrl, episode)
+        for (script in document.select("script")) {
+            val text = script.data()
+            if (text.length > MAX_SCRIPT_SIZE || !containsMediaHint(text)) continue
+            val episodeBlock = EPISODE_BLOCK_REGEX(episode).find(text)?.value ?: continue
+            targets.addAll(extractUrlsFromText(episodeBlock, baseUrl))
+        }
         return targets
     }
 
-    private fun collectGlobalPlayerTargets(document: Document, baseUrl: String): Set<String> {
+    private fun collectGlobalTargets(document: Document, baseUrl: String): Set<String> {
         val targets = linkedSetOf<String>()
-        document.select("video[src], video source[src], source[src]").forEach { element ->
-            resolveUrl(baseUrl, element.attr("src"))?.let(targets::add)
+
+        for (element in document.select("video[src], video source[src], source[src]")) {
+            val resolved = resolveUrl(baseUrl, element.attr("src"))
+            if (resolved != null) targets.add(resolved)
         }
-        document.select("iframe[src], iframe[data-src]")
-            .filterNot { it.isHiddenFrame() }
-            .forEach { element ->
-                val raw = element.attr("src").ifBlank { element.attr("data-src") }
-                resolveUrl(baseUrl, raw)?.let(targets::add)
-            }
-        document.select("[data-file], [data-video], [data-stream], [data-url], [data-link]").forEach { element ->
-            MEDIA_ATTRIBUTES.forEach { attribute ->
+
+        for (element in document.select("iframe[src], iframe[data-src]")) {
+            if (element.isHiddenFrame()) continue
+            val raw = element.attr("src").ifBlank { element.attr("data-src") }
+            val resolved = resolveUrl(baseUrl, raw)
+            if (resolved != null) targets.add(resolved)
+        }
+
+        for (element in document.select("[data-file], [data-video], [data-stream], [data-url], [data-link]")) {
+            for (attribute in MEDIA_ATTRIBUTES) {
                 val raw = element.attr(attribute)
-                if (looksLikeMediaOrPlayer(raw)) {
-                    resolveUrl(baseUrl, raw)?.let(targets::add)
-                }
+                if (!looksLikeMediaOrPlayer(raw)) continue
+                val resolved = resolveUrl(baseUrl, raw)
+                if (resolved != null) targets.add(resolved)
             }
         }
-        document.select("script").forEach { script ->
-            targets += extractUrlsFromText(script.data(), baseUrl)
+
+        for (script in document.select("script")) {
+            val text = script.data()
+            if (text.length > MAX_SCRIPT_SIZE || !containsMediaHint(text)) continue
+            targets.addAll(extractUrlsFromText(text, baseUrl))
         }
         return targets
     }
@@ -410,129 +337,109 @@ class Rebahin21Provider : MainAPI() {
     private fun collectSubtitles(
         document: Document,
         baseUrl: String,
-        subtitleCallback: (SubtitleFile) -> Unit,
+        subtitleCallback: (SubtitleFile) -> Unit
     ) {
         val seen = hashSetOf<String>()
-        document.select("track[src]").forEach { track ->
-            val url = resolveUrl(baseUrl, track.attr("src")) ?: return@forEach
+        for (track in document.select("track[src]")) {
+            val url = resolveUrl(baseUrl, track.attr("src")) ?: continue
             if (seen.add(url)) {
                 val label = track.attr("label").ifBlank { "Indonesia" }
                 subtitleCallback(SubtitleFile(label, url))
             }
         }
-        SUBTITLE_URL_REGEX.findAll(normalizeEscapedUrl(document.html())).forEach { match ->
-            val url = match.value
-            if (seen.add(url)) subtitleCallback(SubtitleFile("Indonesia", url))
+
+        for (script in document.select("script")) {
+            val text = script.data()
+            if (text.length > MAX_SCRIPT_SIZE) continue
+            for (match in SUBTITLE_URL_REGEX.findAll(normalizeEscapedUrl(text))) {
+                val url = match.value
+                if (seen.add(url)) subtitleCallback(SubtitleFile("Indonesia", url))
+            }
         }
     }
 
     private fun parseEpisodeNumbers(html: String): Set<Int> {
         val numbers = linkedSetOf<Int>()
+        if (html.length > MAX_PLAYER_HTML_SIZE) return numbers
+
         val document = Jsoup.parse(html)
-        val blobs = buildList {
-            add(document.html())
-            document.select("script").mapTo(this) { it.data() }
+        for (element in document.select(".ep-cell[data-ep], [data-episode]")) {
+            if (element.hasClass("off") || element.attr("aria-disabled") == "true") continue
+            val raw = element.attr("data-ep").ifBlank { element.attr("data-episode") }
+            val number = raw.toIntOrNull()
+            if (number != null && number > 0) numbers.add(number)
         }
 
-        for (blob in blobs) {
-            val normalized = blob.replace("\\\"", "\"").replace("\\/", "/")
-            val parsed = Jsoup.parse(normalized)
-            parsed.select("[data-ep], [data-episode]").forEach { element ->
-                if (element.hasClass("off") || element.attr("aria-disabled") == "true") return@forEach
-                val value = element.attr("data-ep").ifBlank { element.attr("data-episode") }
-                value.toIntOrNull()?.takeIf { it > 0 }?.let(numbers::add)
-            }
-
-            HTML_TAG_REGEX.findAll(normalized).forEach { tagMatch ->
-                val tag = tagMatch.value
-                if (tag.contains(" off", true) || tag.contains("aria-disabled=\"true\"", true)) {
-                    return@forEach
-                }
-                DATA_EP_REGEX.find(tag)?.groupValues?.getOrNull(1)
-                    ?.toIntOrNull()?.takeIf { it > 0 }?.let(numbers::add)
-            }
+        // Fallback satu lintasan untuk fragment HTML yang tidak lengkap.
+        for (match in EPISODE_TAG_REGEX.findAll(html)) {
+            val openingTag = match.value
+            if (openingTag.contains(" off", true) || openingTag.contains("aria-disabled", true)) continue
+            val number = DATA_EP_REGEX.find(openingTag)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            if (number != null && number > 0) numbers.add(number)
         }
         return numbers
     }
 
     private fun detectActiveEpisode(document: Document): Int? {
         val active = document.selectFirst(
-            ".ep-cell.on[data-ep], .ep-cell.active[data-ep], [data-episode].active, " +
-                "[aria-current=true][data-ep]"
+            ".ep-cell.on[data-ep], .ep-cell.active[data-ep], [data-episode].active, [aria-current=true][data-ep]"
         )
-        val fromAttribute = active?.attr("data-ep")
-            ?.ifBlank { active.attr("data-episode") }
-            ?.toIntOrNull()
-        if (fromAttribute != null) return fromAttribute
-        return document.selectFirst("#epBtnTxt")?.text()
-            ?.let { DIGIT_REGEX.find(it)?.value?.toIntOrNull() }
+        if (active != null) {
+            val raw = active.attr("data-ep").ifBlank { active.attr("data-episode") }
+            val number = raw.toIntOrNull()
+            if (number != null) return number
+        }
+        val label = document.selectFirst("#epBtnTxt")?.text() ?: return null
+        return DIGIT_REGEX.find(label)?.value?.toIntOrNull()
     }
 
-    private fun extractEpisodeMapTargets(text: String, baseUrl: String, episode: Int): Set<String> {
-        val normalized = normalizeEscapedUrl(text)
-        val targets = linkedSetOf<String>()
-        val regex = Regex(
-            """(?is)[\"']?$episode[\"']?\s*:\s*[\"']([^\"']+)[\"']"""
-        )
-        regex.findAll(normalized).forEach { match ->
-            val raw = match.groupValues[1]
-            if (looksLikeMediaOrPlayer(raw)) {
-                resolveUrl(baseUrl, raw)?.let(targets::add)
-            }
-        }
-        return targets
-    }
-
-    private fun extractIndexedEpisodeTargets(text: String, baseUrl: String, episode: Int): Set<String> {
-        if (episode <= 0) return emptySet()
-        val normalized = normalizeEscapedUrl(text)
-        val targets = linkedSetOf<String>()
-        EPISODE_ARRAY_REGEX.findAll(normalized).forEach { arrayMatch ->
-            val values = QUOTED_VALUE_REGEX.findAll(arrayMatch.groupValues[1])
-                .map { it.groupValues[1] }
-                .filter { looksLikeMediaOrPlayer(it) }
-                .toList()
-            values.getOrNull(episode - 1)?.let { raw ->
-                resolveUrl(baseUrl, raw)?.let(targets::add)
-            }
-        }
-        return targets
+    private fun episodeCandidateUrls(playerUrl: String, episode: Int): List<String> {
+        if (episode <= 1) return listOf(playerUrl)
+        val urls = mutableListOf(playerUrl)
+        addQuery(playerUrl, "ep", episode)?.let { urls.add(it) }
+        addQuery(playerUrl, "episode", episode)?.let { urls.add(it) }
+        return urls.distinct()
     }
 
     private fun extractUrlsFromText(text: String, baseUrl: String): Set<String> {
-        if (text.isBlank()) return emptySet()
-        val normalized = normalizeEscapedUrl(text)
         val urls = linkedSetOf<String>()
+        if (text.isBlank() || text.length > MAX_SCRIPT_SIZE) return urls
+        val normalized = normalizeEscapedUrl(text)
 
-        KEYED_MEDIA_REGEX.findAll(normalized).forEach { match ->
-            resolveUrl(baseUrl, match.groupValues[1])?.let(urls::add)
+        for (match in KEYED_MEDIA_REGEX.findAll(normalized)) {
+            val raw = match.groupValues[1]
+            val resolved = resolveUrl(baseUrl, raw)
+            if (resolved != null) urls.add(resolved)
         }
-        DIRECT_URL_REGEX.findAll(normalized).forEach { match ->
+        for (match in DIRECT_URL_REGEX.findAll(normalized)) {
             val raw = match.value.trimEnd('"', '\'', ')', ']', '}', ';', ',')
-            resolveUrl(baseUrl, raw)?.let(urls::add)
+            val resolved = resolveUrl(baseUrl, raw)
+            if (resolved != null) urls.add(resolved)
         }
         return urls
     }
 
-    private fun looksLikeMediaOrPlayer(value: String): Boolean {
-        val lower = value.trim().lowercase()
-        if (lower.isBlank() || lower.startsWith("javascript:") || lower.startsWith("data:")) return false
-        return DIRECT_VIDEO_REGEX.containsMatchIn(lower) || lower.contains("/e/") ||
-            lower.contains("embed") || lower.contains("player") || lower.contains("watch") ||
-            lower.contains("stream") || lower.startsWith("/") || lower.startsWith("//")
+    @Suppress("DEPRECATION_ERROR")
+    private fun createLegacyLink(url: String, referer: String): ExtractorLink {
+        return ExtractorLink(
+            name,
+            name,
+            url,
+            referer,
+            qualityFromUrl(url),
+            url.contains(".m3u8", true) || url.contains("/hls/", true),
+            mapOf("User-Agent" to USER_AGENT, "Referer" to referer)
+        )
     }
 
-    private fun isPlaybackFingerprintUrl(value: String): Boolean {
-        val lower = value.lowercase()
-        return DIRECT_VIDEO_REGEX.containsMatchIn(lower) || lower.contains("/e/") ||
-            lower.contains("embed") || lower.contains("player") || lower.contains("watch")
-    }
-
-    private fun Element.imageUrl(): String? {
-        val raw = IMAGE_ATTRIBUTES.firstNotNullOfOrNull { attribute ->
-            attr(attribute).trim().takeIf(String::isNotBlank)
-        } ?: return null
-        return resolveUrl(mainUrl, raw)
+    private fun Element.imageUrl(baseUrl: String): String? {
+        for (attribute in IMAGE_ATTRIBUTES) {
+            val raw = attr(attribute).trim()
+            if (raw.isBlank()) continue
+            val resolved = resolveUrl(baseUrl, raw)
+            if (resolved != null) return resolved
+        }
+        return null
     }
 
     private fun Element.isHiddenFrame(): Boolean {
@@ -544,9 +451,33 @@ class Rebahin21Provider : MainAPI() {
             style.contains("visibility:hidden") || style.contains("visibility: hidden")
     }
 
+    private fun containsMediaHint(value: String): Boolean {
+        val lower = value.lowercase()
+        return lower.contains(".m3u8") || lower.contains(".mp4") ||
+            lower.contains("file:") || lower.contains("source:") ||
+            lower.contains("video:") || lower.contains("stream:") ||
+            lower.contains("embed")
+    }
+
+    private fun looksLikeMediaOrPlayer(value: String): Boolean {
+        val lower = value.trim().lowercase()
+        if (lower.isBlank() || lower.startsWith("javascript:") || lower.startsWith("data:")) {
+            return false
+        }
+        return isDirectVideo(lower) || lower.contains("/e/") || lower.contains("embed") ||
+            lower.contains("player") || lower.contains("watch") || lower.contains("stream") ||
+            lower.startsWith("/") || lower.startsWith("//")
+    }
+
+    private fun isDirectVideo(value: String): Boolean {
+        return DIRECT_VIDEO_REGEX.containsMatchIn(value)
+    }
+
     private fun isSiteContentUrl(url: String): Boolean {
         return try {
-            URI(url).host.equals(URI(mainUrl).host, ignoreCase = true) &&
+            val sourceHost = URI(mainUrl).host
+            val targetHost = URI(url).host
+            sourceHost != null && sourceHost.equals(targetHost, true) &&
                 !url.contains("/author/") && !url.contains("/tag/") && !url.contains("/page/")
         } catch (_: Exception) {
             false
@@ -556,10 +487,14 @@ class Rebahin21Provider : MainAPI() {
     private fun isSafeMediaUrl(url: String): Boolean {
         val clean = url.trim()
         if (clean.isBlank() || clean.startsWith("javascript:", true) ||
-            clean.startsWith("data:", true) || clean == "about:blank"
-        ) return false
+            clean.startsWith("data:", true) || clean == "about:blank") {
+            return false
+        }
         val lower = clean.lowercase()
-        return AD_HOST_MARKERS.none(lower::contains)
+        for (marker in AD_HOST_MARKERS) {
+            if (lower.contains(marker)) return false
+        }
+        return true
     }
 
     private fun resolveUrl(baseUrl: String, rawUrl: String): String? {
@@ -589,10 +524,10 @@ class Rebahin21Provider : MainAPI() {
     private fun normalizeEscapedUrl(value: String): String {
         return value
             .replace("\\/", "/")
-            .replace("\\u0026", "&", ignoreCase = true)
+            .replace("\\u0026", "&", true)
             .replace("&amp;", "&")
-            .replace("\\x3a", ":", ignoreCase = true)
-            .replace("\\x2f", "/", ignoreCase = true)
+            .replace("\\x3a", ":", true)
+            .replace("\\x2f", "/", true)
     }
 
     private fun qualityFromUrl(url: String): Int {
@@ -606,43 +541,64 @@ class Rebahin21Provider : MainAPI() {
         }
     }
 
+    private fun encodeData(pageUrl: String, playerUrl: String?, episode: Int): String {
+        return listOf(pageUrl, playerUrl.orEmpty(), episode.toString()).joinToString(DATA_SEPARATOR)
+    }
+
+    private fun decodeData(data: String): LinkData {
+        val parts = data.split(DATA_SEPARATOR)
+        return LinkData(
+            pageUrl = parts.getOrNull(0).orEmpty(),
+            playerUrl = parts.getOrNull(1)?.takeIf { it.isNotBlank() },
+            episode = parts.getOrNull(2)?.toIntOrNull() ?: 1
+        )
+    }
+
     private fun Exception.rethrowCancellation() {
         if (this is CancellationException) throw this
     }
 
+    private data class LinkData(
+        val pageUrl: String,
+        val playerUrl: String?,
+        val episode: Int
+    )
+
     companion object {
-        private const val MAX_PLAYER_PAGES = 4
-        private const val EPISODE_MARKER = "cs3-episode="
+        private const val DATA_SEPARATOR = "|cs3|"
+        private const val MAX_PLAYER_HTML_SIZE = 1_500_000
+        private const val MAX_WRAPPER_HTML_SIZE = 750_000
+        private const val MAX_SCRIPT_SIZE = 250_000
 
         private val YEAR_REGEX = Regex("(?:19|20)\\d{2}")
         private val DIGIT_REGEX = Regex("\\d+")
         private val DATA_EP_REGEX = Regex(
             """data-(?:ep|episode)\s*=\s*[\"']?(\d+)""",
-            RegexOption.IGNORE_CASE,
+            RegexOption.IGNORE_CASE
         )
-        private val HTML_TAG_REGEX = Regex("<[^>]+>")
+        private val EPISODE_TAG_REGEX = Regex(
+            """(?is)<[^>]+data-(?:ep|episode)\s*=\s*[\"']?\d+[^>]*>"""
+        )
         private val DIRECT_VIDEO_REGEX = Regex(
             """(?i)\.(?:m3u8|mp4|mkv|webm)(?:\?|$)|/hls/"""
         )
         private val SUBTITLE_URL_REGEX = Regex(
             """https?://[^\s\"']+\.(?:vtt|srt)(?:\?[^\s\"']*)?""",
-            RegexOption.IGNORE_CASE,
+            RegexOption.IGNORE_CASE
         )
         private val DIRECT_URL_REGEX = Regex(
             """https?://[^\s\"'<>]+\.(?:m3u8|mp4|mkv|webm|vtt|srt)(?:\?[^\s\"'<>]*)?""",
-            RegexOption.IGNORE_CASE,
+            RegexOption.IGNORE_CASE
         )
         private val KEYED_MEDIA_REGEX = Regex(
             """(?i)\b(?:file|source|url|video|stream|embed)\s*[:=]\s*[\"']([^\"']+)[\"']"""
         )
-        private val EPISODE_ARRAY_REGEX = Regex(
-            """(?is)(?:episodes?|eps|playlist|sources?)\s*[:=]\s*\[(.{1,50000}?)\]"""
-        )
-        private val QUOTED_VALUE_REGEX = Regex("""[\"']([^\"']+)[\"']""")
 
-        private fun EPISODE_OBJECT_REGEX(episode: Int) = Regex(
-            """(?is)(?:episode|ep|number|index)\s*[\"']?\s*[:=]\s*[\"']?$episode[\"']?.{0,1600}?"""
-        )
+        private fun EPISODE_BLOCK_REGEX(episode: Int): Regex {
+            return Regex(
+                """(?is)(?:episode|ep|number|index)\s*[\"']?\s*[:=]\s*[\"']?$episode[\"']?.{0,1200}?"""
+            )
+        }
 
         private val IMAGE_ATTRIBUTES = listOf("data-src", "data-lazy-src", "data-original", "src")
         private val MEDIA_ATTRIBUTES = listOf(
@@ -653,7 +609,7 @@ class Rebahin21Provider : MainAPI() {
             "histats.", "semuadisini.", "tapioni.", "tagivi.", "dtscout.",
             "popads.", "popcash.", "propellerads.", "clickadu.", "onclicka.",
             "smallestpawsmention.", "detoxifylagoonsnugness.", "llvpn.com/",
-            "facebook.com/tr", "googletagmanager.", "connect.facebook.net/",
+            "facebook.com/tr", "googletagmanager.", "connect.facebook.net/"
         )
     }
 }
