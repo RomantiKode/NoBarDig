@@ -195,6 +195,27 @@
         "name": "Pencurimovie"
     },
     {
+        "iconUrl": "https://iphone17.b-cdn.net/logo/REBAHIN.png",
+        "fileHash": "sha256-52996f9e17401b8bc704d78624a7b111c035ec4a53e7c78c65e8ff677df3b95a",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 29041,
+        "status": 3,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries"
+        ],
+        "version": 3,
+        "internalName": "Rebahin",
+        "description": "Rebahin adalah situs web populer di Indonesia yang menawarkan streaming film gratis. Situs ini dikenal karena pilihan filmnya yang luas, termasuk judul-judul Indonesia dan internasional, serta antarmuka yang ramah pengguna.",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Rebahin.cs3",
+        "name": "Rebahin"
+    },
+    {
         "iconUrl": "http://154.93.73.212/favicon.ico",
         "fileHash": "sha256-25a207998c63bdfb7349df7b7e3ed992719f84d4e4682f8a668f13f832ab5364",
         "apiVersion": 1,
