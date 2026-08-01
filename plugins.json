@@ -193,5 +193,27 @@
         "description": "PencuriMovie v5.1 HTML Validated - parser ringan, player terisolasi dari popup, dan mirror MixDrop",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Pencurimovie.cs3",
         "name": "Pencurimovie"
+    },
+    {
+        "iconUrl": "http://154.93.73.212/favicon.ico",
+        "fileHash": "sha256-25a207998c63bdfb7349df7b7e3ed992719f84d4e4682f8a668f13f832ab5364",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 33615,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries",
+            "AsianDrama"
+        ],
+        "version": 2,
+        "internalName": "Rebahin21",
+        "description": "REBAHIN21 tempat Nonton Movie Film Online Bioskop Online Sub Indo. Kamu harus mencoba nonton film disini. 154.93.73.212, Bioskop Online Terbaik Indonesia.",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Rebahin21.cs3",
+        "name": "Rebahin21"
     }
 ]
