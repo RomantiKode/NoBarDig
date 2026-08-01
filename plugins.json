@@ -132,6 +132,28 @@
         "name": "Neonime"
     },
     {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=nimegami.id&sz=%size%",
+        "fileHash": "sha256-d15fdbc622821718fe24e98388ed2984d44e8d98026898c2c1fef775752453e3",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 31063,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "AnimeMovie",
+            "Anime",
+            "OVA"
+        ],
+        "version": 3,
+        "internalName": "Nimegami",
+        "description": "Tempat Download dan Nonton Anime Subtitle Indonesia, dengan Format Mp4 dan MKV dan dalam Ukuran 480p, 720p, 360p, 240p dan BATCH (Paket)",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Nimegami.cs3",
+        "name": "Nimegami"
+    },
+    {
         "fileHash": "sha256-ee48c018cdc4161abea7d369c784ac35ab5d5729badba07e11ed36f6e065b4fb",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
