@@ -56,26 +56,30 @@ class Layarkaca21 : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse? {
-        var normalizedUrl = normalizeContentUrl(url) ?: return null
+        val requestedUrl = normalizeContentUrl(url) ?: return null
+        var response = app.get(requestedUrl, referer = "${originOf(requestedUrl)}/", allowRedirects = true)
+        var normalizedUrl = response.url.ifBlank { requestedUrl }
         var base = originOf(normalizedUrl)
-        var document = app.get(normalizedUrl, referer = "$base/").documentLarge.cleanPage()
+        var document = response.documentLarge.cleanPage()
 
-        // Some listing/search pages can point directly to an episode. Resolve the parent
-        // series before creating the Cloudstream TV response.
-        if (base == SERIES_URL && isEpisodePage(document)) {
+        // Search results can point to an episode. Open its parent series for metadata,
+        // but keep the final response origin because LK21 regularly rotates subdomains.
+        if (isSeriesHost(normalizedUrl) && isEpisodePage(document)) {
             val parentUrl = findSeriesParentUrl(document, normalizedUrl)
             if (parentUrl != null && parentUrl != normalizedUrl) {
-                normalizedUrl = parentUrl
-                base = SERIES_URL
-                document = app.get(parentUrl, referer = "$SERIES_URL/").documentLarge.cleanPage()
+                response = app.get(parentUrl, referer = "${originOf(normalizedUrl)}/", allowRedirects = true)
+                normalizedUrl = response.url.ifBlank { parentUrl }
+                base = originOf(normalizedUrl)
+                document = response.documentLarge.cleanPage()
             }
         }
 
         val pageType = if (
-            base == SERIES_URL ||
+            isSeriesHost(normalizedUrl) ||
             document.selectFirst("script#season-data, ul.episode-list a[href]") != null ||
+            document.selectFirst("body[data-web_type=series]") != null ||
             document.selectFirst("meta[property=og:type]")?.attr("content")
-                ?.equals("series", ignoreCase = true) == true
+                ?.let { it.equals("series", true) || it.equals("episode", true) } == true
         ) TvType.TvSeries else TvType.Movie
 
         val title = document.selectFirst(".movie-info h1")?.text()?.trim()
@@ -102,7 +106,9 @@ class Layarkaca21 : MainAPI() {
         val recommendations = parseRecommendations(document, base, pageType)
 
         return if (pageType == TvType.TvSeries) {
-            val episodes = parseEpisodes(document)
+            // Every Episode.data must be the absolute episode-page URL on the active host.
+            // Cloudstream will pass that URL to loadLinks(), which performs the second click.
+            val episodes = parseEpisodes(document, normalizedUrl)
             newTvSeriesLoadResponse(title, normalizedUrl, TvType.TvSeries, episodes) {
                 this.posterUrl = poster
                 this.year = year
@@ -135,20 +141,43 @@ class Layarkaca21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
-        var pageUrl = normalizeContentUrl(data) ?: return false
+        val initialUrl = normalizeContentUrl(data) ?: return false
+        var pageUrl = initialUrl
         var pageOrigin = originOf(pageUrl)
-        var page = app.get(pageUrl, referer = "$pageOrigin/").documentLarge.cleanPage()
+        var requestReferer = "$pageOrigin/"
+        var playerUrls = emptyList<String>()
+        val visitedPages = linkedSetOf<Pair<String, String>>()
 
-        // Defensive fallback: if Cloudstream receives a parent-series URL instead of an
-        // Episode.data URL, open the first real episode link before looking for players.
-        var playerUrls = extractPlayerUrls(page, pageUrl)
-        if (playerUrls.isEmpty() && pageOrigin == SERIES_URL) {
-            val firstEpisodeUrl = parseEpisodeCandidates(page).firstOrNull()?.url
-            if (firstEpisodeUrl != null && firstEpisodeUrl != pageUrl) {
-                pageUrl = firstEpisodeUrl
-                page = app.get(pageUrl, referer = "$SERIES_URL/").documentLarge.cleanPage()
-                playerUrls = extractPlayerUrls(page, pageUrl)
-            }
+        // Real site flow: series page -> click episode link -> episode page -> player list.
+        // Follow that flow explicitly. This also repairs stale subdomains because every
+        // response URL becomes the base used to resolve the next relative episode link.
+        for (hop in 0 until MAX_EPISODE_PAGE_HOPS) {
+            if (!visitedPages.add(pageUrl to requestReferer)) break
+            val response = runCatching {
+                app.get(pageUrl, referer = requestReferer, allowRedirects = true)
+            }.getOrNull() ?: break
+
+            val resolvedUrl = response.url.ifBlank { pageUrl }
+            val page = response.documentLarge.cleanPage()
+            pageUrl = resolvedUrl
+            pageOrigin = originOf(resolvedUrl)
+            playerUrls = extractPlayerUrls(page, resolvedUrl)
+            if (playerUrls.isNotEmpty()) break
+            if (!isSeriesPage(page, resolvedUrl)) break
+
+            val candidates = parseEpisodeCandidates(page, resolvedUrl)
+            val requestedPath = pathOf(initialUrl)
+            val activeEpisode = page.selectFirst("ul.episode-list a.active[href]")
+                ?.attr("href")
+                ?.let { absoluteUrl("$pageOrigin/", it) }
+            val matchingEpisode = candidates.firstOrNull { pathOf(it.url) == requestedPath }?.url
+            val nextEpisode = matchingEpisode ?: activeEpisode ?: candidates.firstOrNull()?.url
+                ?: break
+
+            // A parent page has no player, so this is the actual episode click.
+            // The full previous page is kept as referer, not merely its origin.
+            requestReferer = resolvedUrl
+            pageUrl = nextEpisode
         }
 
         val emitted = linkedSetOf<String>()
@@ -167,7 +196,7 @@ class Layarkaca21 : MainAPI() {
             // as a Hownetwork id. Open the wrapper first, read the nested iframe, then
             // dispatch that destination with VideoNode's origin as the referer.
             val beforeUnwrap = emitted.size
-            val targets = unwrapVideoNode(playerUrl, pageOrigin)
+            val targets = unwrapVideoNode(playerUrl, pageUrl)
             for (target in targets) {
                 if (isDirectMedia(target)) {
                     emitDirect(target, originOf(playerUrl), serverName(playerUrl), safeCallback)
@@ -199,14 +228,15 @@ class Layarkaca21 : MainAPI() {
         return emitted.isNotEmpty()
     }
 
-    private suspend fun unwrapVideoNode(playerUrl: String, pageOrigin: String): List<String> {
+    private suspend fun unwrapVideoNode(playerUrl: String, episodePageUrl: String): List<String> {
         if (hostOf(playerUrl) != "videonode.de") return emptyList()
 
         // The working LayarKaca flow requests the wrapper with the series origin and
         // extracts `div.embed-container iframe, iframe`. Try the real page origin first,
         // then both known LK21 origins to survive movie/series cross-domain mirrors.
         val referers = listOf(
-            "${pageOrigin.trimEnd('/')}/",
+            episodePageUrl,
+            "${originOf(episodePageUrl).trimEnd('/')}/",
             "$SERIES_URL/",
             "$MOVIE_URL/",
         ).distinct()
@@ -373,8 +403,8 @@ class Layarkaca21 : MainAPI() {
         }
     }
 
-    private fun parseEpisodes(document: Document): List<Episode> {
-        return parseEpisodeCandidates(document).map { item ->
+    private fun parseEpisodes(document: Document, pageUrl: String): List<Episode> {
+        return parseEpisodeCandidates(document, pageUrl).map { item ->
             newEpisode(item.url) {
                 this.name = item.title
                 this.season = item.season
@@ -388,13 +418,14 @@ class Layarkaca21 : MainAPI() {
      * DOM links are therefore authoritative. season-data is retained as a fallback and
      * to supply episodes belonging to seasons that are not rendered initially.
      */
-    private fun parseEpisodeCandidates(document: Document): List<EpisodeCandidate> {
-        val jsonItems = parseJsonEpisodes(document)
+    private fun parseEpisodeCandidates(document: Document, pageUrl: String): List<EpisodeCandidate> {
+        val seriesBase = "${originOf(pageUrl).trimEnd('/')}/"
+        val jsonItems = parseJsonEpisodes(document, seriesBase)
         val jsonByKey = jsonItems.associateBy { it.season to it.episode }
 
         val domItems = document.select("ul.episode-list a[href]").mapNotNull { link ->
-            val href = absoluteUrl(SERIES_URL, link.attr("href")) ?: return@mapNotNull null
-            if (originOf(href) != SERIES_URL) return@mapNotNull null
+            val href = absoluteUrl(seriesBase, link.attr("href")) ?: return@mapNotNull null
+            if (!isSeriesHost(href)) return@mapNotNull null
             val match = EPISODE_PATH_REGEX.find(runCatching { URI(href).path.orEmpty() }.getOrDefault(""))
             val season = match?.groupValues?.getOrNull(1)?.toIntOrNull()
                 ?: link.attr("data-season").toIntOrNull()
@@ -415,7 +446,7 @@ class Layarkaca21 : MainAPI() {
             .sortedWith(compareBy<EpisodeCandidate> { it.season }.thenBy { it.episode })
     }
 
-    private fun parseJsonEpisodes(document: Document): List<EpisodeCandidate> {
+    private fun parseJsonEpisodes(document: Document, seriesBase: String): List<EpisodeCandidate> {
         val json = document.selectFirst("script#season-data")?.data()?.trim().orEmpty()
         if (json.isBlank()) return emptyList()
         val seasons = runCatching {
@@ -425,7 +456,7 @@ class Layarkaca21 : MainAPI() {
             val slug = item.slug?.trim()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
             val episode = item.episodeNo ?: return@mapNotNull null
             val season = item.season ?: 1
-            val href = absoluteUrl(SERIES_URL, slug) ?: return@mapNotNull null
+            val href = absoluteUrl(seriesBase, slug) ?: return@mapNotNull null
             EpisodeCandidate(
                 url = href,
                 season = season,
@@ -480,14 +511,14 @@ class Layarkaca21 : MainAPI() {
             ?.selectFirst("a[href]")
             ?.attr("href")
             ?.let { absoluteUrl(pageUrl, it) }
-        if (labeled != null && originOf(labeled) == SERIES_URL) return labeled
+        if (labeled != null && isSeriesHost(labeled)) return labeled
 
         return document.select("script[type=application/ld+json]")
             .asSequence()
             .map { it.data() }
             .mapNotNull { PART_OF_SERIES_URL_REGEX.find(it)?.groupValues?.getOrNull(1) }
             .mapNotNull { absoluteUrl(pageUrl, decodeEscapedUrl(it)) }
-            .firstOrNull { originOf(it) == SERIES_URL }
+            .firstOrNull(::isSeriesHost)
     }
 
     private fun labeledLinks(document: Document, label: String): List<String> {
@@ -517,13 +548,38 @@ class Layarkaca21 : MainAPI() {
         if (page <= 1) base else "${base.trimEnd('/')}/page/$page"
 
     private fun typeForUrl(url: String): TvType =
-        if (originOf(url) == SERIES_URL) TvType.TvSeries else TvType.Movie
+        if (isSeriesHost(url)) TvType.TvSeries else TvType.Movie
 
     private fun normalizeContentUrl(url: String): String? {
-        val normalized = absoluteUrl(if (url.contains("nontondrama", true)) SERIES_URL else MOVIE_URL, url) ?: return null
-        val origin = originOf(normalized)
-        return normalized.takeIf { origin == MOVIE_URL || origin == SERIES_URL }
+        val base = when {
+            url.contains("nontondrama", ignoreCase = true) -> SERIES_URL
+            EPISODE_PATH_REGEX.containsMatchIn(url) -> SERIES_URL
+            else -> MOVIE_URL
+        }
+        val normalized = absoluteUrl(base, url) ?: return null
+        return normalized.takeIf { isSeriesHost(it) || isMovieHost(it) }
     }
+
+    private fun isSeriesPage(document: Document, url: String): Boolean =
+        isSeriesHost(url) ||
+            document.selectFirst("body[data-web_type=series]") != null ||
+            document.selectFirst("script#season-data, ul.episode-list a[href]") != null ||
+            document.selectFirst("meta[property=og:type]")?.attr("content")
+                ?.let { it.equals("series", true) || it.equals("episode", true) } == true
+
+    private fun isSeriesHost(url: String): Boolean {
+        val host = hostOf(url)
+        return host == "nontondrama.my" || host.endsWith(".nontondrama.my")
+    }
+
+    private fun isMovieHost(url: String): Boolean {
+        val host = hostOf(url)
+        return host == "lk21official.cc" || host.endsWith(".lk21official.cc") ||
+            host == "lk21official.dev" || host.endsWith(".lk21official.dev")
+    }
+
+    private fun pathOf(url: String): String =
+        runCatching { URI(url).path.orEmpty().trimEnd('/') }.getOrDefault("")
 
     private fun isContentUrl(url: String, base: String): Boolean {
         if (originOf(url) != originOf(base)) return false
@@ -621,6 +677,7 @@ class Layarkaca21 : MainAPI() {
         private const val MOVIE_URL = "https://tv12.lk21official.cc"
         private const val SERIES_URL = "https://tv6.nontondrama.my"
         private const val PAGE_SIZE = 24
+        private const val MAX_EPISODE_PAGE_HOPS = 3
         private const val CARD_SELECTOR = "div.gallery-grid article"
         private const val SEARCH_CARD_SELECTOR = "div.gallery-grid article, article.mega-item, div.search-item"
         private const val AD_NODE_SELECTOR = "#adContainer, #adsLink, #openPopup, #adHomeTop, #nativeAds, .chordyes, .popup, .popunder, .ads, .advertisement, iframe[src*=doubleclick], iframe[src*=histats]"
