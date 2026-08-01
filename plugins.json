@@ -216,11 +216,10 @@
         "name": "Rebahin"
     },
     {
-        "iconUrl": "http://154.93.73.212/favicon.ico",
-        "fileHash": "sha256-25a207998c63bdfb7349df7b7e3ed992719f84d4e4682f8a668f13f832ab5364",
+        "fileHash": "sha256-23edd2ce88df244d5ed3d5d839b55ac5b4fc14c815668dfd1998cf7859511511",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 33615,
+        "fileSize": 26203,
         "status": 1,
         "language": "id",
         "authors": [
@@ -228,12 +227,11 @@
         ],
         "tvTypes": [
             "Movie",
-            "TvSeries",
-            "AsianDrama"
+            "TvSeries"
         ],
-        "version": 2,
+        "version": 3,
         "internalName": "Rebahin21",
-        "description": "REBAHIN21 tempat Nonton Movie Film Online Bioskop Online Sub Indo. Kamu harus mencoba nonton film disini. 154.93.73.212, Bioskop Online Terbaik Indonesia.",
+        "description": "REBAHIN21 - provider film dan serial Sub Indo. Crash-fix dengan parser HTML ringan dan pemblokiran frame iklan.",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Rebahin21.cs3",
         "name": "Rebahin21"
     }
