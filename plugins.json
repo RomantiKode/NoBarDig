@@ -45,6 +45,28 @@
         "name": "Donghub"
     },
     {
+        "iconUrl": "https://drakor.kita.mobi/icon.jpg?s",
+        "fileHash": "sha256-b1328a9611646fd39944d347c8533a1f70718d7d41f1cdc6a873408b92fedc6c",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 64313,
+        "status": 1,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "AsianDrama",
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 2,
+        "internalName": "DrakorKita",
+        "description": "DrakorKita - Nonton Drama Korea Subtitle Indonesia Gratis",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/DrakorKita.cs3",
+        "name": "DrakorKita"
+    },
+    {
         "fileHash": "sha256-dbf0d62f4be862fc5eab2a72e88af522e3a3a81193c1feeae332811bce5fd79f",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
