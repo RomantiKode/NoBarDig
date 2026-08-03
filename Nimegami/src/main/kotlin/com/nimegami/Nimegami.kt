@@ -11,6 +11,8 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 
 class Nimegami : MainAPI() {
+    private val episodePosterSeparator = "::nimegami-poster::"
+
     override var mainUrl = "https://nimegami.id"
     override var name = "Nimegami"
     override val hasMainPage = true
@@ -28,8 +30,6 @@ class Nimegami : MainAPI() {
             "popcash.net",
             "propellerads.com",
         )
-
-    private val directStreamHosts = setOf("stordl.halahgan.com")
 
     override val mainPage =
         mainPageOf(
@@ -111,11 +111,27 @@ class Nimegami : MainAPI() {
                 }
         val trailer = document.selectFirst("#Trailer iframe[src]")?.attr("src")?.toAbsoluteUrl()
 
+        val posterToken =
+            document.select("script").firstNotNullOfOrNull { script ->
+                Regex("""(?i)\bconst\s+poster\s*=\s*["']([^"']+)["']""")
+                    .find(script.data())
+                    ?.groupValues
+                    ?.getOrNull(1)
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+            }
+
         val episodes =
             document.select("div.list_eps_stream li.select-eps[data]")
                 .mapNotNull { element ->
-                    val data = element.attr("data").trim().takeIf { it.isNotBlank() }
+                    val sourceData = element.attr("data").trim().takeIf { it.isNotBlank() }
                         ?: return@mapNotNull null
+                    val data =
+                        if (posterToken.isNullOrBlank()) {
+                            sourceData
+                        } else {
+                            "$sourceData$episodePosterSeparator$posterToken"
+                        }
                     val episodeNumber = element.extractEpisodeNumber()
                     newEpisode(data) {
                         this.name = element.text().trim().takeIf { it.isNotBlank() }
@@ -145,7 +161,12 @@ class Nimegami : MainAPI() {
     ): Boolean {
         // Atribut data pada tombol episode sudah berisi JSON Base64. Membacanya langsung
         // menghindari eksekusi JavaScript, overlay, redirect, dan popup iklan halaman.
-        val decoded = runCatching { base64Decode(data.trim()) }.getOrNull() ?: return false
+        val encodedSources = data.substringBefore(episodePosterSeparator).trim()
+        val posterToken =
+            data.substringAfter(episodePosterSeparator, "")
+                .trim()
+                .takeIf { it.isNotBlank() }
+        val decoded = runCatching { base64Decode(encodedSources) }.getOrNull() ?: return false
         val sourceGroups = tryParseJson<ArrayList<Sources>>(decoded).orEmpty()
         val candidates =
             sourceGroups.flatMap { group ->
@@ -155,21 +176,26 @@ class Nimegami : MainAPI() {
                     .filter(String::isNotBlank)
                     .filter(::isUsableStreamUrl)
                     .distinct()
-                    .map { url -> StreamCandidate(url, group.format) }
+                    .map { url -> StreamCandidate(url.withPosterToken(posterToken), group.format) }
                     .toList()
             }.distinctBy { it.url }
 
-        candidates.amap { candidate ->
-            loadFixedExtractor(
-                url = candidate.url,
-                quality = candidate.quality,
-                referer = "$mainUrl/",
-                subtitleCallback = subtitleCallback,
-                callback = callback,
-            )
+        var emitted = false
+        for (candidate in candidates) {
+            runCatching {
+                loadFixedExtractor(
+                    url = candidate.url,
+                    quality = candidate.quality,
+                    referer = "$mainUrl/",
+                    subtitleCallback = subtitleCallback,
+                ) { link ->
+                    emitted = true
+                    callback(link)
+                }
+            }
         }
 
-        return candidates.isNotEmpty()
+        return emitted
     }
 
     private suspend fun loadFixedExtractor(
@@ -181,9 +207,18 @@ class Nimegami : MainAPI() {
     ) {
         val qualityValue = getQualityFromName(quality)
 
-        if (isDirectStream(url)) {
+        if (isDirectMediaFile(url)) {
             callback(
-                newExtractorLink(name, "$name ${quality.orEmpty()}".trim(), url) {
+                newExtractorLink(
+                    name,
+                    "$name ${quality.orEmpty()}".trim(),
+                    url,
+                    if (url.contains(".m3u8", ignoreCase = true)) {
+                        ExtractorLinkType.M3U8
+                    } else {
+                        ExtractorLinkType.VIDEO
+                    },
+                ) {
                     this.referer = referer
                     this.quality = qualityValue
                 }
@@ -302,6 +337,13 @@ class Nimegami : MainAPI() {
             ShowStatus.Ongoing
         }
 
+    private fun String.withPosterToken(posterToken: String?): String {
+        if (posterToken.isNullOrBlank() || contains("poster=", ignoreCase = true)) return this
+        val host = runCatching { URI(this).host?.lowercase() }.getOrNull().orEmpty()
+        if (host != "stordl.halahgan.com") return this
+        return "$this${if (contains('?')) "&" else "?"}poster=$posterToken"
+    }
+
     private fun isUsableStreamUrl(url: String): Boolean {
         val uri = runCatching { URI(url) }.getOrNull() ?: return false
         if (uri.scheme !in setOf("http", "https")) return false
@@ -310,12 +352,10 @@ class Nimegami : MainAPI() {
         return blockedAdHosts.none { blocked -> host == blocked || host.endsWith(".$blocked") }
     }
 
-    private fun isDirectStream(url: String): Boolean {
-        val uri = runCatching { URI(url) }.getOrNull() ?: return false
-        val host = uri.host?.lowercase().orEmpty()
-        return host in directStreamHosts ||
-            Regex("""(?i)\.(?:mp4|mkv|m3u8)(?:$|[?&#])""").containsMatchIn(url)
-    }
+    private fun isDirectMediaFile(url: String): Boolean =
+        Regex("""(?i)\.(?:mp4|mkv|m3u8)(?:$|[?&#])""").containsMatchIn(
+            url.substringBefore('?')
+        )
 
     private fun String.cleanPageTitle(): String =
         replace(Regex("""(?i)\s*-\s*Nimegami\s*$"""), "")
