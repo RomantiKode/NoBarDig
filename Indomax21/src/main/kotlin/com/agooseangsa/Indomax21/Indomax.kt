@@ -1,4 +1,4 @@
-package com.indomax
+package com.agooseangsa.Indomax21
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.LoadResponse.Companion.addActors
@@ -7,12 +7,14 @@ import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.json.JSONObject
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.net.URI
 import java.net.URLEncoder
 
 class Indomax : MainAPI() {
     override var mainUrl = DEFAULT_MAIN_URL
-    override var name = "Indomax"
+    override var name = "Indomax21"
     override val hasMainPage = true
     override var lang = "id"
     override val supportedTypes = setOf(
@@ -22,6 +24,7 @@ class Indomax : MainAPI() {
         TvType.AsianDrama,
     )
 
+    private val mainUrlMutex = Mutex()
     private var mainUrlResolved = false
 
     override val mainPage = mainPageOf(
@@ -43,18 +46,59 @@ class Indomax : MainAPI() {
 
     private suspend fun loadMainUrlIfNeeded() {
         if (mainUrlResolved) return
-        mainUrlResolved = true
 
-        runCatching {
-            val response = app.get(MAIN_URL_JSON).text
-            val newUrl = JSONObject(response)
-                .optJSONArray("indomax")
-                ?.optString(0)
-                ?.trim()
-                ?.removeSuffix("/")
+        mainUrlMutex.withLock {
+            if (mainUrlResolved) return@withLock
 
-            if (!newUrl.isNullOrBlank()) mainUrl = newUrl
+            val remoteCandidates = runCatching {
+                val json = JSONObject(app.get(MAIN_URL_JSON).text)
+                json.readMainUrlCandidates()
+            }.getOrDefault(emptyList())
+
+            val candidates = (remoteCandidates + DEFAULT_MAIN_URL)
+                .mapNotNull(::normalizeHttpBaseUrl)
+                .distinct()
+
+            for (candidate in candidates) {
+                val response = runCatching { app.get(candidate) }.getOrNull() ?: continue
+                if (!response.isSuccessful) continue
+
+                val resolved = normalizeHttpBaseUrl(response.url) ?: continue
+                mainUrl = resolved
+                mainUrlResolved = true
+                return@withLock
+            }
+
+            // Keep the built-in fallback. Resolution remains retryable on the next request
+            // in case GitHub or the website was only temporarily unavailable.
+            mainUrl = DEFAULT_MAIN_URL
         }
+    }
+
+    private fun JSONObject.readMainUrlCandidates(): List<String> {
+        val keys = listOf(REMOTE_CONFIG_KEY, LEGACY_REMOTE_CONFIG_KEY)
+
+        return keys.asSequence()
+            .mapNotNull { key -> optJSONArray(key) }
+            .flatMap { array ->
+                (0 until array.length()).asSequence().map { index -> array.optString(index) }
+            }
+            .mapNotNull(::normalizeHttpBaseUrl)
+            .distinct()
+            .toList()
+    }
+
+    private fun normalizeHttpBaseUrl(url: String?): String? {
+        val value = url?.trim()?.removeSuffix("/")?.takeIf { it.isNotBlank() } ?: return null
+
+        return runCatching {
+            val uri = URI(value)
+            if ((uri.scheme == "http" || uri.scheme == "https") && !uri.host.isNullOrBlank()) {
+                "${uri.scheme}://${uri.authority}"
+            } else {
+                null
+            }
+        }.getOrNull()
     }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
@@ -323,12 +367,7 @@ class Indomax : MainAPI() {
     }.getOrDefault(false)
 
     private fun syncMainUrl(url: String) {
-        runCatching {
-            val uri = URI(url)
-            if (!uri.scheme.isNullOrBlank() && !uri.host.isNullOrBlank()) {
-                mainUrl = "${uri.scheme}://${uri.host}"
-            }
-        }
+        normalizeHttpBaseUrl(url)?.let { mainUrl = it }
     }
 
     private fun String?.orIfBlank(fallback: () -> String?): String? =
@@ -346,8 +385,10 @@ class Indomax : MainAPI() {
     }
 
     companion object {
-        private const val DEFAULT_MAIN_URL = "https://idmxl.ink"
-        private const val MAIN_URL_JSON = "https://raw.githubusercontent.com/Asm0d3usX/CloudX/builds/Website.json"
+        private const val DEFAULT_MAIN_URL = "https://onperfect.com"
+        private const val MAIN_URL_JSON = "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
+        private const val REMOTE_CONFIG_KEY = "indomax21"
+        private const val LEGACY_REMOTE_CONFIG_KEY = "indomax"
         private const val ITEM_SELECTOR = "article.item-infinite"
         private const val RECOMMENDATION_SELECTOR = "article.item.col-md-20"
         private const val PLAYER_IFRAME_SELECTOR = "div.gmr-embed-responsive iframe"

@@ -1,4 +1,4 @@
-package com.indomax
+package com.agooseangsa.Indomax21
 
 import android.content.Context
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin

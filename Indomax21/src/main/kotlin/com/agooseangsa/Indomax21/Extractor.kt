@@ -1,4 +1,4 @@
-package com.indomax
+package com.agooseangsa.Indomax21
 
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.USER_AGENT
