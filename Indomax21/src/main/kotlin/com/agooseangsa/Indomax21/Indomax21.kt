@@ -12,7 +12,7 @@ import kotlinx.coroutines.sync.withLock
 import java.net.URI
 import java.net.URLEncoder
 
-class Indomax : MainAPI() {
+class Indomax21 : MainAPI() {
     override var mainUrl = DEFAULT_MAIN_URL
     override var name = "Indomax21"
     override val hasMainPage = true
@@ -76,16 +76,11 @@ class Indomax : MainAPI() {
     }
 
     private fun JSONObject.readMainUrlCandidates(): List<String> {
-        val keys = listOf(REMOTE_CONFIG_KEY, LEGACY_REMOTE_CONFIG_KEY)
-
-        return keys.asSequence()
-            .mapNotNull { key -> optJSONArray(key) }
-            .flatMap { array ->
-                (0 until array.length()).asSequence().map { index -> array.optString(index) }
-            }
+        val array = optJSONArray(REMOTE_CONFIG_KEY) ?: return emptyList()
+        return (0 until array.length())
+            .map { index -> array.optString(index) }
             .mapNotNull(::normalizeHttpBaseUrl)
             .distinct()
-            .toList()
     }
 
     private fun normalizeHttpBaseUrl(url: String?): String? {
@@ -113,7 +108,7 @@ class Indomax : MainAPI() {
 
     private fun Element.toSearchResult(): SearchResponse? {
         val link = selectFirst("h2.entry-title a") ?: return null
-        val title = link.text().trim().takeIf { it.isNotBlank() } ?: return null
+        val title = extractListTitle(link) ?: return null
         val href = fixUrl(link.attr("href"))
         val poster = fixUrlNull(selectFirst("img.wp-post-image")?.getImageAttr())?.fixImageQuality()
         val quality = selectFirst(".gmr-quality-item a")?.text()?.trim().orEmpty()
@@ -147,7 +142,7 @@ class Indomax : MainAPI() {
 
     private fun Element.toRecommendResult(): SearchResponse? {
         val link = selectFirst("h2.entry-title > a") ?: return null
-        val title = link.text().trim().takeIf { it.isNotBlank() } ?: return null
+        val title = extractListTitle(link) ?: return null
         val href = fixUrl(link.attr("href"))
         val poster = fixUrlNull(selectFirst("div.content-thumbnail img")?.getImageAttr())?.fixImageQuality()
         val quality = select("div.gmr-qual, div.gmr-quality-item > a")
@@ -285,6 +280,38 @@ class Indomax : MainAPI() {
         return frames.isNotEmpty()
     }
 
+    /**
+     * Prefer title metadata that is already canonical instead of blindly deleting "Nonton".
+     * The promotional prefix is removed only when another title value from the same card
+     * (permalink metadata or itemprop=name) confirms the title without it.
+     * This preserves legitimate works whose real title actually begins with "Nonton".
+     */
+    private fun Element.extractListTitle(link: Element): String? {
+        val visibleTitle = link.text().normalizeTitleText().takeIf { it.isNotBlank() } ?: return null
+        val withoutPromoPrefix = visibleTitle.removeLeadingNontonCandidate() ?: return visibleTitle
+
+        val permalinkTitle = link.attr("title")
+            .normalizeTitleText()
+            .replaceFirst(Regex("""(?i)^Permalink\s+ke\s*:\s*"""), "")
+            .takeIf { it.isNotBlank() }
+        val structuredTitle = selectFirst("[itemprop=name]")
+            ?.text()
+            ?.normalizeTitleText()
+            ?.takeIf { it.isNotBlank() }
+
+        return listOfNotNull(permalinkTitle, structuredTitle)
+            .firstOrNull { it.equals(withoutPromoPrefix, ignoreCase = true) }
+            ?: visibleTitle
+    }
+
+    private fun String.removeLeadingNontonCandidate(): String? {
+        val match = Regex("(?i)^Nonton\\s+(.+)$").matchEntire(trim()) ?: return null
+        return match.groupValues[1].normalizeTitleText().takeIf { it.isNotBlank() }
+    }
+
+    private fun String.normalizeTitleText(): String =
+        replace(Regex("\\s+"), " ").trim()
+
     private fun Element.toEpisode(poster: String?): Episode? {
         val href = resolveHttpUrl(mainUrl, attr("href")) ?: return null
         val anchorText = text().trim()
@@ -388,7 +415,6 @@ class Indomax : MainAPI() {
         private const val DEFAULT_MAIN_URL = "https://onperfect.com"
         private const val MAIN_URL_JSON = "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
         private const val REMOTE_CONFIG_KEY = "indomax21"
-        private const val LEGACY_REMOTE_CONFIG_KEY = "indomax"
         private const val ITEM_SELECTOR = "article.item-infinite"
         private const val RECOMMENDATION_SELECTOR = "article.item.col-md-20"
         private const val PLAYER_IFRAME_SELECTOR = "div.gmr-embed-responsive iframe"

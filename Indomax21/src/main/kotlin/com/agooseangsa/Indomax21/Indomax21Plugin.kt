@@ -5,9 +5,9 @@ import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
 
 @CloudstreamPlugin
-class IndomaxPlugin : Plugin() {
+class Indomax21Plugin : Plugin() {
     override fun load(context: Context) {
-        registerMainAPI(Indomax())
+        registerMainAPI(Indomax21())
         registerExtractorAPI(ImaxStreams())
         registerExtractorAPI(ImaxStreamsCom())
     }
