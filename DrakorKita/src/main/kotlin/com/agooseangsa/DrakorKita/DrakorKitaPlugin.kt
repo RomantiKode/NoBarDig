@@ -1,4 +1,4 @@
-package com.drakorkita
+package com.agooseangsa.DrakorKita
 
 import android.content.Context
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin

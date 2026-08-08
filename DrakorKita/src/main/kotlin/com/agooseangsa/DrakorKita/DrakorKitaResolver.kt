@@ -1,4 +1,4 @@
-package com.drakorkita
+package com.agooseangsa.DrakorKita
 
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.app
@@ -23,15 +23,57 @@ object DrakorKitaResolver {
         val movieId: String,
         val episodeId: String,
         val serverXid: String,
-        val tag: String,
+        val category: String,
+        val language: String,
         val c: String,
         val t: String,
-        val ver: String,
         val cApiHost: String,
         val isMob: String,
         val isUc: String,
-        val mediaType: String
-    )
+        val mediaType: String,
+        val servers: String,
+    ) {
+        fun toPayloadJson(): String = JSONObject().apply {
+            put("detailUrl", detailUrl)
+            put("title", title)
+            put("movieId", movieId)
+            put("episodeId", episodeId)
+            put("serverXid", serverXid)
+            put("category", category)
+            put("language", language)
+            put("c", c)
+            put("t", t)
+            put("cApiHost", cApiHost)
+            put("isMob", isMob)
+            put("isUc", isUc)
+            put("mediaType", mediaType)
+            put("servers", servers)
+        }.toString()
+    }
+
+    fun parsePayload(data: String): ApiPayload? {
+        val trimmed = data.trim()
+        if (!trimmed.startsWith("{")) return null
+        return runCatching {
+            val json = JSONObject(trimmed)
+            ApiPayload(
+                detailUrl = json.optString("detailUrl"),
+                title = json.optString("title"),
+                movieId = json.optString("movieId"),
+                episodeId = json.optString("episodeId"),
+                serverXid = json.optString("serverXid"),
+                category = json.optString("category"),
+                language = json.optString("language"),
+                c = json.optString("c"),
+                t = json.optString("t"),
+                cApiHost = json.optString("cApiHost"),
+                isMob = json.optString("isMob", "0"),
+                isUc = json.optString("isUc", "0"),
+                mediaType = json.optString("mediaType", "web"),
+                servers = json.optString("servers"),
+            )
+        }.getOrNull()
+    }
 
     fun normalizeUrl(url: String, mainUrl: String): String {
         val value = url.trim()
@@ -39,7 +81,12 @@ object DrakorKitaResolver {
             .replace("\\/", "/")
             .replace("&amp;", "&")
 
-        if (value.isBlank() || value.startsWith("javascript:", ignoreCase = true)) return ""
+        if (value.isBlank() ||
+            value.startsWith("javascript:", ignoreCase = true) ||
+            value.startsWith("data:", ignoreCase = true) ||
+            value.startsWith("#")
+        ) return ""
+
         return runCatching {
             when {
                 value.startsWith("//") -> "https:$value"
@@ -50,23 +97,20 @@ object DrakorKitaResolver {
         }.getOrDefault("")
     }
 
-    /**
-     * Only parses elements that can contain the player. No WebView is opened and
-     * no page JavaScript is executed, so popup scripts remain inert.
-     */
+    /** Parses player containers only; page JavaScript and ad onclick handlers are never executed. */
     fun extractEmbedCandidates(document: Document, mainUrl: String): List<String> {
         val candidates = linkedSetOf<String>()
 
         fun add(raw: String, trustedPlayerElement: Boolean = false) {
             val fixed = normalizeUrl(raw, mainUrl)
-            if (isSafeCandidate(fixed) && (trustedPlayerElement || isKnownVideoUrl(fixed))) {
+            if (isSafeCandidate(fixed) && (trustedPlayerElement || isLikelyVideoOrEmbed(fixed))) {
                 candidates += fixed
             }
         }
 
         document.select(
             "#ploader iframe[src], .embed-player iframe[src], .apicodes-container iframe[src], " +
-                "#server_lists iframe[src], main video[src], main source[src]"
+                ".single-content.video iframe[src], #server_lists iframe[src], main video[src], main source[src]"
         ).forEach { element ->
             add(element.attr("src").ifBlank { element.attr("data-src") }, true)
         }
@@ -93,7 +137,6 @@ object DrakorKitaResolver {
 
         extractUnpackedUrls(document, mainUrl).forEach { add(it) }
 
-        // Scan only inline scripts that already contain a known player marker.
         document.select("script:not([src])").forEach { script ->
             val text = script.data().ifBlank { script.html() }
             if (KNOWN_VIDEO_MARKERS.any { text.contains(it, ignoreCase = true) } ||
@@ -110,12 +153,8 @@ object DrakorKitaResolver {
     suspend fun extractSubtitles(document: Document, mainUrl: String): List<SubtitleFile> {
         return document.select("track[src], a[href$=.srt], a[href$=.vtt]")
             .mapNotNull { element ->
-                val url = normalizeUrl(
-                    element.attr("src").ifBlank { element.attr("href") },
-                    mainUrl
-                )
+                val url = normalizeUrl(element.attr("src").ifBlank { element.attr("href") }, mainUrl)
                 if (!isSafeCandidate(url)) return@mapNotNull null
-
                 val label = element.attr("srclang")
                     .ifBlank { element.attr("label") }
                     .ifBlank { element.text() }
@@ -130,7 +169,7 @@ object DrakorKitaResolver {
         mainUrl: String,
         payload: ApiPayload,
         subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
+        callback: (ExtractorLink) -> Unit,
     ): Boolean {
         val candidates = linkedSetOf<String>()
         val detailOrigin = originOf(payload.detailUrl, mainUrl)
@@ -144,52 +183,56 @@ object DrakorKitaResolver {
         for (cApiHost in candidateApiHosts) {
             var episodeId = payload.episodeId
             var serverXid = payload.serverXid.ifBlank { "f1" }
-            var category = payload.tag.ifBlank { "hs" }
+            var category = payload.category
+            var language = payload.language
 
+            // Historical fallback for pages that expose only initEpisodeList(movieId, cat, lang).
             if (episodeId.isBlank() && payload.movieId.isNotBlank()) {
                 val episodeJson = apiGetJson(
                     url = "${cApiHost.trimEnd('/')}/episode_mob.php" +
                         "?is_mob=${encode(payload.isMob)}" +
                         "&is_uc=${encode(payload.isUc)}" +
                         "&movie_id=${encode(payload.movieId)}" +
-                        "&tag=${encode(payload.tag)}" +
+                        "&tag=${encode(category)}" +
                         "&c=${encode(payload.c)}" +
                         "&t=${encode(payload.t)}" +
-                        "&ver=${encode(payload.ver)}",
-                    referer = payload.detailUrl
+                        "&ver=${encode(language)}",
+                    referer = payload.detailUrl,
                 )
                 episodeId = episodeJson?.optString("first_ep_id").orEmpty()
                 serverXid = episodeJson?.optString("server_xid").orEmpty().ifBlank { serverXid }
                 category = episodeJson?.optString("tag").orEmpty().ifBlank { category }
+                language = episodeJson?.optString("ver").orEmpty().ifBlank { language }
             }
 
             if (episodeId.isBlank()) continue
 
-            // The target buttons call loadVideo*(episodeId, "web", quality,
-            // serverXid, category, language, episodeNumber). Query every advertised
-            // quality instead of incorrectly sending the category as `qua`.
-            VIDEO_QUALITIES.forEach { quality ->
-                listOf(
-                    "video_p2p.php" to "p2p_url",
-                    "video_hydrax.php" to "hydrax_url",
-                    "video_sb.php" to "sb_url"
-                ).forEach { (endpoint, field) ->
-                    val json = apiGetJson(
-                        url = buildVideoEndpoint(
-                            cApiHost = cApiHost,
-                            endpoint = endpoint,
-                            payload = payload,
-                            episodeId = episodeId,
-                            serverXid = serverXid,
-                            category = category,
-                            quality = quality
-                        ),
-                        referer = payload.detailUrl
-                    )
-                    addApiResponseCandidates(candidates, json, field, mainUrl)
-                }
+            val serverSpecs = parseServerSpecs(payload.servers).ifEmpty { DEFAULT_SERVER_SPECS }
+            serverSpecs.forEach { spec ->
+                val endpoint = when (spec.kind) {
+                    "p2p" -> "video_p2p.php" to "p2p_url"
+                    "hydrax" -> "video_hydrax.php" to "hydrax_url"
+                    "sb" -> "video_sb.php" to "sb_url"
+                    else -> null
+                } ?: return@forEach
+
+                val json = apiGetJson(
+                    url = buildVideoEndpoint(
+                        cApiHost = cApiHost,
+                        endpoint = endpoint.first,
+                        payload = payload,
+                        episodeId = episodeId,
+                        serverXid = serverXid,
+                        category = category,
+                        language = language,
+                        quality = spec.quality,
+                    ),
+                    referer = payload.detailUrl,
+                )
+                addApiResponseCandidates(candidates, json, endpoint.second, mainUrl)
             }
 
+            // Generic endpoint is a cheap compatibility fallback used by older mirrors.
             val genericJson = apiGetJson(
                 url = buildVideoEndpoint(
                     cApiHost = cApiHost,
@@ -198,25 +241,16 @@ object DrakorKitaResolver {
                     episodeId = episodeId,
                     serverXid = serverXid,
                     category = category,
-                    quality = DEFAULT_QUALITY
+                    language = language,
+                    quality = serverSpecs.firstOrNull()?.quality ?: "720",
                 ),
-                referer = payload.detailUrl
+                referer = payload.detailUrl,
             )
-
             genericJson?.let { json ->
                 listOf("file", "source", "video", "hls", "url", "download")
-                    .forEach { field ->
-                        val value = json.optString(field)
-                        if (value.isNotBlank()) {
-                            extractUrlsFromText(value, mainUrl).forEach {
-                                addApiCandidate(candidates, it, mainUrl)
-                            }
-                        }
-                    }
+                    .forEach { field -> addApiCandidate(candidates, json.optString(field), mainUrl) }
                 json.optJSONObject("dl")?.let { downloads ->
-                    downloads.keys().forEach { key ->
-                        addApiCandidate(candidates, downloads.optString(key), mainUrl)
-                    }
+                    downloads.keys().forEach { key -> addApiCandidate(candidates, downloads.optString(key), mainUrl) }
                 }
             }
 
@@ -230,7 +264,7 @@ object DrakorKitaResolver {
             pageUrl = payload.detailUrl,
             candidates = candidates.toList(),
             subtitleCallback = subtitleCallback,
-            callback = callback
+            callback = callback,
         )
     }
 
@@ -240,7 +274,7 @@ object DrakorKitaResolver {
         pageUrl: String,
         candidates: List<String>,
         subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
+        callback: (ExtractorLink) -> Unit,
     ): Boolean {
         val seen = linkedSetOf<String>()
         var handled = false
@@ -271,21 +305,17 @@ object DrakorKitaResolver {
                 }
 
                 else -> {
-                    runCatching {
-                        var extractorCount = 0
-                        loadExtractor(fixed, referer, subtitleCallback) { linkResult ->
-                            callback(linkResult)
-                            extractorCount++
-                        }
-                        if (extractorCount > 0) handled = true
-                    }
+                    val extractorHandled = runCatching {
+                        loadExtractor(fixed, referer, subtitleCallback, callback)
+                    }.getOrDefault(false)
+                    if (extractorHandled) handled = true
 
-                    if (depth < MAX_DEPTH && shouldScanNestedPage(fixed)) {
+                    if (!extractorHandled && depth < MAX_DEPTH && shouldScanNestedPage(fixed)) {
                         runCatching {
                             val response = app.get(
                                 url = fixed,
                                 headers = pageHeaders(),
-                                referer = referer
+                                referer = referer,
                             )
                             if (!response.isSuccessful || isUnavailable(response.text)) return@runCatching
 
@@ -311,7 +341,8 @@ object DrakorKitaResolver {
         episodeId: String,
         serverXid: String,
         category: String,
-        quality: String
+        language: String,
+        quality: String,
     ): String {
         return "${cApiHost.trimEnd('/')}/$endpoint" +
             "?is_mob=${encode(payload.isMob)}" +
@@ -321,7 +352,7 @@ object DrakorKitaResolver {
             "&qua=${encode(quality)}" +
             "&server_id=${encode(serverXid)}" +
             "&cat=${encode(category)}" +
-            "&tag=${encode(payload.ver)}" +
+            "&tag=${encode(language)}" +
             "&c=${encode(payload.c)}" +
             "&t=${encode(payload.t)}"
     }
@@ -330,42 +361,34 @@ object DrakorKitaResolver {
         target: MutableSet<String>,
         json: JSONObject?,
         preferredField: String,
-        mainUrl: String
+        mainUrl: String,
     ) {
         if (json == null) return
         listOf(preferredField, "url", "src", "file", "source", "video", "hls", "embed")
             .distinct()
             .forEach { field -> addApiCandidate(target, json.optString(field), mainUrl) }
 
-        // Some mirrors return a small HTML fragment instead of a dedicated URL field.
         extractUrlsFromText(json.toString(), mainUrl)
+            .filter(::isLikelyVideoOrEmbed)
             .forEach { addApiCandidate(target, it, mainUrl) }
     }
 
-    private fun addApiCandidate(
-        target: MutableSet<String>,
-        rawUrl: String,
-        mainUrl: String
-    ) {
+    private fun addApiCandidate(target: MutableSet<String>, rawUrl: String, mainUrl: String) {
         val normalized = normalizeUrl(rawUrl, mainUrl)
-        if (isValidVideoApiUrl(normalized) && isSafeCandidate(normalized)) {
-            target += normalized
-        }
+        if (isSafeCandidate(normalized)) target += normalized
     }
 
-    private fun isValidVideoApiUrl(url: String): Boolean {
-        if (url.isBlank()) return false
-        val lower = url.lowercase()
-
-        if (lower.contains("drakorkita.stream")) {
-            return url.substringAfter('#', "").substringBefore('&').trim().length > 3
-        }
-        if (lower.contains("abysscdn.com")) {
-            val id = url.substringAfter("?v=", "").substringBefore('&').trim()
-            return id.length > 3 && !id.startsWith('?')
-        }
-        if (lower.contains("/e/.html") || lower.endsWith("/e/")) return false
-        return isKnownVideoUrl(url)
+    private fun parseServerSpecs(raw: String): List<ServerSpec> {
+        return raw.split('|')
+            .mapNotNull { item ->
+                val parts = item.split(':', limit = 2)
+                val kind = parts.getOrNull(0)?.trim()?.lowercase().orEmpty()
+                val quality = parts.getOrNull(1)?.trim().orEmpty()
+                if (kind in setOf("p2p", "hydrax", "sb") && quality.isNotBlank()) {
+                    ServerSpec(kind, quality)
+                } else null
+            }
+            .distinct()
     }
 
     private fun isSafeCandidate(url: String): Boolean {
@@ -375,11 +398,13 @@ object DrakorKitaResolver {
         return AD_HOST_MARKERS.none { host.contains(it) }
     }
 
-    private fun isKnownVideoUrl(url: String): Boolean {
+    private fun isLikelyVideoOrEmbed(url: String): Boolean {
         val lower = url.lowercase()
         if (lower.contains(".m3u8") || lower.contains(".mp4")) return true
         val host = runCatching { URI(url).host.orEmpty().lowercase() }.getOrDefault("")
-        return KNOWN_VIDEO_MARKERS.any { host.contains(it) }
+        if (KNOWN_VIDEO_MARKERS.any { host.contains(it) }) return true
+        return listOf("/embed", "/e/", "/player", "/stream", "/watch", "/video")
+            .any { lower.contains(it) }
     }
 
     private fun shouldScanNestedPage(url: String): Boolean {
@@ -401,7 +426,7 @@ object DrakorKitaResolver {
             val response = app.get(
                 url = url,
                 headers = ajaxHeaders(originOf(referer, url)),
-                referer = referer
+                referer = referer,
             )
             if (!response.isSuccessful) return@runCatching null
             JSONObject(response.text)
@@ -413,13 +438,13 @@ object DrakorKitaResolver {
         "Accept" to "application/json,text/plain,*/*",
         "Accept-Language" to "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
         "Origin" to siteOrigin,
-        "X-Requested-With" to "XMLHttpRequest"
+        "X-Requested-With" to "XMLHttpRequest",
     )
 
     private fun pageHeaders(): Map<String, String> = mapOf(
         "User-Agent" to USER_AGENT,
         "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language" to "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7"
+        "Accept-Language" to "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
     )
 
     private fun extractUnpackedUrls(document: Document, mainUrl: String): List<String> {
@@ -437,30 +462,19 @@ object DrakorKitaResolver {
 
     private fun buildDqtHlsCandidates(unpacked: String): List<String> {
         Regex("""https?://[^'"\s<>]+\.m3u8[^'"\s<>]*""")
-            .find(unpacked)
-            ?.value
-            ?.replace("\\/", "/")
-            ?.let { return listOf(it) }
+            .find(unpacked)?.value?.replace("\\/", "/")?.let { return listOf(it) }
 
         val tokens = Regex("""['\"]([A-Za-z0-9_-]{8,})['\"]""")
-            .findAll(unpacked)
-            .map { it.groupValues[1] }
-            .toList()
+            .findAll(unpacked).map { it.groupValues[1] }.toList()
         val streamId = tokens.firstOrNull { it.length >= 20 }
         val folder = tokens.firstOrNull { it.length >= 12 && it != streamId }
-        val expires = Regex("""\b(17\d{8,})\b""")
-            .find(unpacked)
-            ?.groupValues
-            ?.getOrNull(1)
+        val expires = Regex("""\b(17\d{8,})\b""").find(unpacked)?.groupValues?.getOrNull(1)
         val fileId = Regex("""file_code['\"]?\s*[:=]\s*['\"]?([A-Za-z0-9_-]+)""")
-            .find(unpacked)
-            ?.groupValues
-            ?.getOrNull(1)
+            .find(unpacked)?.groupValues?.getOrNull(1)
 
-        if (streamId.isNullOrBlank() || folder.isNullOrBlank() ||
-            expires.isNullOrBlank() || fileId.isNullOrBlank()
-        ) return emptyList()
-
+        if (streamId.isNullOrBlank() || folder.isNullOrBlank() || expires.isNullOrBlank() || fileId.isNullOrBlank()) {
+            return emptyList()
+        }
         return listOf("https://dqt.my.id/stream/$streamId/$folder/$expires/$fileId/master.m3u8")
     }
 
@@ -472,7 +486,6 @@ object DrakorKitaResolver {
                 normalizeUrl(match.value, mainUrl).trimEnd(',', '.', ';', ')', ']', '}')
             }
             .filter(::isSafeCandidate)
-            .filter(::isKnownVideoUrl)
             .distinct()
             .take(MAX_CANDIDATES)
             .toList()
@@ -482,16 +495,13 @@ object DrakorKitaResolver {
         return listOf(
             "Video not found",
             "expired or has been deleted",
-            "File is no longer available"
+            "File is no longer available",
         ).any { body.contains(it, ignoreCase = true) }
     }
 
     private fun parseQuality(url: String): Int {
         return Regex("""(2160|1440|1080|720|480|360|240)p""", RegexOption.IGNORE_CASE)
-            .find(url)
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.toIntOrNull()
+            .find(url)?.groupValues?.getOrNull(1)?.toIntOrNull()
             ?: Qualities.Unknown.value
     }
 
@@ -499,7 +509,8 @@ object DrakorKitaResolver {
         return runCatching {
             val uri = URI(url)
             if (uri.scheme.isNullOrBlank() || uri.rawAuthority.isNullOrBlank()) {
-                originOf(fallback, DEFAULT_C_API)
+                val fallbackUri = URI(fallback)
+                "${fallbackUri.scheme}://${fallbackUri.rawAuthority}"
             } else {
                 "${uri.scheme}://${uri.rawAuthority}"
             }
@@ -508,13 +519,21 @@ object DrakorKitaResolver {
 
     private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
 
+    private data class ServerSpec(val kind: String, val quality: String)
+
     private const val DEFAULT_C_API = "https://api.nonton.bid/c_api"
-    private const val DEFAULT_QUALITY = "720"
-    private val VIDEO_QUALITIES = listOf("1080", "720", "480")
-    private const val MAX_CANDIDATES = 24
+    private const val MAX_CANDIDATES = 32
     private const val MAX_DEPTH = 2
     private const val USER_AGENT =
         "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
+
+    private val DEFAULT_SERVER_SPECS = listOf(
+        ServerSpec("p2p", "720"),
+        ServerSpec("p2p", "480"),
+        ServerSpec("hydrax", "1080"),
+        ServerSpec("hydrax", "720"),
+        ServerSpec("hydrax", "480"),
+    )
 
     private val AD_HOST_MARKERS = listOf(
         "dtscout",
@@ -527,7 +546,6 @@ object DrakorKitaResolver {
         "googlesyndication",
         "adservice",
         "propellerads",
-        "onclick"
     )
 
     private val KNOWN_VIDEO_MARKERS = listOf(
@@ -547,7 +565,7 @@ object DrakorKitaResolver {
         "streamtape",
         "dood",
         "mixdrop",
-        "mp4upload"
+        "mp4upload",
     )
 
     private val NESTED_SCAN_HOSTS = listOf(
@@ -558,6 +576,6 @@ object DrakorKitaResolver {
         "strp2p",
         "p2pstream",
         "upn.one",
-        "uyeshare"
+        "uyeshare",
     )
 }
