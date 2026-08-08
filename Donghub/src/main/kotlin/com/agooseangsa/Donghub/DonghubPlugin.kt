@@ -8,8 +8,8 @@ import com.lagradost.cloudstream3.plugins.Plugin
 class DonghubPlugin : Plugin() {
     override fun load(context: Context) {
         registerMainAPI(Donghub())
-        registerExtractorAPI(DonghubDailymotion())
-        registerExtractorAPI(DonghubGeoDailymotion())
-        registerExtractorAPI(DonghubOkRu())
+        registerExtractorAPI(_f0())
+        registerExtractorAPI(_f1())
+        registerExtractorAPI(_f2())
     }
 }

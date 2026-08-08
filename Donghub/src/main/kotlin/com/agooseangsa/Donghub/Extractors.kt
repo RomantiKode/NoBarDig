@@ -3,19 +3,17 @@ package com.agooseangsa.Donghub
 import com.lagradost.cloudstream3.extractors.Dailymotion
 import com.lagradost.cloudstream3.extractors.OkRuSSL
 
-/** Target uses both www.dailymotion.com and geo.dailymotion.com embeds. */
-class DonghubDailymotion : Dailymotion() {
-    override var name = "Dailymotion"
-    override var mainUrl = "https://www.dailymotion.com"
+class _f0 : Dailymotion() {
+    override var name = _q9("TVQdolc0+FFGdlk=")
+    override var mainUrl = _q9("YUEAvl1juApYbkA7yW2Pc6mNopznepY/TeAZ")
 }
 
-class DonghubGeoDailymotion : Dailymotion() {
-    override var name = "Dailymotion Geo"
-    override var mainUrl = "https://geo.dailymotion.com"
+class _f1 : Dailymotion() {
+    override var name = _q9("TVQdolc0+FFGdlk16mmJ")
+    override var mainUrl = _q9("YUEAvl1juApIfFg7yW2Pc6mNopznepY/TeAZ")
 }
 
-/** Verified target mirror uses https://ok.ru/videoembed/... */
-class DonghubOkRu : OkRuSSL() {
-    override var name = "OK.ru"
-    override var mainUrl = "https://ok.ru"
+class _f2 : OkRuSSL() {
+    override var name = _q9("Rn5avFs=")
+    override var mainUrl = _q9("YUEAvl1juApAchln2A==")
 }
