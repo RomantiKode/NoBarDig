@@ -72,10 +72,15 @@ class AnimeXin : MainAPI() {
 
         var document = initialResponse.document
         var detailUrl = initialResponse.url
-        val playerPageUrl = initialResponse.url
+        var playerPageUrl = initialResponse.url
 
         val initialType = siteType(document)
-        if (initialType != SiteType.MOVIE) {
+        if (initialType == SiteType.MOVIE) {
+            // Movie cards commonly point to the series/detail page, while the actual
+            // player and mirror selector live on the single Movie episode page.
+            // Keep metadata from the series page, but send loadLinks() to that episode.
+            playerPageUrl = findMoviePlayerPageUrl(document, detailUrl) ?: detailUrl
+        } else {
             val allEpisodesUrl = findAllEpisodesUrl(document)
             if (allEpisodesUrl != null && !samePage(allEpisodesUrl, detailUrl)) {
                 val seriesResponse = app.get(updateUrl(allEpisodesUrl), headers = browserHeaders())
@@ -175,29 +180,40 @@ class AnimeXin : MainAPI() {
     ): Boolean {
         ensureMainUrl()
 
-        val response = app.get(updateUrl(data), headers = browserHeaders())
+        var response = app.get(updateUrl(data), headers = browserHeaders())
         syncMainUrl(response.url)
-        val pageUrl = response.url
 
-        val servers = linkedMapOf<String, String>()
-        response.document
-            .select(".mobius select.mirror option[value], .mobius select option[value], select.mirror option[value]")
-            .forEach { option ->
-                val label = option.text().cleanText()
-                if (!isAllowedServer(label)) return@forEach
+        var servers = parseAllowedServers(response.document)
 
-                val serverUrl = decodeMirrorUrl(option.attr("value")) ?: return@forEach
-                servers.putIfAbsent(serverUrl, label)
+        // Compatibility/self-heal path: cached Movie responses or direct Movie series
+        // URLs may still point to the detail page. If no mirror selector exists there,
+        // follow the actual Movie episode page and enumerate mirrors from that page.
+        if (servers.isEmpty() && siteType(response.document) == SiteType.MOVIE) {
+            val moviePlayerUrl = findMoviePlayerPageUrl(response.document, response.url)
+            if (moviePlayerUrl != null && !samePage(moviePlayerUrl, response.url)) {
+                val playerResponse = app.get(updateUrl(moviePlayerUrl), headers = browserHeaders())
+                if (playerResponse.isSuccessful) {
+                    syncMainUrl(playerResponse.url)
+                    response = playerResponse
+                    servers = parseAllowedServers(response.document)
+                }
             }
+        }
 
+        val pageUrl = response.url
         var loaded = false
+
+        // Each mirror is isolated. A broken first/default host must not abort extraction
+        // of the remaining Indonesia/Indo/All Sub mirrors.
         for ((serverUrl, label) in servers) {
+            var producedLink = false
             val serverLoaded = runCatching {
                 loadExtractor(
                     serverUrl,
                     pageUrl,
                     subtitleCallback,
                 ) { link ->
+                    producedLink = true
                     callback(
                         ExtractorLink(
                             source = "$name | ${link.source}",
@@ -213,7 +229,7 @@ class AnimeXin : MainAPI() {
                     )
                 }
             }.getOrDefault(false)
-            loaded = serverLoaded || loaded
+            loaded = loaded || producedLink || serverLoaded
         }
 
         return loaded
@@ -408,6 +424,39 @@ class AnimeXin : MainAPI() {
             ?.attr("href")
             ?.takeIf { it.isNotBlank() }
             ?.let(::absoluteUrl)
+    }
+
+    private fun findMoviePlayerPageUrl(document: Document, currentUrl: String): String? {
+        if (hasMirrorSelector(document)) return currentUrl
+
+        return document.select(
+            ".eplister li a[href], .episodelist li a[href], " +
+                "#singlepisode .episodelist li a[href], .lastend .inepcx a[href]",
+        ).asSequence()
+            .map { it.attr("href") }
+            .filter { it.isNotBlank() }
+            .map(::absoluteUrl)
+            .firstOrNull { !samePage(it, currentUrl) }
+    }
+
+    private fun hasMirrorSelector(document: Document): Boolean {
+        return document.selectFirst(
+            ".mobius select.mirror option[value], .mobius select option[value], select.mirror option[value]",
+        ) != null
+    }
+
+    private fun parseAllowedServers(document: Document): LinkedHashMap<String, String> {
+        val servers = linkedMapOf<String, String>()
+        document
+            .select(".mobius select.mirror option[value], .mobius select option[value], select.mirror option[value]")
+            .forEach { option ->
+                val label = option.text().cleanText()
+                if (!isAllowedServer(label)) return@forEach
+
+                val serverUrl = decodeMirrorUrl(option.attr("value")) ?: return@forEach
+                servers.putIfAbsent(serverUrl, label)
+            }
+        return servers
     }
 
     private fun hasNextPage(document: Document): Boolean {
