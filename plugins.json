@@ -65,23 +65,23 @@
     },
     {
         "iconUrl": "https://drakor.kita.mobi/icon.jpg?s",
-        "fileHash": "sha256-b1328a9611646fd39944d347c8533a1f70718d7d41f1cdc6a873408b92fedc6c",
+        "fileHash": "sha256-3d6908523655cde75296cf328510ef71cd7bb22eb7d1d339d298d86501a440e6",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 64313,
+        "fileSize": 66055,
         "status": 1,
         "language": "id",
         "authors": [
             "Agoose"
         ],
         "tvTypes": [
-            "AsianDrama",
+            "Movie",
             "TvSeries",
-            "Movie"
+            "AsianDrama"
         ],
-        "version": 2,
+        "version": 4,
         "internalName": "DrakorKita",
-        "description": "DrakorKita - Nonton Drama Korea Subtitle Indonesia Gratis",
+        "description": "DrakorKita, DrakorIndo, DramaQu, Streaming online drama korea terbaru, Gratis download film drakor subtitle indonesia, kumpulan film serial drama korea terbaik",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/DrakorKita.cs3",
         "name": "DrakorKita"
     },
