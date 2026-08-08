@@ -6,7 +6,11 @@ import com.lagradost.cloudstream3.LoadResponse.Companion.addScore
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import org.jsoup.Jsoup
@@ -21,6 +25,7 @@ class AnimeXin : MainAPI() {
     override var name = "Anime Xin"
     override var lang = "id"
     override val hasMainPage = true
+    override val loadLinksTimeoutMs: Long = LOAD_LINKS_TIMEOUT_MS
 
     override val supportedTypes = setOf(
         TvType.Movie,
@@ -201,38 +206,65 @@ class AnimeXin : MainAPI() {
         }
 
         val pageUrl = response.url
-        var loaded = false
 
-        // Each mirror is isolated. A broken first/default host must not abort extraction
-        // of the remaining Indonesia/Indo/All Sub mirrors.
-        for ((serverUrl, label) in servers) {
-            var producedLink = false
-            val serverLoaded = runCatching {
+        // Resolve all mirrors concurrently with a per-host timeout. A broken/default
+        // host must never keep Cloudstream inside loadLinks() long enough to prevent
+        // the player/source selector from opening for healthy mirrors.
+        val results = coroutineScope {
+            servers.map { (serverUrl, label) ->
+                async { extractServerWithTimeout(serverUrl, label, pageUrl) }
+            }.map { it.await() }
+        }
+
+        // Preserve website mirror order while emitting only completed extraction results.
+        results.flatMap { it.subtitles }.forEach(subtitleCallback)
+        results.flatMap { it.links }.forEach(callback)
+
+        // Important: Cloudstream loadExtractor() returns true when an extractor matches
+        // the host even if extractor.getUrl() fails and emits zero links. Therefore this
+        // provider only reports success when at least one real ExtractorLink was emitted.
+        return results.any { it.links.isNotEmpty() }
+    }
+
+    private suspend fun extractServerWithTimeout(
+        serverUrl: String,
+        label: String,
+        pageUrl: String,
+    ): ServerExtractionResult {
+        val links = mutableListOf<ExtractorLink>()
+        val subtitles = mutableListOf<SubtitleFile>()
+
+        try {
+            withTimeoutOrNull(SERVER_EXTRACT_TIMEOUT_MS) {
                 loadExtractor(
                     serverUrl,
                     pageUrl,
-                    subtitleCallback,
+                    { subtitle -> subtitles += subtitle },
                 ) { link ->
-                    producedLink = true
-                    callback(
-                        ExtractorLink(
-                            source = "$name | ${link.source}",
-                            name = "$label | ${link.name}",
-                            url = link.url,
-                            referer = link.referer,
-                            quality = link.quality,
-                            headers = link.headers,
-                            extractorData = link.extractorData,
-                            type = link.type,
-                            audioTracks = link.audioTracks,
-                        ),
+                    links += ExtractorLink(
+                        source = "$name | ${link.source}",
+                        name = "$label | ${link.name}",
+                        url = link.url,
+                        referer = link.referer,
+                        quality = link.quality,
+                        headers = link.headers,
+                        extractorData = link.extractorData,
+                        type = link.type,
+                        audioTracks = link.audioTracks,
                     )
                 }
-            }.getOrDefault(false)
-            loaded = loaded || producedLink || serverLoaded
+            }
+        } catch (error: CancellationException) {
+            // Preserve Cloudstream/global coroutine cancellation; per-server timeout is
+            // already converted to null by withTimeoutOrNull.
+            throw error
+        } catch (_: Throwable) {
+            // A single malformed/broken extractor must not cancel healthy mirrors.
         }
 
-        return loaded
+        // Keep any real callback already emitted before a timeout; only the boolean
+        // return from loadExtractor() is ignored because it is not proof of a link.
+        return ServerExtractionResult(links, subtitles)
     }
 
     private fun parseCards(document: Document): List<SearchResponse> {
@@ -646,6 +678,11 @@ class AnimeXin : MainAPI() {
 
     private fun String.cleanText(): String = trim().replace(WHITESPACE, " ")
 
+    private data class ServerExtractionResult(
+        val links: List<ExtractorLink>,
+        val subtitles: List<SubtitleFile>,
+    )
+
     private enum class SiteType {
         MOVIE,
         ANIME,
@@ -654,6 +691,8 @@ class AnimeXin : MainAPI() {
 
     companion object {
         private const val DEFAULT_MAIN_URL = "https://animexin.dev"
+        private const val SERVER_EXTRACT_TIMEOUT_MS = 15_000L
+        private const val LOAD_LINKS_TIMEOUT_MS = 30_000L
         // Case-sensitive: preserve Website JSON Key capitalization exactly from Info.txt.
         private const val REMOTE_CONFIG_KEY = "AnimeXin"
         private const val MAIN_URL_JSON =
