@@ -1,5 +1,26 @@
 [
     {
+        "fileHash": "sha256-5c3df6bb5a4660d3d66bc617b54dfb50ef8ba08746e2045a11e1a8f43f09110f",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 32676,
+        "status": 3,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "Anime",
+            "OVA"
+        ],
+        "version": 4,
+        "internalName": "AnimeXin",
+        "description": "AnimeXin - Streaming Download Donghua Subtitle Indonesia English",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/AnimeXin.cs3",
+        "name": "AnimeXin"
+    },
+    {
         "iconUrl": "https://www.google.com/s2/favicons?domain=anoboy.xyz&sz=%size%",
         "fileHash": "sha256-17681ad6b9803efbe31cb366bb6012922cb3b10e8e470566ec0093c1e25609a3",
         "apiVersion": 1,
