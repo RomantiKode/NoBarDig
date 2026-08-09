@@ -339,6 +339,26 @@
         "name": "Rebahin21"
     },
     {
+        "fileHash": "sha256-76de992b25ed09e73fefcec8b6e7002eb860d5d353d9adf54a0b77daaa72928d",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 28112,
+        "status": 3,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries"
+        ],
+        "version": 2,
+        "internalName": "Sokuja",
+        "description": "SOKUJA menyediakan koleksi anime subtitle Indonesia terlengkap. Nonton streaming dan download anime sub Indo HD gratis, update episode baru setiap hari.",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Sokuja.cs3",
+        "name": "Sokuja"
+    },
+    {
         "iconUrl": "https://162.244.95.227/favicon.ico",
         "fileHash": "sha256-961ab3016f29573c846d844dc271fa177aef46beed4b7371f5773fa57ec15c78",
         "apiVersion": 1,
