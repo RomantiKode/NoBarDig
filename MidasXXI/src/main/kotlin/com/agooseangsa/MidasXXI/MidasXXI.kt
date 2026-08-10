@@ -57,12 +57,8 @@ class MidasXXI : MainAPI() {
         if (page > 1) return newHomePageResponse(request.name, emptyList(), hasNext = false)
         ensureMainUrl()
         val document = _a0()
-        val section = document.selectFirst(request.data)
-        val items = section
-            ?.select(_q9("H9c7rQuWH4MdSRbD"))
-            ?.mapNotNull(::_a1)
-            ?.distinctBy { it.url }
-            .orEmpty()
+        val section = _b7(document, request)
+        val items = section?.let(::_b5).orEmpty()
         return newHomePageResponse(request.name, items, hasNext = false)
     }
 
@@ -204,6 +200,50 @@ class MidasXXI : MainAPI() {
             homeCache = it
             homeCacheAt = now
         }
+    }
+
+    private fun _b7(document: Document, request: MainPageRequest): Element? {
+        document.selectFirst(request.data)?.let { return it }
+        val header = document.select(_q9("FsAuoA2I")).firstOrNull { candidate ->
+            candidate.selectFirst("h2")?.text()?.trim()?.equals(request.name, ignoreCase = true) == true
+        } ?: return null
+
+        var sibling = header.nextElementSibling()
+        while (sibling != null && sibling.tagName() != _q9("FsAuoA2I")) {
+            if (sibling.select(_q9("H/4ntg2cUJBTEh7BJmzsO9jGWnqRZvQze0jShIt1bFoI1ierH4lViik=")).isNotEmpty()) return sibling
+            sibling = sibling.nextElementSibling()
+        }
+        return null
+    }
+
+    private fun _b5(section: Element): List<SearchResponse> {
+        val primary = section
+            .select(_q9("H9c7rQuWH4MdSRbD"))
+            .mapNotNull(::_a1)
+
+        val anchorFallback = section
+            .select(_q9("H/4ntg2cUJBTEh7BJmzsO9jGWnqRZvQze0jShIt1bFoI1ierH4lViik="))
+            .mapNotNull(::_b6)
+
+        return (primary + anchorFallback).distinctBy { it.url }
+    }
+
+    private fun _b6(anchor: Element): SearchResponse? {
+        val href = fixUrlNull(anchor.attr(_q9("Ftcqog=="))) ?: return null
+        val type = typeFromUrl(href) ?: return null
+        val article = anchor.closest(_q9("H9c7rQuWHw=="))
+        val container = article ?: anchor.parent()
+        val img = container?.selectFirst(_q9("UNUgtxyfCI0dUBSCcGzkLw=="))
+        val titleLink = article?.selectFirst(_q9("UMEusAnaEp5UXCjGImDvFdvBb2WRZvQze0jS8w=="))
+        val visible = titleLink?.text()?.trim()?.takeIf { it.isNotBlank() }
+            ?: anchor.text().trim().takeIf { it.isNotBlank() }
+        val title = normalizeListTitle(visible, img?.attr(_q9("H8k7")))
+            ?: img?.attr(_q9("H8k7"))?.trim()?.takeIf { it.isNotBlank() }
+            ?: return null
+        val poster = img?.let { fixUrlNull(it.attr(_q9("GsQ7pUWJCM4=")).ifBlank { it.attr(_q9("Ddcs")) }) }
+        val year = container?.selectFirst(_q9("UMEusAnaRI0HTRLAfCWnLJaVYg=="))?.text()?.let(::extractYear)
+            ?: container?.text()?.let(::extractYear)
+        return _a2(title, href, type, poster, year)
     }
 
     private fun _a1(element: Element): SearchResponse? {
