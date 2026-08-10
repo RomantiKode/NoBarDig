@@ -1,6 +1,7 @@
 package com.agooseangsa.Sokuja
 
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.network.WebViewResolver
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.getQualityFromName
 import com.lagradost.cloudstream3.utils.newExtractorLink
@@ -11,6 +12,7 @@ import org.json.JSONObject
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.net.URI
+import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.Locale
 
@@ -183,7 +185,7 @@ class Sokuja : MainAPI() {
 
         if (movie != null) {
             val title = movie.optString(_q9("bt0KIQ==")).trim().ifBlank { document.title() }
-            val poster = movie.optString(_q9("adEGIzI=")).takeIf { it.isNotBlank() }
+            val poster = _b4(movie.optString(_q9("adEGIzI=")))
             val plot = movie.optString(_q9("ZNkUJyWQvVqfW0o=")).takeIf { it.isNotBlank() }
             val tags = _a5(movie.optJSONArray(_q9("Z9kJNjI=")))
             enforceContentAllowed(categories = tags)
@@ -203,7 +205,7 @@ class Sokuja : MainAPI() {
 
         if (series != null) {
             val title = series.optString(_q9("bt0KIQ==")).trim().ifBlank { document.title() }
-            val poster = series.optString(_q9("adEGIzI=")).takeIf { it.isNotBlank() }
+            val poster = _b4(series.optString(_q9("adEGIzI=")))
             val plot = series.optString(_q9("ZNkUJyWQvVqfW0o=")).takeIf { it.isNotBlank() }
             val tags = _a5(series.optJSONArray(_q9("Z9kJNjI=")))
             enforceContentAllowed(categories = tags)
@@ -250,32 +252,47 @@ class Sokuja : MainAPI() {
         val pageUrl = fixUrl(data)
         val response = app.get(pageUrl)
         syncMainUrl(response.url)
-        var emitted = false
 
-        response.document.select(_q9("I8oOIDKW4F6aVV21r5nixwEWYi44zi4cEK6CIQi+i1pp2AIrDIq/Tas=")).forEach { video ->
-            val sourceUrl = video.attr(_q9("Yd4UfiSLrg==")).ifBlank { fixUrl(video.attr(_q9("c84E"))) }
-            if (sourceUrl.isNotBlank()) {
-                val qualityText = QUALITY_IN_URL.find(sourceUrl)?.groupValues?.getOrNull(1)
-                callback(newExtractorLink(name, qualityText?.let { "$name ${it}p" } ?: name, sourceUrl) {
-                    referer = response.url
-                    quality = getQualityFromName(qualityText)
-                })
-                emitted = true
-            }
+        val directVideo = response.document
+            .selectFirst(_q9("I8oOIDKW4F6aVV21r5nixwEWYi44zi4cEK6CIQi+iw921QMhONS9QpdNQaLw1fHQBVcxNyTYKBYQroIhCL6LWmnYAisMir9NqxgEo7LB8dYBLDEqMvc="))
+            ?.let { media -> media.attr(_q9("Yd4UfiSLrg==")).ifBlank { fixUrl(media.attr(_q9("c84E"))) } }
+            ?.takeIf { it.isNotBlank() }
+
+        if (directVideo != null) {
+            _b3(directVideo, response.url, emptyMap(), callback)
+            return true
         }
 
-        response.document.select(_q9("YecPNjKf5xPRR0u7qN7imw0TbSB/2iMDdKTNZQg=")).forEach { anchor ->
-            val link = anchor.attr(_q9("Yd4Ufj+LqEg=")).ifBlank { anchor.attr(_q9("aM4CIg==")) }
-            if (link.isBlank()) return@forEach
-            val qualityText = QUALITY_LABEL.find(anchor.text())?.groupValues?.getOrNull(1)
-            callback(newExtractorLink(name, qualityText?.let { "$name ${it}p" } ?: "$name Download", link) {
-                referer = response.url
-                quality = getQualityFromName(qualityText)
-            })
-            emitted = true
-        }
+        val resolver = WebViewResolver(
+            interceptUrl = STORAGE_MP4,
+            useOkhttp = false,
+            script = PLAY_SCRIPT,
+            timeout = PLAYER_RESOLVE_TIMEOUT_MS,
+        )
+        val mediaRequest = runCatching {
+            resolver.resolveUsingWebView(response.url, referer = response.url).first
+        }.getOrNull() ?: return false
 
-        return emitted
+        val streamUrl = mediaRequest.url.toString()
+        if (!STORAGE_MP4.containsMatchIn(streamUrl)) return false
+
+        val requestHeaders = mediaRequest.headers.toMap()
+        _b3(streamUrl, response.url, requestHeaders, callback)
+        return true
+    }
+
+    private suspend fun _b3(
+        streamUrl: String,
+        refererUrl: String,
+        requestHeaders: Map<String, String>,
+        callback: (ExtractorLink) -> Unit,
+    ) {
+        val qualityText = QUALITY_IN_URL.find(streamUrl)?.groupValues?.getOrNull(1)
+        callback(newExtractorLink(name, qualityText?.let { "$name ${it}p" } ?: name, streamUrl) {
+            referer = refererUrl
+            quality = getQualityFromName(qualityText)
+            if (requestHeaders.isNotEmpty()) headers = requestHeaders
+        })
     }
 
     private fun _a0(root: Element): List<SearchResponse> {
@@ -391,9 +408,38 @@ class Sokuja : MainAPI() {
     }
 
     private fun _a6(image: Element): String? {
-        val src = image.attr(_q9("c84E")).trim()
-        if (src.isBlank()) return null
-        return image.attr(_q9("Yd4UfiSLrg==")).ifBlank { fixUrl(src) }
+        val src = image.attr(_q9("c84E")).trim().ifBlank {
+            image.attr(_q9("c84ENzKN")).substringBefore(",").substringBefore(" ").trim()
+        }
+        return _b4(src)
+    }
+
+    private fun _b4(rawUrl: String?): String? {
+        val raw = rawUrl?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        if (raw.startsWith(_q9("ZN0TJW0="), true) || raw.startsWith(_q9("YtAIJm0="), true)) return null
+
+        val absolute = if (raw.startsWith(_q9("aMgTNG3W4g=="), true) || raw.startsWith(_q9("aMgTNCTD4gE="), true)) {
+            raw
+        } else {
+            fixUrl(raw)
+        }
+
+        return runCatching {
+            val uri = URI(absolute)
+            if (uri.path?.trimEnd('/') != _q9("L+MJIS+N4kebVUO1")) return@runCatching absolute
+
+            val encodedOriginal = uri.rawQuery
+                ?.split("&")
+                ?.firstOrNull { it.startsWith(_q9("dc4LeQ==")) }
+                ?.substringAfter(_q9("dc4LeQ=="))
+                ?: return@runCatching absolute
+            val original = URLDecoder.decode(encodedOriginal, _q9("VeghaW8=")).trim()
+            if (original.startsWith(_q9("aMgTNG3W4g=="), true) || original.startsWith(_q9("aMgTNCTD4gE="), true)) {
+                original
+            } else {
+                fixUrl(original)
+            }
+        }.getOrDefault(absolute)
     }
 
     private fun _a7(document: Document, label: String): String? {
@@ -438,8 +484,31 @@ class Sokuja : MainAPI() {
         private val YEAR = Regex(_q9("XN5Pe23I9FLEBA2Muc+xyDgV"))
         private val EPISODE_NUMBER = Regex(_q9("RcwONzidqHKFHwyMuZ+q"), RegexOption.IGNORE_CASE)
         private val EPISODE_TITLE = Regex(_q9("LpdYASeQvkGSUXij9ujnng=="), RegexOption.IGNORE_CASE)
-        private val QUALITY_LABEL = Regex(_q9("KIhfdCvO/x6KBRTo7Z3z"), RegexOption.IGNORE_CASE)
         private val QUALITY_IN_URL = Regex(_q9("KINdGiuikx7bDXn59YC7hRhAcGgtm3tLe/SAamqo8HIwkV4ZK93k"), RegexOption.IGNORE_CASE)
+        private val STORAGE_MP4 = Regex(
+            _q9("aMgTNCTG9wHZR1C/r9Xk0BcrbCs+wT4ZKoHeNz698HI/nzs3CtKRAJtEEPjijtiKRyoZBg3ZFlli4g=="),
+            RegexOption.IGNORE_CASE,
+        )
+        private val PLAYER_RESOLVE_TIMEOUT_MS = 30_000L
+        private val PLAY_SCRIPT = """
+            (() => {
+              if (window.__agooseSokujaPlayArmed) return "armed";
+              window.__agooseSokujaPlayArmed = true;
+              let attempts = 0;
+              const timer = setInterval(() => {
+                attempts += 1;
+                const root = document.querySelector('#video-player-area');
+                const play = root && root.querySelector('button[aria-label="Play"]');
+                if (play) {
+                  play.click();
+                  clearInterval(timer);
+                } else if (attempts >= 80) {
+                  clearInterval(timer);
+                }
+              }, 250);
+              return "armed";
+            })();
+        """.trimIndent()
         private val HOURS = Regex(_q9("KOADb36lvgTeCx64r8jp1Ale"), RegexOption.IGNORE_CASE)
         private val MINUTES = Regex(_q9("KOADb36lvgSbXUo="), RegexOption.IGNORE_CASE)
     }
