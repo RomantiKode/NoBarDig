@@ -7,9 +7,14 @@ import com.lagradost.cloudstream3.LoadResponse.Companion.addScore
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTMDbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.lagradost.cloudstream3.mainPageOf
+import com.lagradost.cloudstream3.newSubtitleFile
 import com.lagradost.cloudstream3.newHomePageResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
+import com.lagradost.cloudstream3.utils.getAndUnpack
+import com.lagradost.cloudstream3.utils.getQualityFromName
 import com.lagradost.cloudstream3.utils.loadExtractor
+import com.lagradost.cloudstream3.utils.newExtractorLink
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
@@ -186,9 +191,151 @@ class MidasXXI : MainAPI() {
 
         var handled = false
         for (frame in frames) {
-            handled = loadExtractor(frame, canonicalPageUrl, subtitleCallback, callback) || handled
+            val frameHandled = if (_c3(frame)) {
+                _b8(frame, canonicalPageUrl, subtitleCallback, callback) ||
+                    loadExtractor(frame, canonicalPageUrl, subtitleCallback, callback)
+            } else {
+                loadExtractor(frame, canonicalPageUrl, subtitleCallback, callback)
+            }
+            handled = frameHandled || handled
         }
         return handled
+    }
+
+    private suspend fun _b8(
+        frameUrl: String,
+        pageReferer: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+    ): Boolean {
+        val playerResponse = runCatching { app.get(frameUrl, referer = pageReferer) }.getOrNull() ?: return false
+        val playerUrl = playerResponse.url
+
+        val directSources = playerResponse.document
+            .select(_q9("CMwroQehCd8XYF+OI2r8OpSEXCXDZPI="))
+            .mapNotNull { element ->
+                _c1(playerUrl, element.attr(_q9("Ddcs")))?.let { url ->
+                    _c7(
+                        file = url,
+                        label = element.attr(_q9("EsQtoQQ=")).ifBlank { element.attr(_q9("GsQ7pUWLD8wYVAfX")) },
+                        type = element.attr(_q9("Ctw/oQ==")),
+                    )
+                }
+            }
+
+        val directTracks = playerResponse.document
+            .select(_q9("CtcupwOhCd8XYA=="))
+            .mapNotNull { track ->
+                val file = _c1(playerUrl, track.attr(_q9("Ddcs"))) ?: return@mapNotNull null
+                _c8(
+                    file = file,
+                    label = track.attr(_q9("EsQtoQQ=")).ifBlank { track.attr(_q9("DdcsqAmUHQ==")) }.ifBlank { _q9("LdAtsAGOFsg=") },
+                    kind = track.attr(_q9("FcwhoA==")),
+                )
+            }
+
+        val unpacked = runCatching { getAndUnpack(playerResponse.text) }.getOrDefault("")
+        val parsed = _b9(unpacked.ifBlank { playerResponse.text }, playerUrl)
+        val sources = (directSources + parsed.first).distinctBy { it.file }
+        val tracks = (directTracks + parsed.second).distinctBy { it.file }
+
+        tracks.forEach { track ->
+            subtitleCallback(
+                newSubtitleFile(
+                    lang = _c6(track.label),
+                    url = track.file,
+                ) {
+                    headers = mapOf(_q9("LMApoRqfCA==") to playerUrl)
+                }
+            )
+        }
+
+        sources.forEach { source ->
+            val linkType = when {
+                source.type.contains(_q9("E9Uqox2IFg=="), ignoreCase = true) || source.file.contains(_q9("UMh8sVA="), ignoreCase = true) -> ExtractorLinkType.M3U8
+                source.type.contains(_q9("GsQ8rA=="), ignoreCase = true) || source.file.contains(_q9("UMg/oA=="), ignoreCase = true) -> ExtractorLinkType.DASH
+                else -> ExtractorLinkType.VIDEO
+            }
+            callback(
+                newExtractorLink(
+                    source = PLAYCINEMATIC_NAME,
+                    name = buildString {
+                        append(PLAYCINEMATIC_NAME)
+                        source.label.trim().takeIf { it.isNotBlank() }?.let { append(" ").append(it) }
+                    },
+                    url = source.file,
+                    type = linkType,
+                ) {
+                    referer = playerUrl
+                    quality = getQualityFromName(source.label)
+                    headers = mapOf(_q9("LMApoRqfCA==") to playerUrl)
+                }
+            )
+        }
+
+        return sources.isNotEmpty()
+    }
+
+    private fun _b9(
+        payload: String,
+        baseUrl: String,
+    ): Pair<List<_c7>, List<_c8>> {
+        if (payload.isBlank()) return emptyList<_c7>() to emptyList()
+        val sources = mutableListOf<_c7>()
+        val tracks = mutableListOf<_c8>()
+
+        PLAYCINEMATIC_OBJECT.findAll(payload).forEach { objectMatch ->
+            val body = objectMatch.value
+            val rawFile = _c0(body, _q9("GMwjoQ==")) ?: return@forEach
+            val file = _c1(baseUrl, rawFile) ?: return@forEach
+            val label = _c0(body, _q9("EsQtoQQ=")).orEmpty()
+            val type = _c0(body, _q9("Ctw/oQ==")).orEmpty()
+            val kind = _c0(body, _q9("FcwhoA==")).orEmpty()
+
+            if (kind.equals(_q9("HcQ/sAGVFN4="), ignoreCase = true) || _c4(file)) {
+                tracks += _c8(file, label.ifBlank { _q9("LdAtsAGOFsg=") }, kind)
+            } else if (type.startsWith(_q9("CMwroQfV"), ignoreCase = true) || _c5(file)) {
+                sources += _c7(file, label, type)
+            }
+        }
+
+        return sources.distinctBy { it.file } to tracks.distinctBy { it.file }
+    }
+
+    private fun _c0(body: String, property: String): String? {
+        val regex = Regex("(?:[\"']?${Regex.escape(property)}[\"']?)\\s*:\\s*[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
+        return regex.find(body)?.groupValues?.getOrNull(1)?.let(::_c2)
+    }
+
+    private fun _c1(baseUrl: String, rawUrl: String): String? {
+        val cleaned = _c2(rawUrl).trim().takeIf { it.isNotBlank() && it != "#" } ?: return null
+        if (cleaned.startsWith(_q9("GsQ7pVI="), ignoreCase = true) || cleaned.startsWith(_q9("FMQ5pRuZCMQESUk="), ignoreCase = true)) return null
+        return runCatching { URI(baseUrl).resolve(cleaned).toString() }.getOrNull()
+    }
+
+    private fun _c2(value: String): String = value
+        .replace("\\/", "/")
+        .replace(_q9("ItB/9FrM"), "&", ignoreCase = true)
+        .replace(_q9("WMQitFM="), "&")
+
+    private fun _c3(url: String): Boolean = runCatching {
+        URI(url).host?.equals(PLAYCINEMATIC_HOST, ignoreCase = true) == true
+    }.getOrDefault(false)
+
+    private fun _c4(url: String): Boolean {
+        val clean = url.substringBefore('?').substringBefore('#').lowercase(Locale.ROOT)
+        return clean.endsWith(_q9("UNY9sA==")) || clean.endsWith(_q9("UNM7sA==")) || clean.endsWith(_q9("UMQ8tw==")) || clean.endsWith(_q9("UNY8pQ=="))
+    }
+
+    private fun _c5(url: String): Boolean {
+        val clean = url.substringBefore('?').substringBefore('#').lowercase(Locale.ROOT)
+        return clean.contains(_q9("UdY7tg2bF4I=")) || clean.endsWith(_q9("UMg/8A==")) || clean.endsWith(_q9("UMh8sVA=")) || clean.endsWith(_q9("UMg/oA=="))
+    }
+
+    private fun _c6(label: String): String = when (label.trim().lowercase(Locale.ROOT)) {
+        _q9("F8srqwafCcQV"), _q9("F8srqwafCcQVUw=="), "id" -> _q9("N8srqwafCcQV")
+        _q9("G8soqAGJEg=="), "en" -> _q9("O8soqAGJEg==")
+        else -> label.trim().ifBlank { _q9("LdAtsAGOFsg=") }
     }
 
     private suspend fun _a0(): Document = homeMutex.withLock {
@@ -563,6 +710,18 @@ class MidasXXI : MainAPI() {
         .replace(WHITESPACE, " ")
         .trim()
 
+    private data class _c7(
+        val file: String,
+        val label: String,
+        val type: String,
+    )
+
+    private data class _c8(
+        val file: String,
+        val label: String,
+        val kind: String,
+    )
+
     private data class TmdbMetadata(
         val id: Int,
         val imdbId: String?,
@@ -587,6 +746,9 @@ class MidasXXI : MainAPI() {
         private val TMDB_API_KEY = ""
         private val TMDB_API = _q9("FtE7tBvAVYIVTRqAJG3sJZiXbjPVZYE0e0qbnQ==")
         private val TMDB_IMAGE = _q9("FtE7tBvAVYIdUBLJNSv9JZODKTnDYIAvJl0=")
+        private val PLAYCINEMATIC_HOST = _q9("DskuvQuTFMgZXAfHMyvqJ5o=")
+        private val PLAYCINEMATIC_NAME = _q9("LskuvSuTFMgZXAfHMw==")
+        private val PLAYCINEMATIC_OBJECT = Regex(_q9("It4UmhOHJ4coQA=="))
 
         private val BLOCKED_CATEGORIES = emptySet<String>()
         private val BLOCKED_TAGS = setOf(_q9("CMw5pQWbAg=="))
