@@ -213,6 +213,26 @@
         "name": "Layarkaca21"
     },
     {
+        "fileHash": "sha256-a2a6da73b0a1dd45b39dd936d020d0b7056297cf0ff86b6ffad6042787dfcb94",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 44878,
+        "status": 3,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries"
+        ],
+        "version": 2,
+        "internalName": "MidasXXI",
+        "description": "MIDASXXI Tempat seru buat nonton film dan drama Korea! Mulai dari LK21, IDLIX, hingga Bioskopkeren, Rebahin Sub Indo. dan Nonton Film semi bikin mager makin asyik!",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/MidasXXI.cs3",
+        "name": "MidasXXI"
+    },
+    {
         "iconUrl": "https://www.google.com/s2/favicons?domain=otakupoi.org&sz=%size%",
         "fileHash": "sha256-512ed37c633d9e33e508d9f0cd85f317e9b0ed58690c7db959a8aed1a29ddd45",
         "apiVersion": 1,
