@@ -192,31 +192,11 @@
         "name": "KlikXXi"
     },
     {
-        "iconUrl": "https://www.google.com/s2/favicons?domain=tv12.lk21official.cc&sz=%size%",
-        "fileHash": "sha256-e4faf7ff76f3790dbe9bc10a11b17e2401182bb4b3413ca9b226260c2a4e915a",
+        "iconUrl": "https://assets.showcdnx.com/favicon.ico",
+        "fileHash": "sha256-998be4908c283ab5ddd681aba362b5b11baa49c070b5e94258d0a5bdf16d334c",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 71238,
-        "status": 1,
-        "language": "id",
-        "authors": [
-            "Agoose"
-        ],
-        "tvTypes": [
-            "Movie",
-            "TvSeries"
-        ],
-        "version": 6,
-        "internalName": "Layarkaca21",
-        "description": "Nonton dan download film & series terbaru di LK21. Streaming sub Indo gratis, kualitas HD. Tersedia drama Korea, anime, film barat, dan Asia lengkap!",
-        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Layarkaca21.cs3",
-        "name": "Layarkaca21"
-    },
-    {
-        "fileHash": "sha256-d1522e83416fb8b6a8b37d189068db2a67f4b228da22c92211e1cc207d349b94",
-        "apiVersion": 1,
-        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 45788,
+        "fileSize": 47516,
         "status": 3,
         "language": "id",
         "authors": [
@@ -226,7 +206,27 @@
             "Movie",
             "TvSeries"
         ],
-        "version": 3,
+        "version": 1,
+        "internalName": "Layarkaca21",
+        "description": "Nonton dan download film & series terbaru di LK21. Streaming sub Indo gratis, kualitas HD. Tersedia drama Korea, anime, film barat, dan Asia lengkap!",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Layarkaca21.cs3",
+        "name": "Layarkaca21"
+    },
+    {
+        "fileHash": "sha256-001381a9bba3392f0f8ec86eacedf57648a2e6ed5be3106da8a2cbe411bf4372",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 54594,
+        "status": 3,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries"
+        ],
+        "version": 5,
         "internalName": "MidasXXI",
         "description": "MIDASXXI Tempat seru buat nonton film dan drama Korea! Mulai dari LK21, IDLIX, hingga Bioskopkeren, Rebahin Sub Indo. dan Nonton Film semi bikin mager makin asyik!",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/MidasXXI.cs3",
@@ -359,10 +359,10 @@
         "name": "Rebahin21"
     },
     {
-        "fileHash": "sha256-76de992b25ed09e73fefcec8b6e7002eb860d5d353d9adf54a0b77daaa72928d",
+        "fileHash": "sha256-b4d3d7253c8dce4e76d0584bb0aa4594a2dc0370592f51961e024afc59c2152c",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 28112,
+        "fileSize": 29533,
         "status": 3,
         "language": "id",
         "authors": [
@@ -372,7 +372,7 @@
             "Movie",
             "TvSeries"
         ],
-        "version": 2,
+        "version": 4,
         "internalName": "Sokuja",
         "description": "SOKUJA menyediakan koleksi anime subtitle Indonesia terlengkap. Nonton streaming dan download anime sub Indo HD gratis, update episode baru setiap hari.",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Sokuja.cs3",
