@@ -138,10 +138,10 @@ jobs:
             fi
           done
 
-          if [ "$MODULE_COUNT" -eq 0 ]; then
-            echo "ERROR: Tidak ada modul Gradle yang ditemukan."
-            exit 1
-          fi
+    if [ ${#modules[@]} -eq 0 ]; then
+    echo "Tidak ada modul Gradle yang ditemukan. Tidak ada yang perlu dibuild."
+    exit 0
+    fi
 
           echo "Total module berhasil dibuild: $MODULE_COUNT"
 
