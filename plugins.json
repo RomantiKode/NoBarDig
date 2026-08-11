@@ -1,9 +1,10 @@
 [
     {
-        "fileHash": "sha256-eab8e265177d6dc0c47d26058ef86d1f156a954940188a4d88b4b0b6bb420c22",
+        "iconUrl": "https://animexin.dev/wp-content/uploads/2026/01/cropped-New-Logo-e1768365053967-192x192.png",
+        "fileHash": "sha256-b38380176fdbca17a98078760d6f2015a8e985f70debe23a63b2f9b033826504",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 38070,
+        "fileSize": 42974,
         "status": 3,
         "language": "id",
         "authors": [
@@ -11,10 +12,9 @@
         ],
         "tvTypes": [
             "Movie",
-            "Anime",
-            "OVA"
+            "Anime"
         ],
-        "version": 6,
+        "version": 1,
         "internalName": "AnimeXin",
         "description": "AnimeXin - Streaming Download Donghua Subtitle Indonesia English",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/AnimeXin.cs3",
