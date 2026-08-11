@@ -193,10 +193,10 @@
     },
     {
         "iconUrl": "https://assets.showcdnx.com/favicon.ico",
-        "fileHash": "sha256-998be4908c283ab5ddd681aba362b5b11baa49c070b5e94258d0a5bdf16d334c",
+        "fileHash": "sha256-d1882ff8d20b154ed928ddf52b3e4806efb96e6f1434a595cc16521ae07ecd5c",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 47516,
+        "fileSize": 52052,
         "status": 3,
         "language": "id",
         "authors": [
