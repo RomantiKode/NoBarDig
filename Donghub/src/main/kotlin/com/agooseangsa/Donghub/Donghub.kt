@@ -1,136 +1,146 @@
 package com.agooseangsa.Donghub
 
-import android.util.Base64
-import com.lagradost.cloudstream3.Episode
-import com.lagradost.cloudstream3.HomePageResponse
-import com.lagradost.cloudstream3.LoadResponse
-import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.MainPageRequest
-import com.lagradost.cloudstream3.SearchResponse
-import com.lagradost.cloudstream3.ShowStatus
-import com.lagradost.cloudstream3.SubtitleFile
-import com.lagradost.cloudstream3.TrailerData
-import com.lagradost.cloudstream3.TvType
-import com.lagradost.cloudstream3.USER_AGENT
-import com.lagradost.cloudstream3.app
-import com.lagradost.cloudstream3.mainPageOf
-import com.lagradost.cloudstream3.network.WebViewResolver
-import com.lagradost.cloudstream3.newEpisode
-import com.lagradost.cloudstream3.newHomePageResponse
-import com.lagradost.cloudstream3.newMovieLoadResponse
-import com.lagradost.cloudstream3.newMovieSearchResponse
-import com.lagradost.cloudstream3.newTvSeriesLoadResponse
-import com.lagradost.cloudstream3.newTvSeriesSearchResponse
+import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.ExtractorLinkType
-import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.loadExtractor
-import com.lagradost.cloudstream3.utils.newExtractorLink
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.json.JSONObject
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.json.JSONObject
 import java.net.URI
 import java.net.URLEncoder
 import java.util.Locale
 
 class Donghub : MainAPI() {
-    override var mainUrl = _e0
-    override var name = _q9("TVoaqUYs9Q==")
+    override var mainUrl = DEFAULT_MAIN_URL
+    override var name = "Donghub"
     override var lang = "id"
+
+    override val supportedTypes = setOf(
+        TvType.Movie,
+        TvType.TvSeries,
+    )
+
     override val hasMainPage = true
-    override val supportedTypes = setOf(TvType.Movie, TvType.Anime)
-
     override val mainPage = mainPageOf(
-        _e3 to _q9("WVoEu0I45QV7dlN01A=="),
-        _e4 to _q9("RVQAq10tt3dKdVJ03mk="),
-        _e5 to _q9("W1AXoUM08ktLeEN8wmI="),
+        LATEST_RELEASE_SOURCE to _qD9("OSMonUtEDqlfkR+vC2g="),
     )
 
-    private val _a0 = mapOf(
-        _q9("XEYRvAMY8EBBbQ==") to USER_AGENT,
-        _q9("SFYXq14t") to _q9("fVAMugEx40hDNVZl3WCPfLGUpIfgOoB5WuIYyAO32lhoRQSiRzr2UUZ2WTrVYYokod39xrc50j4EtAXeS/SO"),
-    )
-
-    private val _a1 = Mutex()
-    private var _a2 = false
+    private val mainUrlMutex = Mutex()
+    private var mainUrlResolved = false
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        if (page > 1) return newHomePageResponse(request.name, emptyList())
-        _b0()
+        ensureMainUrl()
+        val targetUrl = if (page <= 1) mainUrl else "$mainUrl/page/$page/"
+        val response = app.get(targetUrl)
+        syncMainUrl(response.url)
+        val document = response.document
 
-        val document = _b1("$mainUrl/")
-        val selector = when (request.data) {
-            _e3 -> _q9("J0cRoks45EBcN1962WSJcrXA5sigeZFiWvoEh1Wq2QR8WRW8XTX+QUprF3TfeI98vIXjiv0=")
-            _e4 -> _q9("J0cRoks45EBcN1t02WmVa7iPoI2uPtg/QuYHlw6q0lpnWgajTzW3RF1tXnbBach9ow==")
-            _e5 -> _q9("J0YRvEc85AhIfFk1g2CPbKSVvYyudIplR+wYhlW4xQ==")
-            else -> _q9("J0cRoks45EBcN1t02WmVa7iPoI2uPtg/QuYHlw6q0lpnWgajTzW3RF1tXnbBach9ow==")
+        val latestSection = document.selectFirst(_qD9("WzA5lF1RXZ5J0xavDGhr/yakYFw="))?.parent()
+            ?: throw ErrorLoadingException(_qD9("NyM7kVleDrdbiR+9DC1K7iKubErPM4HBqV8xdwE+VUwRIzfYXFlanleIEa8W"))
+        val items = latestSection.select(_qD9("Wy41i0xFXp8a0xi9AA=="))
+            .mapNotNull(::_a0)
+
+        val hasNext = document.select(_qD9("FGwuo1BCS51n0VqvVmN98zrlfVjNdujAslU7ZxFtek0HJzql")).any { anchor ->
+            val href = anchor.attr(_qD9("HTA5ng=="))
+            href.contains("/page/${page + 1}/") || anchor.text().trim().equals(_qD9("OyckjA=="), ignoreCase = true)
         }
-        return newHomePageResponse(request.name, _b2(document, selector))
+
+        return newHomePageResponse(request, items, hasNext)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        _b0()
-        val encoded = URLEncoder.encode(query.trim(), _q9("XGEy4xY="))
-        return _b2(_b1("$mainUrl/?s=$encoded"))
+        ensureMainUrl()
+        val encoded = URLEncoder.encode(query.trim(), _qD9("IBYa1QA="))
+        val response = app.get("$mainUrl/?s=$encoded")
+        syncMainUrl(response.url)
+        val document = response.document
+
+        val scoped = document.select(_qD9("WzIzi0xSQZ9D3VSiEX5s/j6vLRfIYL0="))
+        val cards = if (scoped.isNotEmpty()) scoped else document.select(_qD9("Wy41i0xFXp8a0xi9AA=="))
+        return cards.mapNotNull(::_a0).distinctBy { it.url }
     }
 
-    override suspend fun load(url: String): LoadResponse? {
-        _b0()
+    override suspend fun load(url: String): LoadResponse {
+        ensureMainUrl()
+        val normalizedUrl = updateUrl(url)
+        val response = app.get(normalizedUrl)
+        syncMainUrl(response.url)
+        var document = response.document
+        var canonicalUrl = canonicalUrl(document) ?: response.url
 
-        val initialDocument = _b1(url)
-        val parentUrl = _b3(initialDocument, url)
-        val pageUrl = parentUrl ?: url
-        val document = if (parentUrl != null) _b1(parentUrl, url) else initialDocument
+        if (isEpisodePage(document)) {
+            val detailUrl = document.selectFirst(_qD9("FBk9ilFRA5dbnx+iRUx0526OfVDZfKHLtGUCahF7R3g="))
+                ?.attr(_qD9("HTA5ng=="))
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?.let(::normalizeProviderUrl)
+                ?: throw ErrorLoadingException(_qD9("IBAQ2HlcQtt/jRO9F2l9+G6PYlfNe7DM50wwZgJ1AUEcNjmVTVtPlQ=="))
+            val detailResponse = app.get(detailUrl)
+            syncMainUrl(detailResponse.url)
+            document = detailResponse.document
+            canonicalUrl = canonicalUrl(document) ?: detailResponse.url
+        }
 
-        val title = document.selectFirst(_q9("YQRaq0At5VwCbV5hwWnKP/6CpI/tepZlS+EAwxPrmlQnUBq6XCC6UUZtW3A="))
-            ?.text()
-            ?._d1()
-            ?.takeIf(String::isNotBlank)
-            ?: return null
+        val website = _a1(document, canonicalUrl)
+        enforceContentAllowed(website.categories, website.rawTags)
 
-        val poster = document.selectFirst(
-            _q9("J1cdqU02+VFKd0M1g3iOar2C7YHjctQxAPsclha4lh1kUljuACryV0Z8RGHFeYt98Imgj6I1kXxJoQOTVqrZB30YHaNPPvIJDzdHet54g23wiaCP")
-        )?._c6(pageUrl)
+        val tmdb = _a8(
+            AgooseTmdbIdentity(
+                displayTitle = website.title,
+                originalTitle = website.originalTitle,
+                year = website.year,
+                isTv = !website.isMovie,
+            ),
+        )
 
-        val plot = _b6(document, title)
-        val genres = document.select(_q9("J1IRoFY88wVOQl9nyGq7M/CBlprrecVlT+gpuBOo0xIjCFupSzflQFw2ag=="))
-            .map { it.text().trim() }
-            .filter(String::isNotBlank)
-            .distinct()
+        val plot = tmdb?.overview?.takeIf { it.isNotBlank() } ?: website.plot
+        val displayTags = tmdb?.genres?.takeIf { it.isNotEmpty() } ?: website.categories
+        val duration = tmdb?.runtimeMinutes ?: website.durationMinutes
+        val trailers = mergeTrailerData(tmdb?.trailerUrls.orEmpty(), website.trailerUrls, canonicalUrl)
 
-        val informationText = document.selectFirst(_q9("J0YEqw=="))?.text().orEmpty()
-        val year = _b7(informationText)
-        val duration = _b8(informationText)
-        val status = _b9(informationText)
-        val trailer = _c0(document, pageUrl)
+        val recommendations = _a2(document)
 
-        return if (_b5(document)) {
-            val movieData = _b4(document, pageUrl).firstOrNull()?.data ?: pageUrl
-            newMovieLoadResponse(title, pageUrl, TvType.Movie, movieData) {
-                posterUrl = poster
+        return if (website.isMovie) {
+            val dataUrl = website.episodes.firstOrNull()?.url
+                ?: throw ErrorLoadingException(_qD9("MDI1i1dUS9RKkRu3WFhKx26mYk/DduXqqFY+ahZ8AVEcJj2TGFRHj1+QD6UZYw=="))
+
+            newMovieLoadResponse(website.title, canonicalUrl, TvType.Movie, dataUrl) {
+                posterUrl = website.posterUrl ?: tmdb?.posterUrl
+                year = website.year ?: tmdb?.year
                 this.plot = plot
-                tags = genres
-                this.year = year
+                tags = displayTags.takeIf { it.isNotEmpty() }
                 this.duration = duration
-                trailer?.let {
-                    trailers = mutableListOf(TrailerData(it, pageUrl, false))
-                }
+                backgroundPosterUrl = tmdb?.backdropUrl
+                this.trailers = trailers.toMutableList()
+                this.recommendations = recommendations.takeIf { it.isNotEmpty() }
             }
         } else {
-            val episodes = _b4(document, pageUrl)
-            newTvSeriesLoadResponse(title, pageUrl, TvType.Anime, episodes) {
-                posterUrl = poster
-                this.plot = plot
-                tags = genres
-                this.year = year
-                this.duration = duration
-                showStatus = status
-                trailer?.let {
-                    trailers = mutableListOf(TrailerData(it, pageUrl, false))
+            val episodes = website.episodes
+                .sortedBy { it.number ?: Int.MAX_VALUE }
+                .map { item ->
+                    newEpisode(item.url, initializer = {
+                        name = item.title
+                        episode = item.number
+                    })
                 }
+
+            if (episodes.isEmpty()) {
+                throw ErrorLoadingException(_qD9("MSM6jFlCDp5KlAmhHGg4zyGlalHfceXarlw4aUN6SFEQLymTWV4="))
+            }
+
+            newTvSeriesLoadResponse(website.title, canonicalUrl, TvType.TvSeries, episodes) {
+                posterUrl = website.posterUrl ?: tmdb?.posterUrl
+                year = website.year ?: tmdb?.year
+                this.plot = plot
+                showStatus = website.showStatus
+                tags = displayTags.takeIf { it.isNotEmpty() }
+                this.duration = duration
+                backgroundPosterUrl = tmdb?.backdropUrl
+                this.trailers = trailers.toMutableList()
+                this.recommendations = recommendations.takeIf { it.isNotEmpty() }
             }
         }
     }
@@ -141,89 +151,226 @@ class Donghub : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
-        _b0()
-        val document = _b1(data)
-        val embedUrls = linkedSetOf<String>()
-        val directUrls = linkedSetOf<String>()
+        ensureMainUrl()
+        val pageUrl = updateUrl(data)
+        val response = app.get(pageUrl)
+        syncMainUrl(response.url)
+        val document = response.document
+        val referer = canonicalUrl(document) ?: response.url
 
-        document.select(
-            _q9("KlAZrEs9yE1AdVNw3yyPeaKBoI2iNdthS+IWhh/63xJ7VBmrAnn+Q114WnCOeo97tY/gmOJ0gXRco1Q=") +
-                _q9("J0UYr1c85QhKdFVwySyPeaKBoI2iNdZnR+sRjFa52Rp9UBq6DjDxV050Ug==")
-        ).forEach { iframe ->
-            iframe._c5()?.let {
-                _c2(it, data, embedUrls, directUrls)
-            }
+        val embeds = linkedSetOf<String>()
+        document.select(_qD9("Vicxml1UcZNVkR6rCi1x7TyqYFzxYLfNmg==")).forEach { iframe ->
+            _a4(iframe.attr(_qD9("BjA/")))?.let(embeds::add)
         }
 
-        document.select(
-            _q9("KlAZrEs9yE1AdVNw3yyVcKWSro3VZopyc6NUwAu/2xZsUVS9QSzlRkpCRGfOUco//pChifdwijxL4haGH/rFG3xHF6t1KuVGcjUX") +
-                _q9("J0Mdqks2ukZAd0Nww3jGbL+Vv4vrTotjTdJYw1Ws3xBsWlmtQTfjQEFtF2PEaINwi5O/i9M=")
-        ).forEach { media ->
-            media._c5()?.let {
-                _c2(it, data, embedUrls, directUrls)
-            }
+        document.select(_qD9("BicwnVtEAJZTjwihCi13+zqiYlfxZaTCsl0E")).forEach { option ->
+            _a3(option.attr(_qD9("AyMwjV0=")))?.let(embeds::add)
         }
 
-        document.select(_q9("elAYq00tuUhGa0V63yyJb6SJoobVY5l9W+opz1v02x17Rxu8DjbnUUZ2WU7bbYpqtb3hyKB4l3NH+gfDFKrCHWZbL7hPNeJAcg=="))
-            .forEach { option ->
-                _c1(option.attr(_q9("f1QYu0s=")), data)
-                    .forEach { _c2(it, data, embedUrls, directUrls) }
-            }
-
-        var emittedCount = 0
-        val trackedCallback: (ExtractorLink) -> Unit = { link ->
-            emittedCount += 1
-            callback(link)
+        var extractorMatched = false
+        for (embedUrl in embeds) {
+            val matched = runCatching {
+                loadExtractor(embedUrl, referer, subtitleCallback, callback)
+            }.getOrDefault(false)
+            extractorMatched = extractorMatched || matched
         }
-
-        directUrls.forEach { streamUrl ->
-            val isHls = streamUrl.contains(_q9("J1hHuxY="), ignoreCase = true) ||
-                streamUrl.contains(_q9("Jl0YvQE="), ignoreCase = true)
-            trackedCallback(
-                newExtractorLink(
-                    source = name,
-                    name = "$name Direct",
-                    url = streamUrl,
-                    type = if (isHls) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO,
-                ) {
-                    referer = data
-                    quality = Qualities.Unknown.value
-                }
-            )
-        }
-
-        embedUrls.forEach { embedUrl ->
-            val before = emittedCount
-            try {
-                loadExtractor(
-                    embedUrl,
-                    data,
-                    subtitleCallback,
-                    trackedCallback,
-                )
-            } catch (_: Throwable) {
-
-            }
-
-            if (emittedCount == before && _c4(embedUrl)) {
-                _c3(embedUrl, data)?.let(trackedCallback)
-            }
-        }
-
-        return emittedCount > 0
+        return extractorMatched
     }
 
-    private suspend fun _b0() {
-        if (_a2) return
+    private fun _a0(card: Element): SearchResponse? {
+        val anchor = card.selectFirst(_qD9("FGwokUhrRolfmyc=")) ?: card.selectFirst(_qD9("FBk0il1Wcw==")) ?: return null
+        val href = anchor.attr(_qD9("HTA5ng==")).trim().takeIf { it.isNotBlank() } ?: return null
+        val url = normalizeProviderUrl(href)
+        val title = card.selectFirst(_qD9("WzYo2FAC"))?.text()?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: anchor.attr(_qD9("ASsolF0=")).trim().takeIf { it.isNotBlank() }
+            ?: card.selectFirst(_qD9("WzYo"))?.ownText()?.trim()?.takeIf { it.isNotBlank() }
+            ?: return null
+        val typeLabel = card.selectFirst(_qD9("WzYliF1K"))?.text()?.trim().orEmpty()
+        val poster = card.selectFirst(_qD9("HC87"))?.let(::imageUrl)
+        val isMovie = typeLabel.equals(_qD9("OC0qkV0="), ignoreCase = true)
 
-        _a1.withLock {
-            if (_a2) return@withLock
+        return if (isMovie) {
+            newMovieSearchResponse(title, url, TvType.Movie) {
+                posterUrl = poster
+            }
+        } else {
+            newTvSeriesSearchResponse(title, url, TvType.TvSeries) {
+                posterUrl = poster
+            }
+        }
+    }
+
+    private fun _a1(document: Document, canonicalUrl: String): _a7 {
+        val title = document.selectFirst(_qD9("WyA1n1tfQI9fkw7uEDw27iC/f0CHZ6zaq10="))?.text()?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: document.selectFirst(_qD9("HXNynVZEXIIXiRO6FGg="))?.text()?.trim()?.takeIf { it.isNotBlank() }
+            ?: throw ErrorLoadingException(_qD9("Pzc4jVQQSp5OnBOiWEl35SmjeFuKZ6zKplN5ZgpqREgAKT2W"))
+        val originalTitle = document.selectFirst(_qD9("WyA1n1tfQI9fkw7uVmx0/yu5"))?.text()?.trim()?.takeIf { it.isNotBlank() }
+        val type = _a5(document, _qD9("ITssnQ=="))
+        val isMovie = type?.equals(_qD9("OC0qkV0="), ignoreCase = true) == true
+        val status = when (_a5(document, _qD9("JjY9jE1D"))?.lowercase(Locale.ROOT)) {
+            _qD9("Fi0xiFRVWp5e") -> ShowStatus.Completed
+            _qD9("Giw7l1FeSQ==") -> ShowStatus.Ongoing
+            else -> null
+        }
+        val released = _a5(document, _qD9("JycwnVlDS58="))
+        val year = released?.let { YEAR_REGEX.find(it)?.value?.toIntOrNull() }
+            ?: document.selectFirst(_qD9("ASsxnWNZWp5XjQihCDB86jquXUzIf6zdr109Xw=="))?.attr(_qD9("ESMonUxZQ54="))
+                ?.let { YEAR_REGEX.find(it)?.value?.toIntOrNull() }
+        val durationMinutes = parseDurationMinutes(_a5(document, _qD9("MTcumUxZQZU=")))
+        val poster = document.selectFirst(_qD9("WyA1n1tfQI9fkw7uVnlw/iOpLVDHdA=="))?.let(::imageUrl)
+        val plot = document.selectFirst(_qD9("WyA1gFpfVtVJhBS+WCN95Tq5dBTJfKvaolYtWQpqREgFMDOIBVRLiFmPE74MZHflEw=="))
+            ?.text()?.trim()?.takeIf { it.isNotBlank() }
+        val categories = document.select(_qD9("WyU5lkBVSttbpgirFDBs6imW"))
+            .map { it.text().trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+        val rawTags = document.select(_qD9("WyAzjExfQ9VOnB29WGxD+SunME3LdJiC5xY7bRdqTkhbNj2fSxBPoFKPH6gl"))
+            .map { it.text().trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+        val episodes = document.select(_qD9("WycslFFDWp5I3Q+iWGFxqy+QZUvPdZg="))
+            .mapNotNull { anchor ->
+                val href = anchor.attr(_qD9("HTA5ng==")).trim().takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                val number = anchor.selectFirst(_qD9("WycslBVeW5Y="))?.text()?.trim()?.toIntOrNull()
+                val episodeTitle = anchor.selectFirst(_qD9("WycslBVER49WmA=="))?.text()?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                    ?: "Episode ${number ?: ""}".trim()
+                _a6(normalizeProviderUrl(href), episodeTitle, number)
+            }
+        val trailerUrls = parseWebsiteTrailerUrls(document)
+
+        return _a7(
+            title = title,
+            originalTitle = originalTitle,
+            canonicalUrl = canonicalUrl,
+            isMovie = isMovie,
+            posterUrl = poster,
+            plot = plot,
+            year = year,
+            durationMinutes = durationMinutes,
+            showStatus = status,
+            categories = categories,
+            rawTags = rawTags,
+            episodes = episodes,
+            trailerUrls = trailerUrls,
+        )
+    }
+
+    private fun _a2(document: Document): List<SearchResponse> {
+        val section = document.select(_qD9("WyA1gFpfVg==")).firstOrNull { box ->
+            box.select(_qD9("WzA5lF1RXZ5J3RL8VC02+SunaFjZdraOrws=")).any { heading ->
+                heading.text().contains(_qD9("Jyc/l1VdS5VemB7uK2hq4iu4"), ignoreCase = true) ||
+                    heading.text().contains(_qD9("Jyc/l1VdS5VenA6nF2M="), ignoreCase = true)
+            }
+        } ?: return emptyList()
+
+        return section.select(_qD9("Wy41i0xFXp8a0xi9AA=="))
+            .mapNotNull(::_a0)
+            .distinctBy { it.url }
+    }
+
+    private fun parseWebsiteTrailerUrls(document: Document): List<String> {
+        val trailerSection = document.select(_qD9("WyA1gFpfVg==")).firstOrNull { box ->
+            box.select(_qD9("WzA5lF1RXZ5J3RL8VC02+SunaFjZdraOrws=")).any { heading ->
+                heading.text().contains(_qD9("ITA9kVRVXA=="), ignoreCase = true)
+            }
+        } ?: return emptyList()
+
+        return trailerSection.select(_qD9("HCQumVVVdYhInifiWGxD4zyua2Q="))
+            .mapNotNull { element ->
+                val raw = element.attr(_qD9("BjA/")).ifBlank { element.attr(_qD9("HTA5ng==")) }
+                _a4(raw)?.takeIf { url ->
+                    url.contains(_qD9("DC0pjE1SS9VZkhc="), ignoreCase = true) ||
+                        url.contains(_qD9("DC0pjE0eTJ4="), ignoreCase = true)
+                }
+            }
+            .distinct()
+    }
+
+    private fun mergeTrailerData(
+        tmdbUrls: List<String>,
+        websiteUrls: List<String>,
+        referer: String,
+    ): List<TrailerData> = (tmdbUrls + websiteUrls)
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .distinct()
+        .map { TrailerData(it, referer, false) }
+
+    private fun _a5(document: Document, label: String): String? {
+        for (span in document.select(_qD9("WzEsnRhDXppU"))) {
+            val key = span.selectFirst("b")?.text()?.trim()?.removeSuffix(":") ?: continue
+            if (!key.equals(label, ignoreCase = true)) continue
+            return span.text().substringAfter(":", "").trim().takeIf { it.isNotBlank() }
+        }
+        return null
+    }
+
+    private fun parseDurationMinutes(value: String?): Int? {
+        val text = value?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        DURATION_HM_REGEX.find(text)?.let { match ->
+            val hours = match.groupValues[1].toIntOrNull() ?: 0
+            val minutes = match.groupValues[2].toIntOrNull() ?: 0
+            return (hours * 60 + minutes).takeIf { it > 0 }
+        }
+        return DURATION_MIN_REGEX.find(text)?.groupValues?.getOrNull(1)?.toIntOrNull()?.takeIf { it > 0 }
+    }
+
+    private fun _a3(encoded: String): String? {
+        if (encoded.isBlank()) return null
+        val decoded = runCatching { base64Decode(encoded) }.getOrNull() ?: return null
+        val iframeSrc = Jsoup.parse(decoded).selectFirst(_qD9("HCQumVVVdYhInic="))?.attr(_qD9("BjA/")) ?: return null
+        return _a4(iframeSrc)
+    }
+
+    private fun _a4(raw: String?): String? {
+        val value = raw?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return when {
+            value.startsWith("//") -> "https:$value"
+            value.startsWith(_qD9("HTYoiAIfAQ==")) || value.startsWith(_qD9("HTYoiEsKAdQ=")) -> value
+            value.startsWith("/") -> "$mainUrl$value"
+            else -> null
+        }
+    }
+
+    private fun imageUrl(element: Element): String? {
+        return listOf(_qD9("BjA/"), _qD9("ESMomRVDXJg="), _qD9("ESMomRVcT4FD0Am8Gw=="))
+            .asSequence()
+            .map { element.attr(it).trim() }
+            .firstOrNull { it.startsWith(_qD9("HTYoiAIfAQ==")) || it.startsWith(_qD9("HTYoiEsKAdQ=")) }
+    }
+
+    private fun canonicalUrl(document: Document): String? =
+        document.selectFirst(_qD9("GSsyk2NCS5cHnhugF2Nx6C+nUGLCYaDImg=="))?.attr(_qD9("HTA5ng=="))?.trim()?.takeIf { it.isNotBlank() }
+            ?.let(::normalizeProviderUrl)
+
+    private fun isEpisodePage(document: Document): Boolean =
+        document.selectFirst(_qD9("Vicxml1UcZNVkR6rCg==")) != null ||
+            document.selectFirst(_qD9("FDAokVtcS6BTiR+jDHRo7mT2SEnDYKrKomU=")) != null
+
+    private fun normalizeProviderUrl(raw: String): String {
+        val value = raw.trim()
+        return when {
+            value.startsWith(_qD9("HTYoiAIfAQ==")) || value.startsWith(_qD9("HTYoiEsKAdQ=")) -> value
+            value.startsWith("//") -> "https:$value"
+            value.startsWith("/") -> "$mainUrl$value"
+            else -> "$mainUrl/$value"
+        }
+    }
+
+    private suspend fun ensureMainUrl() {
+        if (mainUrlResolved) return
+
+        mainUrlMutex.withLock {
+            if (mainUrlResolved) return@withLock
 
             val remoteCandidates = runCatching {
-                JSONObject(app.get(_e2).text).readMainUrlCandidates()
+                JSONObject(app.get(MAIN_URL_JSON).text).readMainUrlCandidates()
             }.getOrDefault(emptyList())
 
-            val candidates = (remoteCandidates + _e0)
+            val candidates = (remoteCandidates + DEFAULT_MAIN_URL)
                 .mapNotNull(::normalizeHttpBaseUrl)
                 .distinct()
 
@@ -233,16 +380,20 @@ class Donghub : MainAPI() {
 
                 val resolved = normalizeHttpBaseUrl(response.url) ?: continue
                 mainUrl = resolved
-                _a2 = true
+                mainUrlResolved = true
                 return@withLock
             }
 
-            mainUrl = _e0
+            mainUrl = DEFAULT_MAIN_URL
         }
     }
 
+    private fun syncMainUrl(responseUrl: String?) {
+        normalizeHttpBaseUrl(responseUrl)?.let { mainUrl = it }
+    }
+
     private fun JSONObject.readMainUrlCandidates(): List<String> {
-        val array = optJSONArray(_e1) ?: return emptyList()
+        val array = optJSONArray(REMOTE_CONFIG_KEY) ?: return emptyList()
         return (0 until array.length())
             .map { index -> array.optString(index) }
             .mapNotNull(::normalizeHttpBaseUrl)
@@ -250,11 +401,11 @@ class Donghub : MainAPI() {
     }
 
     private fun normalizeHttpBaseUrl(url: String?): String? {
-        val value = url?.trim()?.removeSuffix("/")?.takeIf(String::isNotBlank) ?: return null
+        val value = url?.trim()?.removeSuffix("/")?.takeIf { it.isNotBlank() } ?: return null
         return runCatching {
             val uri = URI(value)
             val scheme = uri.scheme?.lowercase(Locale.ROOT)
-            if ((scheme == _q9("YUEAvg==") || scheme == _q9("YUEAvl0=")) && !uri.host.isNullOrBlank()) {
+            if ((scheme == _qD9("HTYoiA==") || scheme == _qD9("HTYoiEs=")) && !uri.host.isNullOrBlank()) {
                 "$scheme://${uri.authority}"
             } else {
                 null
@@ -262,317 +413,74 @@ class Donghub : MainAPI() {
         }.getOrNull()
     }
 
-    private suspend fun _b1(url: String, referer: String = mainUrl): Document {
-        _b0()
-        val response = app.get(url, headers = _a0 + (_q9("W1ASq1w85Q==") to referer))
-        normalizeHttpBaseUrl(response.url)?.let { mainUrl = it }
-        return response.document
+    private fun shouldBlockContent(
+        categories: Iterable<String> = emptyList(),
+        tags: Iterable<String> = emptyList(),
+    ): Boolean {
+        val categoryBlocked = categories
+            .asSequence()
+            .mapNotNull(::normalizeTaxonomyName)
+            .any { it in BLOCKED_CATEGORY_KEYS }
+        if (categoryBlocked) return true
+
+        return tags
+            .asSequence()
+            .mapNotNull(::normalizeTaxonomyName)
+            .any { it in BLOCKED_TAG_KEYS }
     }
 
-    private fun _b2(document: Document, selector: String? = null): List<SearchResponse> {
-        val cards = if (selector != null) {
-            document.select(selector)
-        } else {
-            val preferred = document.select(_q9("J0UbvVo7+EFWORl5xH+SaqCE7Yn8YZFyQupagQj2llplXAe6WynzC0F2RXjMYMZ+opSki+Jw1nNd"))
-            if (preferred.isNotEmpty()) preferred else document.select(_q9("J1kdvVos50EPeEVhxG+Kev6Cvg=="))
-        }
-
-        return cards.mapNotNull { card ->
-            val anchor = card.selectFirst(_q9("J1cHtg5nt0R0cUVwy1HKP7HOuYH+TpBjS+kpz1u77Rx7UBKT"))
-                ?: return@mapNotNull null
-            val href = _c7(anchor.attr(_q9("YUcRqA==")), mainUrl)
-                ?.takeUnless(::_c8)
-                ?: return@mapNotNull null
-
-            val canonicalTitle = card.selectFirst(_q9("J1ATqVow40lK"))?.text()?.trim()
-            val visibleTitle = card.selectFirst(_q9("J0EA7kZruwVHK2x82WmLb6KPvdXmcJl1QuYahib2lhw7"))?.text()?.trim()
-                ?: anchor.attr(_q9("fVwAoks=")).trim()
-            val title = _c9(visibleTitle, canonicalTitle)
-                ?._d0(canonicalTitle)
-                ?.takeIf(String::isNotBlank)
-                ?: return@mapNotNull null
-
-            val poster = card.selectFirst(_q9("YFgT"))?._c6(href)
-            val typeText = card.selectFirst(_q9("J1ATqVog50ADORlh1HyDZQ=="))?.text().orEmpty()
-
-            if (typeText.contains(_q9("ZFoCp0s="), ignoreCase = true)) {
-                newMovieSearchResponse(title, href, TvType.Movie) {
-                    posterUrl = poster
-                }
-            } else {
-                newTvSeriesSearchResponse(title, href, TvType.Anime) {
-                    posterUrl = poster
-                }
-            }
-        }.distinctBy { it.url }
-    }
-
-    private fun _b3(document: Document, sourceUrl: String): String? {
-        val allEpisodes = document.selectFirst(_q9("J1sVuEsp5AUBd0FmziyHRLiSqI7TTpljR+5Zjxq40xgjCDG+Ryr4QUpEGzWDYodptZC+yKB7jmJNrxW4E6jTElQ="))
-        val breadcrumbParent = document.select(_q9("J0EH40wr8kRLekVgwG7GfouIv43oSA==")).getOrNull(1)
-        val candidates = listOfNotNull(allEpisodes, breadcrumbParent)
-
-        return candidates.asSequence()
-            .mapNotNull { _c7(it.attr(_q9("YUcRqA==")), sourceUrl) }
-            .filterNot(::_c8)
-            .firstOrNull { _d3(it) != _d3(sourceUrl) }
-    }
-
-    private fun _b4(document: Document, pageUrl: String): List<Episode> {
-        return document.select(_q9("J1AEokcq40BdOUJ5jWCPP7G7pZrrc6U9DqERkxezxQBsR1SiR3n2fkdrUnPw"))
-            .mapNotNull { anchor ->
-                val episodeUrl = _c7(anchor.attr(_q9("YUcRqA==")), pageUrl)
-                    ?.takeUnless(::_c8)
-                    ?: return@mapNotNull null
-
-                val episodeTitle = anchor.selectFirst(_q9("J1AEogMt/lFDfA=="))
-                    ?.text()?.trim()?.takeIf(String::isNotBlank)
-                    ?: anchor.attr(_q9("fVwAoks=")).trim().takeIf(String::isNotBlank)
-                    ?: anchor.text().trim()
-
-                val episodeNumber = anchor.selectFirst(_q9("J1AEogM34kg="))
-                    ?.text()?.trim()?.toIntOrNull()
-                    ?: episodeTitle._d2()
-
-                newEpisode(episodeUrl) {
-                    name = episodeTitle
-                    episode = episodeNumber
-                }
-            }
-            .distinctBy { it.data }
-            .sortedWith(compareBy<Episode> { it.episode ?: Int.MAX_VALUE }.thenBy { it.name })
-    }
-
-    private fun _b5(document: Document): Boolean {
-        val informationText = document.selectFirst(_q9("J0YEqw=="))?.text().orEmpty()
-        return Regex(_q9("IQod53I7w1xffGtmhza6bPqtop7ncKRz")).containsMatchIn(informationText)
-    }
-
-    private fun _b6(document: Document, title: String): String? {
-        val candidates = listOf(
-            document.selectFirst(_q9("J1cdtkw27wtcYFlljSKDcaSStMXtepZlS+EA"))?.text(),
-            document.selectFirst(_q9("J1AaulwgukZAd0Nww3i9dqSFoJj8eogsSuoHgAmzxgBgWhqT"))?.text(),
-            document.selectFirst(_q9("J1ERvU13+kxBfVJmgSzIe7WTrsSuO5V4QOsRkA=="))?.text(),
-            document.selectFirst(_q9("ZFAAr3U39khKJFNw3m+UdqCUpIfgSA=="))?.attr(_q9("aloauks34w==")),
-            document.selectFirst(_q9("ZFAAr3Up5UpffEVh1DGJeOqEqJvtZ5FhWuYbjSY="))?.attr(_q9("aloauks34w==")),
-        )
-
-        return candidates.asSequence()
-            .mapNotNull { it?.trim()?.replace(_e8, " ")?.takeIf(String::isNotBlank) }
-            .firstOrNull { !it.equals(title, ignoreCase = true) }
-    }
-
-    private fun _b7(informationText: String): Int? {
-        val released = Regex(_q9("IQod53w8+0BOalJx8X/MJYyT57PQJdUoc6Vc0UuG0g87SAj/FwXzXh1kHg=="))
-            .find(informationText)?.groupValues?.getOrNull(1)?.toIntOrNull()
-        return released ?: Regex(_q9("VVdc/xclpRUGRVNun3G6fQ=="))
-            .find(informationText)?.value?.toIntOrNull()
-    }
-
-    private fun _b8(informationText: String): Int? {
-        Regex(_q9("IQod52os5URbcFh78X/MJYyT58DScdM4cvxe2SepnFxVUV/n"))
-            .find(informationText)?.let { match ->
-                val hours = match.groupValues.getOrNull(1)?.toIntOrNull() ?: 0
-                val minutes = match.groupValues.getOrNull(2)?.toIntOrNull() ?: 0
-                return hours * 60 + minutes
-            }
-
-        return Regex(_q9("IQod52os5URbcFh78X/MJYyT58DScdM4cvxey0Tg2x1nSRmrQDDjDA=="))
-            .find(informationText)?.groupValues?.getOrNull(1)?.toIntOrNull()
-    }
-
-    private fun _b9(informationText: String): ShowStatus? = when {
-        informationText.contains(_q9("aloZvkI840BL"), ignoreCase = true) -> ShowStatus.Completed
-        informationText.contains(_q9("ZlsToUc38A=="), ignoreCase = true) -> ShowStatus.Ongoing
-        else -> null
-    }
-
-    private fun _c0(document: Document, pageUrl: String): String? {
-        return document.select(_q9("aG4cvEs/ygkPcFFnzGGDRKOSrrU=")).asSequence().mapNotNull { element ->
-            val marker = buildString {
-                append(element.id()).append(' ')
-                append(element.className()).append(' ')
-                append(element.text())
-            }
-            if (!marker.contains(_q9("fUcVp0I85Q=="), ignoreCase = true)) return@mapNotNull null
-            val raw = element.attr(_q9("YUcRqA==")).ifBlank { element.attr(_q9("ekcX")) }
-            _c7(raw, pageUrl)
-        }.firstOrNull()
-    }
-
-    private fun _c1(value: String, baseUrl: String): List<String> {
-        val trimmed = value.trim()
-        if (trimmed.isEmpty()) return emptyList()
-        if (trimmed.startsWith(_q9("YUEAvhR2uA==")) || trimmed.startsWith(_q9("YUEAvl1juAo=")) || trimmed.startsWith("//")) {
-            return listOfNotNull(_c7(trimmed, baseUrl))
-        }
-
-        val decoded = runCatching {
-            String(Base64.decode(trimmed, Base64.DEFAULT), Charsets.UTF_8)
-        }.getOrNull()?.trim().orEmpty()
-        if (decoded.isEmpty()) return emptyList()
-
-        val parsed = Jsoup.parse(decoded, baseUrl)
-        val urls = parsed.select(_q9("YFMGr0M8zFZdemo5jWWAbbGNqLPqdIxwA/wGgCb2lgdmQAatSwLkV0xEGzXbZYJ6v7u+mu1I"))
-            .mapNotNull { it._c5() }
-            .mapNotNull { _c7(it, baseUrl) }
-            .toMutableList()
-
-        if (urls.isEmpty() && (
-                decoded.startsWith(_q9("YUEAvhR2uA==")) ||
-                    decoded.startsWith(_q9("YUEAvl1juAo=")) ||
-                    decoded.startsWith("//")
-            )
-        ) {
-            _c7(decoded, baseUrl)?.let(urls::add)
-        }
-        return urls
-    }
-
-    private fun _c2(
-        rawUrl: String,
-        baseUrl: String,
-        embeds: MutableSet<String>,
-        direct: MutableSet<String>,
+    private fun enforceContentAllowed(
+        categories: Iterable<String> = emptyList(),
+        tags: Iterable<String> = emptyList(),
     ) {
-        val url = _c7(rawUrl, baseUrl) ?: return
-        if (_c8(url)) return
-        if (
-            url.contains(_q9("J1hHuxY="), ignoreCase = true) ||
-            url.contains(_q9("J1gE+g=="), ignoreCase = true) ||
-            url.contains(_q9("Jl0YvQE="), ignoreCase = true)
-        ) {
-            direct += url
-        } else {
-            embeds += url
+        if (shouldBlockContent(categories, tags)) {
+            throw ErrorLoadingException(_qD9("Pi0yjF1eDp9TnxahE2RqqyGnaFGKeKrAoVE+dxF/UkxVMi6XTllKnkg="))
         }
     }
 
-    private suspend fun _c3(embedUrl: String, referer: String): ExtractorLink? {
-        val response = try {
-            app.get(
-                embedUrl,
-                referer = referer,
-                interceptor = WebViewResolver(_e9),
-            )
-        } catch (_: Throwable) {
-            return null
-        }
+    private fun normalizeTaxonomyName(value: String?): String? = value
+        ?.trim()
+        ?.replace(WHITESPACE, " ")
+        ?.takeIf { it.isNotBlank() }
+        ?.lowercase(Locale.ROOT)
 
-        val mediaUrl = response.url
-        if (!_e9.containsMatchIn(mediaUrl)) return null
-        val isHls = mediaUrl.contains(_q9("J1hHuxY="), ignoreCase = true)
-        return newExtractorLink(
-            source = name,
-            name = "$name WebView",
-            url = mediaUrl,
-            type = if (isHls) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO,
-        ) {
-            this.referer = embedUrl
-            quality = Qualities.Unknown.value
-        }
-    }
+    private data class _a6(
+        val url: String,
+        val title: String,
+        val number: Int?,
+    )
 
-    private fun _c4(url: String): Boolean {
-        val host = runCatching { URI(url).host.orEmpty().lowercase(Locale.ROOT) }.getOrDefault("")
-        return host == _q9("ZlENvUs8uUZAdA==") || host.endsWith(_q9("J1oQt1088gtMdlo=")) || host == _q9("eVkVtwA9uVFae1I=")
-    }
-
-    private fun Element._c5(): String? {
-        return listOf(_q9("ekcX"), _q9("bVQArwMq5UY="), _q9("bVQArwM1/lFKakdwyGjLbKKD"), _q9("bVQArwM19l9WNERnzg=="))
-            .asSequence()
-            .map { attr(it).trim() }
-            .firstOrNull(String::isNotBlank)
-    }
-
-    private fun Element._c6(baseUrl: String): String? {
-        val raw = listOf(_q9("bVQArwMq5UY="), _q9("bVQArwM19l9WNERnzg=="), _q9("bVQArwM25UxIcFl0wQ=="), _q9("ekcX"))
-            .asSequence()
-            .map { attr(it).trim() }
-            .firstOrNull { it.isNotBlank() && !it.startsWith(_q9("bVQArxQw+kRIfA==")) }
-            ?: attr(_q9("ekcXvUst")).substringBefore(',').trim().substringBefore(' ')
-                .takeIf(String::isNotBlank)
-        return raw?.let { _c7(it, baseUrl) }
-    }
-
-    private fun _c7(rawUrl: String, baseUrl: String): String? {
-        val cleaned = rawUrl.trim().replace("\\/", "/")
-        if (
-            cleaned.isEmpty() ||
-            cleaned.startsWith(_q9("Y1QCr1065UxfbQ0="), ignoreCase = true) ||
-            cleaned.startsWith('#')
-        ) {
-            return null
-        }
-        return runCatching {
-            when {
-                cleaned.startsWith("//") -> "https:$cleaned"
-                cleaned.startsWith(_q9("YUEAvhR2uA==")) || cleaned.startsWith(_q9("YUEAvl1juAo=")) -> cleaned
-                else -> URI(baseUrl).resolve(cleaned).toString()
-            }
-        }.getOrNull()
-    }
-
-    private fun _c8(url: String): Boolean {
-        val host = runCatching { URI(url).host.orEmpty().lowercase(Locale.ROOT) }.getOrDefault("")
-        return _e6.any { host.contains(it) }
-    }
-
-    private fun _c9(visibleTitle: String?, vararg canonicalTitles: String?): String? {
-        val visible = visibleTitle?.trim()?.takeIf(String::isNotBlank) ?: return null
-        val stripped = visible.replaceFirst(_e7, "").trim()
-        if (stripped == visible) return visible
-
-        val confirmed = canonicalTitles
-            .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
-            .firstOrNull { it.equals(stripped, ignoreCase = true) }
-        return confirmed ?: visible
-    }
-
-    private fun String._d0(canonicalTitle: String?): String {
-        val canonical = canonicalTitle?.trim()?.takeIf(String::isNotBlank)
-        return (canonical ?: this)
-            .removeSuffix(_q9("KRhUikE38E1aew=="))
-            .replace(_e8, " ")
-            .trim()
-    }
-
-    private fun String._d1(): String = trim()
-        .removeSuffix(_q9("KRhUikE38E1aew=="))
-        .replace(_e8, " ")
-
-    private fun String._d2(): Int? {
-        return Regex(_q9("IQod53I7vxoVfEd83mOCeqyFvcHSZtIhBKcoh1Dz"))
-            .find(this)?.groupValues?.getOrNull(1)?.toIntOrNull()
-    }
-
-    private fun _d3(url: String): String = url.substringBefore('#').trimEnd('/')
+    private data class _a7(
+        val title: String,
+        val originalTitle: String?,
+        val canonicalUrl: String,
+        val isMovie: Boolean,
+        val posterUrl: String?,
+        val plot: String?,
+        val year: Int?,
+        val durationMinutes: Int?,
+        val showStatus: ShowStatus?,
+        val categories: List<String>,
+        val rawTags: List<String>,
+        val episodes: List<_a6>,
+        val trailerUrls: List<String>,
+    )
 
     companion object {
-        private val _e0 = _q9("YUEAvl1juApLdllyxXmEMaaJvQ==")
-        private val _e1 = _q9("TVoaqUYs9Q==")
-        private val _e2 =
-            _q9("YUEAvl1juApdeEA7ymWSd6WCuJvrZ5t+QPsRjQ/01RtkGhmkHwnyVx4rADrMa4lwo4WuhOFgnGJa/RGCFvXbFWBbW5lLO+RMW3wZf95jiA==")
+        private const val DEFAULT_MAIN_URL = "https://donghub.vip"
+        private const val REMOTE_CONFIG_KEY = "Donghub"
+        private const val MAIN_URL_JSON =
+            "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
+        private const val LATEST_RELEASE_SOURCE = "latest-release"
 
-        private val _e3 = _q9("YVoZqxQp+FVadVZn")
-        private val _e4 = _q9("YVoZqxQ19lFKakM=")
-        private val _e5 = _q9("YVoZqxQr8kZAdFpww2iHa7mPow==")
+        private val BLOCKED_CATEGORIES = emptySet<String>()
+        private val BLOCKED_TAGS = emptySet<String>()
+        private val BLOCKED_CATEGORY_KEYS = BLOCKED_CATEGORIES.map { it.lowercase(Locale.ROOT) }.toSet()
+        private val BLOCKED_TAG_KEYS = BLOCKED_TAGS.map { it.lowercase(Locale.ROOT) }.toSet()
 
-        private val _e6 = setOf(
-            _q9("bVoBrEI89ElGelw7w2mS"),
-            _q9("blobqUI85FxBfV52zHiPcL7Orofj"),
-            _q9("blobqUI840RIdFZ7zGuDbf6DooU="),
-            _q9("blobqUI8ukRBeFts2WWFbP6DooU="),
-            _q9("bUEHrUEs4wtMdlo="),
-            _q9("YVwHuk8t5AtMdlo="),
-            _q9("ZlsRvUc++URDN1R6wA=="),
-            _q9("f1QSvEEs5FdKfUB032nIfKmPuA=="),
-        )
-
-        private val _e7 = Regex(_q9("V3sboFo2+XlcMg=="), RegexOption.IGNORE_CASE)
-        private val _e8 = Regex(_q9("VUZf"))
-        private val _e9 = Regex(
-            _q9("IQod5wZmrXkBdARglSTZJYvf7rWgP9EuCvMozRaqglw2Dy/xDQS5DwYmEzw=")
-        )
+        private val YEAR_REGEX = Regex(_qD9("XX1myQFMHMsToR61SnA="))
+        private val DURATION_HM_REGEX = Regex(_qD9("XR440xFsXdEAoQnkUFF8oGc="))
+        private val DURATION_MIN_REGEX = Regex(_qD9("XR440xFsXdESwkCjEWNk5iulZE2D"), RegexOption.IGNORE_CASE)
+        private val WHITESPACE = Regex(_qD9("KTF3"))
     }
 }
