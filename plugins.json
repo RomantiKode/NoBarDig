@@ -1,0 +1,23 @@
+[
+    {
+        "iconUrl": "https://assets.showcdnx.com/favicon.ico",
+        "fileHash": "sha256-ef8574ab488020353a8b37b19a6c6f7b1edc5d8a13c61eec7862f60c62e9bd0f",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 84727,
+        "status": 3,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries"
+        ],
+        "version": 2,
+        "internalName": "Layarkaca21",
+        "description": "Nonton dan download film & series terbaru di LK21. Streaming sub Indo gratis, kualitas HD. Tersedia drama Korea, anime, film barat, dan Asia lengkap!",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Layarkaca21.cs3",
+        "name": "Layarkaca21"
+    }
+]
