@@ -213,10 +213,10 @@
         "name": "Layarkaca21"
     },
     {
-        "fileHash": "sha256-001381a9bba3392f0f8ec86eacedf57648a2e6ed5be3106da8a2cbe411bf4372",
+        "fileHash": "sha256-cd931796c0bd3dcb8a8fb68d3f3b1abb0ad4ffbd2ae084a69b3f01d41f0e7c40",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 54594,
+        "fileSize": 55905,
         "status": 3,
         "language": "id",
         "authors": [
@@ -226,7 +226,7 @@
             "Movie",
             "TvSeries"
         ],
-        "version": 5,
+        "version": 6,
         "internalName": "MidasXXI",
         "description": "MIDASXXI Tempat seru buat nonton film dan drama Korea! Mulai dari LK21, IDLIX, hingga Bioskopkeren, Rebahin Sub Indo. dan Nonton Film semi bikin mager makin asyik!",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/MidasXXI.cs3",
