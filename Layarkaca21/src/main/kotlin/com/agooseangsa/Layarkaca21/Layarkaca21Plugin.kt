@@ -8,5 +8,14 @@ import com.lagradost.cloudstream3.plugins.Plugin
 class Layarkaca21Plugin : Plugin() {
     override fun load(context: Context) {
         registerMainAPI(Layarkaca21())
+        registerExtractorAPI(_g1())
+        registerExtractorAPI(_g2())
+        registerExtractorAPI(_g3())
+        registerExtractorAPI(_g4())
+        registerExtractorAPI(_g5())
+        registerExtractorAPI(_g6())
+        registerExtractorAPI(_g7())
+        registerExtractorAPI(_g8())
+        registerExtractorAPI(_g0())
     }
 }

@@ -172,23 +172,54 @@ class Layarkaca21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
-        val requestUrl = _f6(data)
-        val response = runCatching { app.get(requestUrl) }.getOrNull() ?: return false
-        if (!response.isSuccessful) return false
-        _a8(response.url, response.document)
+        _a7()
+        val initialUrl = _f6(data)
+        var pageUrl = initialUrl
+        var requestReferer = _h2(initialUrl)
+        var playerUrls = emptyList<String>()
+        val visitedPages = linkedSetOf<Pair<String, String>>()
 
-        val playerUrls = _b7(response.document)
-        var loaded = false
-        for (playerUrl in playerUrls) {
-            val current = _f0(
-                playerUrl = playerUrl,
-                referer = response.url,
-                subtitleCallback = subtitleCallback,
-                callback = callback,
-            )
-            loaded = current || loaded
+        for (hop in 0 until MAX_EPISODE_PAGE_HOPS) {
+            if (!visitedPages.add(pageUrl to requestReferer)) break
+            val response = runCatching {
+                app.get(pageUrl, referer = requestReferer, allowRedirects = true)
+            }.getOrNull() ?: break
+            if (!response.isSuccessful) break
+
+            val resolvedUrl = response.url.ifBlank { pageUrl }
+            val document = response.document
+            _a8(resolvedUrl, document)
+            pageUrl = resolvedUrl
+            playerUrls = _b7(document, resolvedUrl)
+            if (playerUrls.isNotEmpty()) break
+            if (!_h0(document, resolvedUrl)) break
+
+            val candidates = _g9(document, resolvedUrl)
+            val requestedPath = _h1(initialUrl)
+            val activeEpisode = document.selectFirst(_q9("XaMvX4UdVUOcpfGdfuHi2eokzNvenUOgmugpl/2H"))
+                ?.attr(_q9("QL1kXA=="))
+                ?.let { _c3(resolvedUrl, it) }
+            val matchingEpisode = candidates.firstOrNull { _h1(it) == requestedPath }
+            val nextEpisode = matchingEpisode ?: activeEpisode ?: candidates.firstOrNull() ?: break
+
+            requestReferer = resolvedUrl
+            pageUrl = nextEpisode
         }
-        return loaded
+
+        val emitted = linkedSetOf<String>()
+        val safeCallback: (ExtractorLink) -> Unit = { link ->
+            if (emitted.add(link.url)) callback(link)
+        }
+
+        for (playerUrl in playerUrls.sortedBy(::_h3)) {
+            _f0(
+                playerUrl = playerUrl,
+                referer = pageUrl,
+                subtitleCallback = subtitleCallback,
+                callback = safeCallback,
+            )
+        }
+        return emitted.isNotEmpty()
     }
 
     private suspend fun _f0(
@@ -197,17 +228,24 @@ class Layarkaca21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
-        val extractorLoaded = runCatching {
+        var emitted = false
+        val trackedCallback: (ExtractorLink) -> Unit = { link ->
+            emitted = true
+            callback(link)
+        }
+
+        runCatching {
             loadExtractor(
                 playerUrl,
                 referer = referer,
                 subtitleCallback = subtitleCallback,
-                callback = callback,
+                callback = trackedCallback,
             )
-        }.getOrDefault(false)
-        if (extractorLoaded) return true
+        }
+        if (emitted) return true
+
         if (!_f1(playerUrl)) return false
-        return _f2(playerUrl, referer, callback)
+        return _f2(playerUrl, referer, trackedCallback)
     }
 
     private fun _f1(url: String): Boolean = runCatching {
@@ -467,15 +505,47 @@ class Layarkaca21 : MainAPI() {
         return episodes.distinctBy { it.data }
     }
 
-    private fun _b7(document: Document): List<String> {
+    private fun _b7(document: Document, pageUrl: String): List<String> {
+        val raw = mutableListOf<String>()
+        document.select(_q9("C79tW4wRVAGUqa+FN/PNnep+zJXfhlmY7aB4gve7IYta4m1ThgAGTaOorpRxzw==")).forEach { node ->
+            raw += node.attr(_q9("TK51W9gBVEA=")).ifBlank { node.attr(_q9("QL1kXA==")) }
+        }
+        document.select(_q9("C79tW4wRVAGLpbCUdOa2lvt+xNfEr0OkrfU+rw==")).forEach { raw += it.attr(_q9("Xq5tT5A=")) }
+        document.select(_q9("QalzW5gRBUGZqbLcZ/73gO549svYl2g=")).forEach { raw += it.attr(_q9("W71i")) }
+        return raw.mapNotNull { _c3(pageUrl, it) }.distinct()
+    }
+
+    private fun _g9(document: Document, pageUrl: String): List<String> {
+        val base = _c2(pageUrl) ?: _a1
         val urls = mutableListOf<String>()
-        urls += document.select(_q9("C79tW4wRVAGUqa+FN/PNnep+zJXfhlmY"))
-            .map { it.attr(_q9("TK51W9gBVEA=")).trim() }
-            .filter { it.startsWith(_q9("QLt1Sg==")) }
-        document.selectFirst(_q9("QalzW5gRBUGZqbLcZ/73gO549svYl2g="))?.attr(_q9("W71i"))?.trim()
-            ?.takeIf { it.startsWith(_q9("QLt1Sg==")) }
-            ?.let(urls::add)
+        urls += _b6(document, base).map { it.data }
+        urls += document.select(_q9("XaMvX4UdVUOcpfGdfuHi2epRxcrPkmg="))
+            .mapNotNull { node -> _c3(pageUrl, node.attr(_q9("QL1kXA=="))) }
         return urls.distinct()
+    }
+
+    private fun _h0(document: Document, url: String): Boolean {
+        val webType = document.body()?.attr(_q9("TK51W9gDQ06ntKWBcg=="))?.trim()?.lowercase(Locale.ROOT)
+        if (webType == _q9("W6pzU5AH") || webType == _q9("Tb9oSZoQQw==")) return true
+        if (document.selectFirst(_q9("C7xkW4YbSAGcoaiQO7LjlaVv3dHZm1Gg7Owyge/6ObVAvWRcqA==")) != null) return true
+        val host = runCatching { URI(url).host }.getOrNull()
+        val seriesHosts = listOf(_a1, DEFAULT_SERIES_URL)
+            .mapNotNull { base -> runCatching { URI(base).host }.getOrNull() }
+        return host != null && seriesHosts.any { host.equals(it, ignoreCase = true) }
+    }
+
+    private fun _h1(url: String): String =
+        runCatching { URI(url).path.orEmpty().trimEnd('/') }.getOrDefault("")
+
+    private fun _h2(url: String): String =
+        _c2(url)?.let { "$it/" } ?: url
+
+    private fun _h3(url: String): Int = when {
+        _q9("B6d4XocVXgM=") in url -> 0
+        _q9("B7t0SJcbUEWI7w==") in url -> 1
+        _q9("B6xgSYFb") in url -> 2
+        _q9("B78zSto=") in url -> 3
+        else -> 4
     }
 
     private suspend fun LoadResponse._b8(
@@ -615,6 +685,7 @@ class Layarkaca21 : MainAPI() {
         private val REMOTE_CONFIG_KEY = _q9("ZK54W4cfR0+Z8u0=")
         private val _f3 = _q9("XqZlX5oaSUid7riU")
         private val _f4 = 20_000L
+        private val MAX_EPISODE_PAGE_HOPS = 3
         private val _f5 = Regex(_q9("APBoE91LHHDWre+EL+7K1+Z6mZGCyw+e/qMGjr/z"))
         private val BLOCKED_CATEGORIES = emptySet<String>()
         private val BLOCKED_TAGS = emptySet<String>()
