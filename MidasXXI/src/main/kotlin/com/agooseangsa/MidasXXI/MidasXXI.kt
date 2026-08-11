@@ -1,6 +1,7 @@
 package com.agooseangsa.MidasXXI
 
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.USER_AGENT
 import com.lagradost.cloudstream3.LoadResponse.Companion.addActors
 import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addScore
@@ -208,8 +209,15 @@ class MidasXXI : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
-        val playerResponse = runCatching { app.get(frameUrl, referer = pageReferer) }.getOrNull() ?: return false
+        val playerRequestHeaders = mapOf(
+            _q9("K9YqtkW7HcgaSQ==") to USER_AGENT,
+            _q9("P8YsoRiO") to _q9("CsA3sEeSDsAYERLeIGngK5aVbjnfKNczfUDYhc4/LwIf1T+oAZkb2R1SHYEoaOVzhtw3eIgrhXQjFsWThnx7"),
+        )
+        val playerResponse = runCatching {
+            app.get(frameUrl, referer = pageReferer, headers = playerRequestHeaders)
+        }.getOrNull() ?: return false
         val playerUrl = playerResponse.url
+        val playbackHeaders = _c9(playerUrl, playerResponse.cookies)
 
         val directSources = playerResponse.document
             .select(_q9("CMwroQehCd8XYF+OI2r8OpSEXCXDZPI="))
@@ -245,7 +253,7 @@ class MidasXXI : MainAPI() {
                     lang = _c6(track.label),
                     url = track.file,
                 ) {
-                    headers = mapOf(_q9("LMApoRqfCA==") to playerUrl)
+                    headers = playbackHeaders
                 }
             )
         }
@@ -268,7 +276,7 @@ class MidasXXI : MainAPI() {
                 ) {
                     referer = playerUrl
                     quality = getQualityFromName(source.label)
-                    headers = mapOf(_q9("LMApoRqfCA==") to playerUrl)
+                    headers = playbackHeaders
                 }
             )
         }
@@ -317,6 +325,33 @@ class MidasXXI : MainAPI() {
         .replace("\\/", "/")
         .replace(_q9("ItB/9FrM"), "&", ignoreCase = true)
         .replace(_q9("WMQitFM="), "&")
+
+    private fun _c9(
+        playerUrl: String,
+        cookies: Map<String, String>,
+    ): Map<String, String> {
+        val headers = linkedMapOf(
+            _q9("K9YqtkW7HcgaSQ==") to USER_AGENT,
+            _q9("P8YsoRiO") to _q9("VIpl"),
+            _q9("LMApoRqfCA==") to playerUrl,
+        )
+        _d0(playerUrl)?.let { headers[_q9("MdcmowGU")] = it }
+        cookies.entries
+            .joinToString("; ") { (key, value) -> "$key=$value" }
+            .takeIf { it.isNotBlank() }
+            ?.let { headers[_q9("PcogrwGf")] = it }
+        return headers
+    }
+
+    private fun _d0(url: String): String? = runCatching {
+        val uri = URI(url)
+        val scheme = uri.scheme?.lowercase(Locale.ROOT)
+        if ((scheme == _q9("FtE7tA==") || scheme == _q9("FtE7tBs=")) && !uri.authority.isNullOrBlank()) {
+            "$scheme://${uri.authority}"
+        } else {
+            null
+        }
+    }.getOrNull()
 
     private fun _c3(url: String): Boolean = runCatching {
         URI(url).host?.equals(PLAYCINEMATIC_HOST, ignoreCase = true) == true

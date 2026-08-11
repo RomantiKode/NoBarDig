@@ -1,6 +1,6 @@
 // CANONICAL/READABLE SOURCE BUILD FILE. Debug/maintenance memakai canonical source.
 // Protection Standard ACTIVE: public release harus di-generate dari canonical source melalui Agoose-SourceProtect-v1.
-version = 5
+version = 6
 
 cloudstream {
     language = "id"
