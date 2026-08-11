@@ -1,13 +1,42 @@
-// CANONICAL/READABLE SOURCE BUILD FILE. Debug/maintenance memakai canonical source.
-// Protection Standard ACTIVE: public release harus di-generate dari canonical source melalui Agoose-SourceProtect-v1.
-version = 6
+import java.util.Properties
+
+version = 1
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.isFile) file.inputStream().use(::load)
+}
+
+val tmdbReadAccessToken = System.getenv("TMDB_READ_ACCESS_TOKEN")
+    ?: localProperties.getProperty("tmdb.readToken")
+    ?: ""
+val tmdbApiKey = System.getenv("TMDB_API_KEY")
+    ?: localProperties.getProperty("tmdb.apiKey")
+    ?: localProperties.getProperty("tmdb.key")
+    ?: ""
+
+fun String.asBuildConfigString(): String =
+    "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+android {
+    namespace = "com.agooseangsa.MidasXXI"
+
+    buildFeatures {
+        buildConfig = true
+    }
+    defaultConfig {
+        buildConfigField("String", "TMDB_READ_ACCESS_TOKEN", tmdbReadAccessToken.asBuildConfigString())
+        buildConfigField("String", "TMDB_API_KEY", tmdbApiKey.asBuildConfigString())
+    }
+}
 
 cloudstream {
     language = "id"
     description = "MIDASXXI Tempat seru buat nonton film dan drama Korea! Mulai dari LK21, IDLIX, hingga Bioskopkeren, Rebahin Sub Indo. dan Nonton Film semi bikin mager makin asyik!"
     authors = listOf("Agoose")
+    iconUrl = "https://unairi.ac.id/wp-content/uploads/2024/01/cropped-favicon-192x192.png"
 
-    // 0: Down, 1: Ok, 2: Slow, 3: Beta-only
+    // New provider: runtime has not been exercised in Cloudstream yet.
     status = 3
 
     tvTypes = listOf(

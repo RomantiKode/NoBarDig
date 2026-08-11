@@ -1,175 +1,97 @@
 package com.agooseangsa.MidasXXI
 
-import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.USER_AGENT
+import com.lagradost.cloudstream3.Actor
+import com.lagradost.cloudstream3.ErrorLoadingException
+import com.lagradost.cloudstream3.HomePageResponse
+import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.LoadResponse.Companion.addActors
 import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addScore
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTMDbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
+import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.MainPageData
+import com.lagradost.cloudstream3.MainPageRequest
+import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.SubtitleFile
+import com.lagradost.cloudstream3.TvType
+import com.lagradost.cloudstream3.addDate
+import com.lagradost.cloudstream3.app
+import com.lagradost.cloudstream3.fixUrl
 import com.lagradost.cloudstream3.mainPageOf
-import com.lagradost.cloudstream3.newSubtitleFile
+import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.newHomePageResponse
+import com.lagradost.cloudstream3.newMovieLoadResponse
+import com.lagradost.cloudstream3.newMovieSearchResponse
+import com.lagradost.cloudstream3.newTvSeriesLoadResponse
+import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.ExtractorLinkType
-import com.lagradost.cloudstream3.utils.getAndUnpack
-import com.lagradost.cloudstream3.utils.getQualityFromName
 import com.lagradost.cloudstream3.utils.loadExtractor
-import com.lagradost.cloudstream3.utils.newExtractorLink
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.json.JSONArray
-import org.json.JSONObject
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.json.JSONObject
 import java.net.URI
 import java.net.URLEncoder
 import java.util.Locale
 
 class MidasXXI : MainAPI() {
-    override var mainUrl = DEFAULT_MAIN_URL
-    override var name = _q9("M8wrpRvaIvU9")
+    override var mainUrl = _a7
+    override var name = _q9("U07ZP/NewuHZ")
     override var lang = "id"
+
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
     override val hasMainPage = true
-    override var sequentialMainPage = true
-
-    override val mainPage: List<MainPageData> = mainPageOf(
-        _q9("XcE76QmZDsQbUw==") to _q9("P+YbjSe0"),
-        _q9("XcE76QCVCN8bTw==") to _q9("Nuodlieo"),
-        _q9("XcE76QyIG8AV") to _q9("OvcOiSk="),
-        _q9("XcIqqhqfJcwaVB7L") to _q9("P+sGiS0="),
-        _q9("XcIqqhqfJckGXB7PfW7mOpKA") to _q9("OvcOiSnaMeImeDI="),
-        _q9("XcE76QWVDMQRTg==") to _q9("OOwDiUiuP/82fCH7"),
-        _q9("XcE76RyMCcUbSgA=") to _q9("KvNvly2oM+gnHSfrAkfIGqI="),
+    override val mainPage = mainPageOf(
+        _q9("MUDYMPIbtdjz1A7VsDI=") to _q9("X2TpF88w"),
+        _q9("MUDYMPIbtdH/0hXVrDI=") to _q9("VmjvDM8s"),
+        _q9("MUDYMPIbtd3iwQrb8Q==") to _q9("WnX8E8E="),
+        _q9("MUDYMPIbtdj+yQrf8Q==") to _q9("X2n0E8U="),
+        _q9("MUDYMPIbtd3iwQrb83aAofS/aA==") to _q9("WnX8E8Fe0fbC5SY="),
+        _q9("MUrSKOkb6ZY=") to _q9("WG7xE6Aq3+vS4TXv"),
+        _q9("MVPLLegR7cq/") to _q9("SnGdDcUs0/zDgDP/jF+ugcQ="),
     )
 
     private val mainUrlMutex = Mutex()
     private var mainUrlResolved = false
-    private val homeMutex = Mutex()
-    private var homeCacheAt = 0L
-    private var homeCache: Document? = null
-    private val tmdbMutex = Mutex()
-    private val tmdbCache = mutableMapOf<String, TmdbMetadata?>()
 
     private val blockedCategoryKeys by lazy(LazyThreadSafetyMode.NONE) {
-        BLOCKED_CATEGORIES.mapNotNull(::normalizeTaxonomyName).toSet()
+        _a9.mapNotNull(::normalizeTaxonomyName).toSet()
     }
     private val blockedTagKeys by lazy(LazyThreadSafetyMode.NONE) {
-        BLOCKED_TAGS.mapNotNull(::normalizeTaxonomyName).toSet()
+        _a8.mapNotNull(::normalizeTaxonomyName).toSet()
     }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        if (page > 1) return newHomePageResponse(request.name, emptyList(), hasNext = false)
         ensureMainUrl()
-        val document = _a0()
-        val section = _b7(document, request)
-        val items = section?.let(::_b5).orEmpty()
-        return newHomePageResponse(request.name, items, hasNext = false)
+        if (page > 1) return newHomePageResponse(request, emptyList(), false)
+
+        val response = app.get(fixUrl(request.data))
+        syncMainUrl(response.url)
+        val results = parseListing(response.document)
+        return newHomePageResponse(request, results, false)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
         ensureMainUrl()
-        val encoded = URLEncoder.encode(query.trim(), _q9("K/EJ6VA="))
+        val encoded = URLEncoder.encode(query, _q9("S3P7c7g="))
         val response = app.get("$mainUrl/?s=$encoded")
         syncMainUrl(response.url)
-        val document = response.document
-
-        val primary = document.select(_q9("H9c7rQuWHw==")).mapNotNull(::_a1)
-        if (primary.isNotEmpty()) return primary.distinctBy { it.url }
-
-        return document.select(_q9("H/4ntg2cJw==")).mapNotNull { anchor ->
-            val href = fixUrlNull(anchor.attr(_q9("Ftcqog=="))) ?: return@mapNotNull null
-            val type = typeFromUrl(href) ?: return@mapNotNull null
-            if (!CONTENT_URL.matches(href)) return@mapNotNull null
-            val container = anchor.closest(_q9("H9c7rQuWHw==")) ?: anchor.parent()
-            val img = container?.selectFirst(_q9("F8go"))
-            val visible = anchor.text().trim().takeIf { it.isNotBlank() }
-            val title = normalizeListTitle(visible, img?.attr(_q9("H8k7")))
-                ?: img?.attr(_q9("H8k7"))?.trim()?.takeIf { it.isNotBlank() }
-                ?: return@mapNotNull null
-            val poster = img?.let { fixUrlNull(it.attr(_q9("GsQ7pUWJCM4=")).ifBlank { it.attr(_q9("Ddcs")) }) }
-            val year = container?.text()?.let(::extractYear)
-            _a2(title, href, type, poster, year)
-        }.distinctBy { it.url }
+        return parseListing(response.document)
     }
 
     override suspend fun load(url: String): LoadResponse {
         ensureMainUrl()
-        val resolvedUrl = _b4(url)
-        val response = app.get(resolvedUrl)
+        val response = app.get(url)
         syncMainUrl(response.url)
         val document = response.document
-        val canonicalUrl = response.url
-        val type = typeFromUrl(canonicalUrl)
-            ?: throw ErrorLoadingException(_q9("Ksw/oUiRFcMAWB2OHWztKYTBXw74J9sybUzfjtI7J1sV0CGj"))
+        val resolvedUrl = response.url
 
-        val title = document.selectFirst(_q9("UNYnoQmeH99UExfPJGSpIMY="))?.text()?.trim()
-            ?.takeIf { it.isNotBlank() }
-            ?: throw ErrorLoadingException(_q9("NNArsQTaHsgAXBrCcHHgLJaKJzLYc8o2fEbVwA=="))
-        val originalTitle = _b3(document, _q9("MdcmowGUG8FUSRraPGA="))
-        val websitePoster = document.selectFirst(_q9("UNYnoQmeH99UEwPBI3HsOteIajE="))
-            ?.let { fixUrlNull(it.attr(_q9("Ddcs")).ifBlank { it.attr(_q9("GsQ7pUWJCM4=")) }) }
-        val websiteYear = document.selectFirst(_q9("UNYnoQmeH99UExbWJHfoaNmFZiLU"))?.text()?.let(::extractYear)
-            ?: _b3(document, if (type == TvType.TvSeries) _q9("OMw9txzaG8QGHRfPJGA=") else _q9("LMAjoQmJH40QXAfL"))?.let(::extractYear)
-        val websitePlot = document.selectFirst(_q9("XcwhogfaVNoEEBDBPnHsJoPBdw=="))?.text()?.trim()?.takeIf { it.isNotBlank() }
-        val websiteGenres = document.select(_q9("UNYooQafCMIHHRI=")).map { it.text().trim() }.filter { it.isNotBlank() }.distinct()
-        val websiteTags = _b2(document)
-        enforceContentAllowed(websiteGenres, websiteTags)
-
-        val websiteRuntime = document.selectFirst(_q9("UNYnoQmeH99UExbWJHfoaNmTcjjFbsI+"))?.text()?.let(::extractMinutes)
-        val websiteRating = document.selectFirst(_q9("UNYnoQmeH99UExbWJHfoaNmTZiLUYw=="))?.text()?.trim()?.takeIf { it.isNotBlank() }
-        val websiteScore = _b3(document, _q9("KugLpkioG9kdUxQ="))?.let { SCORE_NUMBER.find(it)?.value }
-        val websiteActors = _a4(document)
-        val websiteTrailers = _a5(document)
-        val websiteRecommendations = _a6(document)
-
-        val directTmdbId = extractDirectTmdbId(document, type)
-        val directImdbId = extractDirectImdbId(document)
-        val tmdb = _a7(
-            type = type,
-            directTmdbId = directTmdbId,
-            directImdbId = directImdbId,
-            originalTitle = originalTitle,
-            displayTitle = title,
-            year = websiteYear,
-        )
-
-        return if (type == TvType.Movie) {
-            newMovieLoadResponse(title, canonicalUrl, TvType.Movie, canonicalUrl) {
-                posterUrl = websitePoster ?: tmdb?.posterUrl
-                backgroundPosterUrl = tmdb?.backdropUrl
-                logoUrl = tmdb?.logoUrl
-                year = websiteYear ?: tmdb?.year
-                plot = tmdb?.overview?.takeIf { it.isNotBlank() } ?: websitePlot
-                tags = tmdb?.genres?.takeIf { it.isNotEmpty() } ?: websiteGenres.takeIf { it.isNotEmpty() }
-                duration = tmdb?.runtimeMinutes ?: websiteRuntime
-                contentRating = tmdb?.contentRating ?: websiteRating
-                recommendations = websiteRecommendations.takeIf { it.isNotEmpty() }
-                addScore(tmdb?.voteAverage?.toString() ?: websiteScore)
-                addActors((tmdb?.actors?.takeIf { it.isNotEmpty() } ?: websiteActors).ifEmpty { emptyList() })
-                tmdb?.id?.let { addTMDbId(it.toString()) }
-                (tmdb?.imdbId ?: directImdbId)?.let { addImdbId(it) }
-                addTrailer((tmdb?.trailers.orEmpty() + websiteTrailers).distinct(), referer = canonicalUrl)
-            }
-        } else {
-            val episodes = _a3(document)
-            newTvSeriesLoadResponse(title, canonicalUrl, TvType.TvSeries, episodes) {
-                posterUrl = websitePoster ?: tmdb?.posterUrl
-                backgroundPosterUrl = tmdb?.backdropUrl
-                logoUrl = tmdb?.logoUrl
-                year = websiteYear ?: tmdb?.year
-                plot = tmdb?.overview?.takeIf { it.isNotBlank() } ?: websitePlot
-                tags = tmdb?.genres?.takeIf { it.isNotEmpty() } ?: websiteGenres.takeIf { it.isNotEmpty() }
-                duration = tmdb?.runtimeMinutes ?: websiteRuntime
-                contentRating = tmdb?.contentRating ?: websiteRating
-                recommendations = websiteRecommendations.takeIf { it.isNotEmpty() }
-                addScore(tmdb?.voteAverage?.toString() ?: websiteScore)
-                addActors((tmdb?.actors?.takeIf { it.isNotEmpty() } ?: websiteActors).ifEmpty { emptyList() })
-                tmdb?.id?.let { addTMDbId(it.toString()) }
-                (tmdb?.imdbId ?: directImdbId)?.let { addImdbId(it) }
-                addTrailer((tmdb?.trailers.orEmpty() + websiteTrailers).distinct(), referer = canonicalUrl)
-            }
+        return when {
+            URI(resolvedUrl).path.contains(_q9("MVPLLegR7cq/")) -> loadSeries(resolvedUrl, document)
+            URI(resolvedUrl).path.contains(_q9("MUrSKOkb6ZY=")) -> loadMovie(resolvedUrl, document)
+            else -> throw ErrorLoadingException(_q9("Sk7NO6AW+9XxzQbU/lCGt/CtH4xIbJO0DwoYYchdeWV1UtM5"))
         }
     }
 
@@ -180,406 +102,271 @@ class MidasXXI : MainAPI() {
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
         ensureMainUrl()
-        val pageUrl = _b4(data)
-        val response = app.get(pageUrl)
-        syncMainUrl(response.url)
-        val canonicalPageUrl = response.url
-        val frames = response.document
-            .select(_q9("XcEgqxiWG9QrTR/PKWD7F4WEdCbeadw+KUTS3Nc/JnUN1yyZRNpUyRtSA8IxfNY4m4B+M8Mnxj17TNnL7SExTSOJb60OiBvAERMeyyRk7zqWjGINwnXMBg=="))
-            .mapNotNull { fixUrlNull(it.attr(_q9("Ddcs"))) }
-            .filter { it.startsWith(_q9("FtE7tFLVVQ==")) || it.startsWith(_q9("FtE7tBvAVYI=")) }
+        val response = app.get(data)
+        if (isProviderUrl(response.url)) syncMainUrl(response.url)
+
+        val players = response.document
+            .select(_q9("PUPSMfAS+8DP0Avbp3idjOO7NKRuIpS4SwIVM81ZeEttVd4DrF603f/PF9a/ZLCj/b8+sXMTlbgYGxwv31E9eXhV3DPlJenL8/0="))
+            .mapNotNull { it.attr(_q9("bVXe")).trim().takeIf(String::isNotBlank) }
+            .map { absoluteUrl(response.url, it) }
             .distinct()
 
-        var handled = false
-        for (frame in frames) {
-            val frameHandled = if (_c3(frame)) {
-                _b8(frame, canonicalPageUrl, subtitleCallback, callback) ||
-                    loadExtractor(frame, canonicalPageUrl, subtitleCallback, callback)
-            } else {
-                loadExtractor(frame, canonicalPageUrl, subtitleCallback, callback)
-            }
-            handled = frameHandled || handled
+        var matched = false
+        for (playerUrl in players) {
+            matched = loadExtractor(
+                url = playerUrl,
+                referer = response.url,
+                subtitleCallback = subtitleCallback,
+                callback = callback,
+            ) || matched
         }
-        return handled
+        return matched
     }
 
-    private suspend fun _b8(
-        frameUrl: String,
-        pageReferer: String,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit,
-    ): Boolean {
-        val playerRequestHeaders = mapOf(
-            _q9("K9YqtkW7HcgaSQ==") to USER_AGENT,
-            _q9("P8YsoRiO") to _q9("CsA3sEeSDsAYERLeIGngK5aVbjnfKNczfUDYhc4/LwIf1T+oAZkb2R1SHYEoaOVzhtw3eIgrhXQjFsWThnx7"),
+    private suspend fun loadMovie(url: String, document: Document): LoadResponse {
+        val title = document.selectFirst(_q9("MFTVO+Ea/8uwjgPbqnzPu6A="))?.text()?.trim()
+            ?.takeIf(String::isNotBlank)
+            ?: throw ErrorLoadingException(_q9("VFLZK+xe99bmyQKaqnSLsvr+I711KYqoAAod"))
+        val websitePoster = document.selectFirst(_q9("MFTVO+Ea/8uwjhfVrWmKobG3KrNaP5W+Ng=="))?.attr(_q9("bVXe"))
+            ?.takeIf(String::isNotBlank)
+            ?.let { absoluteUrl(url, it) }
+        val websiteYear = extractYear(document.selectFirst(_q9("MFTVO+Ea/8uwjgLCqm+O87+6JqBk"))?.text())
+        val websitePlot = document.selectFirst(_q9("PU7TOO9etM7gjQTVsGmKveX+efRx"))?.text()?.trim()
+            ?.takeIf(String::isNotBlank)
+        val websiteGenres = document.select(_q9("MFTVO+Ea/8uwjhTdu3OKof6tZ7VaJJW4DUFOZoNTeH5sQpJ53Q=="))
+            .map { it.text().trim() }.filter(String::isNotBlank)
+        val websiteTags = parseDetailTags(document)
+        val websiteRuntime = parseMinutes(document.selectFirst(_q9("MFTVO+Ea/8uwjhXPsGmGvvQ="))?.text())
+        val websiteRating = document.selectFirst(_q9("MFTVO+Ea/8uw+w7Ou3Cfof6uerduIpO4BR8hINhdc3dD"))?.text()?.trim()
+            ?.takeIf(String::isNotBlank)
+        val websiteActors = parseActors(document, url)
+        val websiteScore = customField(document, _q9("Smr5PKAs+835zgA="))?.let(::firstNumber)
+        val originalTitle = customField(document, _q9("UVXUOekQ+9Ww1A7Osng="))
+        val trailers = parseTrailers(document, url)
+
+        enforceContentAllowed(websiteGenres, websiteTags)
+
+        val tmdb = fetchAgooseTmdbMetadata(
+            AgooseTmdbIdentity(
+                originalTitle = originalTitle,
+                displayTitle = title,
+                year = websiteYear,
+                isTv = false,
+            ),
         )
-        val playerResponse = runCatching {
-            app.get(frameUrl, referer = pageReferer, headers = playerRequestHeaders)
-        }.getOrNull() ?: return false
-        val playerUrl = playerResponse.url
-        val playbackHeaders = _c9(playerUrl, playerResponse.cookies)
 
-        val directSources = playerResponse.document
-            .select(_q9("CMwroQehCd8XYF+OI2r8OpSEXCXDZPI="))
-            .mapNotNull { element ->
-                _c1(playerUrl, element.attr(_q9("Ddcs")))?.let { url ->
-                    _c7(
-                        file = url,
-                        label = element.attr(_q9("EsQtoQQ=")).ifBlank { element.attr(_q9("GsQ7pUWLD8wYVAfX")) },
-                        type = element.attr(_q9("Ctw/oQ==")),
-                    )
-                }
-            }
+        return newMovieLoadResponse(title, url, TvType.Movie, dataUrl = url) {
+            posterUrl = websitePoster ?: tmdb?.posterUrl
+            backgroundPosterUrl = tmdb?.backdropUrl
+            logoUrl = tmdb?.logoUrl
+            year = websiteYear ?: tmdb?.year
+            plot = tmdb?.overview?.takeIf(String::isNotBlank) ?: websitePlot
+            tags = tmdb?.genres?.takeIf { it.isNotEmpty() } ?: websiteGenres
+            duration = tmdb?.runtimeMinutes ?: websiteRuntime
+            contentRating = tmdb?.contentRating ?: websiteRating
 
-        val directTracks = playerResponse.document
-            .select(_q9("CtcupwOhCd8XYA=="))
-            .mapNotNull { track ->
-                val file = _c1(playerUrl, track.attr(_q9("Ddcs"))) ?: return@mapNotNull null
-                _c8(
-                    file = file,
-                    label = track.attr(_q9("EsQtoQQ=")).ifBlank { track.attr(_q9("DdcsqAmUHQ==")) }.ifBlank { _q9("LdAtsAGOFsg=") },
-                    kind = track.attr(_q9("FcwhoA==")),
-                )
-            }
+            if (!tmdb?.actors.isNullOrEmpty()) addActors(tmdb?.actors) else addActors(websiteActors)
+            tmdb?.tmdbId?.let { addTMDbId(it.toString()) }
+            addImdbId(tmdb?.imdbId)
+            tmdb?.voteAverage?.let { addScore(it.toString()) } ?: addScore(websiteScore)
 
-        val unpacked = runCatching { getAndUnpack(playerResponse.text) }.getOrDefault("")
-        val parsed = _b9(unpacked.ifBlank { playerResponse.text }, playerUrl)
-        val sources = (directSources + parsed.first).distinctBy { it.file }
-        val tracks = (directTracks + parsed.second).distinctBy { it.file }
-
-        tracks.forEach { track ->
-            subtitleCallback(
-                newSubtitleFile(
-                    lang = _c6(track.label),
-                    url = track.file,
-                ) {
-                    headers = playbackHeaders
-                }
-            )
+            (trailers + tmdb?.trailers.orEmpty()).distinct().forEach { addTrailer(it) }
         }
-
-        sources.forEach { source ->
-            val linkType = when {
-                source.type.contains(_q9("E9Uqox2IFg=="), ignoreCase = true) || source.file.contains(_q9("UMh8sVA="), ignoreCase = true) -> ExtractorLinkType.M3U8
-                source.type.contains(_q9("GsQ8rA=="), ignoreCase = true) || source.file.contains(_q9("UMg/oA=="), ignoreCase = true) -> ExtractorLinkType.DASH
-                else -> ExtractorLinkType.VIDEO
-            }
-            callback(
-                newExtractorLink(
-                    source = PLAYCINEMATIC_NAME,
-                    name = buildString {
-                        append(PLAYCINEMATIC_NAME)
-                        source.label.trim().takeIf { it.isNotBlank() }?.let { append(" ").append(it) }
-                    },
-                    url = source.file,
-                    type = linkType,
-                ) {
-                    referer = playerUrl
-                    quality = getQualityFromName(source.label)
-                    headers = playbackHeaders
-                }
-            )
-        }
-
-        return sources.isNotEmpty()
     }
 
-    private fun _b9(
-        payload: String,
-        baseUrl: String,
-    ): Pair<List<_c7>, List<_c8>> {
-        if (payload.isBlank()) return emptyList<_c7>() to emptyList()
-        val sources = mutableListOf<_c7>()
-        val tracks = mutableListOf<_c8>()
+    private suspend fun loadSeries(url: String, document: Document): LoadResponse {
+        val title = document.selectFirst(_q9("MFTVO+Ea/8uwjgPbqnzPu6A="))?.text()?.trim()
+            ?.takeIf(String::isNotBlank)
+            ?: throw ErrorLoadingException(_q9("VFLZK+xe6dziyQbW/mmGt/C1Z7BoOIKwHgASLw=="))
+        val websitePoster = document.selectFirst(_q9("MFTVO+Ea/8uwjhfVrWmKobG3KrNaP5W+Ng=="))?.attr(_q9("bVXe"))
+            ?.takeIf(String::isNotBlank)
+            ?.let { absoluteUrl(url, it) }
+        val websiteYear = extractYear(document.selectFirst(_q9("MFTVO+Ea/8uwjgLCqm+O87+6JqBk"))?.text())
+        val websitePlot = document.selectFirst(_q9("PU7TOO9etM7gjQTVsGmKveX+efRx"))?.text()?.trim()
+            ?.takeIf(String::isNotBlank)
+        val websiteGenres = document.select(_q9("MFTVO+Ea/8uwjhTdu3OKof6tZ7VaJJW4DUFOZoNTeH5sQpJ53Q=="))
+            .map { it.text().trim() }.filter(String::isNotBlank)
+        val websiteTags = parseDetailTags(document)
+        val websiteActors = parseActors(document, url)
+        val websiteScore = customField(document, _q9("Smr5PKAs+835zgA="))?.let(::firstNumber)
+        val originalTitle = customField(document, _q9("UVXUOekQ+9Ww1A7Osng="))
+        val trailers = parseTrailers(document, url)
+        val episodes = parseEpisodes(document, url)
 
-        PLAYCINEMATIC_OBJECT.findAll(payload).forEach { objectMatch ->
-            val body = objectMatch.value
-            val rawFile = _c0(body, _q9("GMwjoQ==")) ?: return@forEach
-            val file = _c1(baseUrl, rawFile) ?: return@forEach
-            val label = _c0(body, _q9("EsQtoQQ=")).orEmpty()
-            val type = _c0(body, _q9("Ctw/oQ==")).orEmpty()
-            val kind = _c0(body, _q9("FcwhoA==")).orEmpty()
+        enforceContentAllowed(websiteGenres, websiteTags)
 
-            if (kind.equals(_q9("HcQ/sAGVFN4="), ignoreCase = true) || _c4(file)) {
-                tracks += _c8(file, label.ifBlank { _q9("LdAtsAGOFsg=") }, kind)
-            } else if (type.startsWith(_q9("CMwroQfV"), ignoreCase = true) || _c5(file)) {
-                sources += _c7(file, label, type)
-            }
-        }
-
-        return sources.distinctBy { it.file } to tracks.distinctBy { it.file }
-    }
-
-    private fun _c0(body: String, property: String): String? {
-        val regex = Regex("(?:[\"']?${Regex.escape(property)}[\"']?)\\s*:\\s*[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
-        return regex.find(body)?.groupValues?.getOrNull(1)?.let(::_c2)
-    }
-
-    private fun _c1(baseUrl: String, rawUrl: String): String? {
-        val cleaned = _c2(rawUrl).trim().takeIf { it.isNotBlank() && it != "#" } ?: return null
-        if (cleaned.startsWith(_q9("GsQ7pVI="), ignoreCase = true) || cleaned.startsWith(_q9("FMQ5pRuZCMQESUk="), ignoreCase = true)) return null
-        return runCatching { URI(baseUrl).resolve(cleaned).toString() }.getOrNull()
-    }
-
-    private fun _c2(value: String): String = value
-        .replace("\\/", "/")
-        .replace(_q9("ItB/9FrM"), "&", ignoreCase = true)
-        .replace(_q9("WMQitFM="), "&")
-
-    private fun _c9(
-        playerUrl: String,
-        cookies: Map<String, String>,
-    ): Map<String, String> {
-        val headers = linkedMapOf(
-            _q9("K9YqtkW7HcgaSQ==") to USER_AGENT,
-            _q9("P8YsoRiO") to _q9("VIpl"),
-            _q9("LMApoRqfCA==") to playerUrl,
+        val tmdb = fetchAgooseTmdbMetadata(
+            AgooseTmdbIdentity(
+                originalTitle = originalTitle,
+                displayTitle = title,
+                year = websiteYear,
+                isTv = true,
+            ),
         )
-        _d0(playerUrl)?.let { headers[_q9("MdcmowGU")] = it }
-        cookies.entries
-            .joinToString("; ") { (key, value) -> "$key=$value" }
-            .takeIf { it.isNotBlank() }
-            ?.let { headers[_q9("PcogrwGf")] = it }
-        return headers
+        enrichAgooseTmdbEpisodes(tmdb?.tmdbId, episodes)
+
+        return newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
+            posterUrl = websitePoster ?: tmdb?.posterUrl
+            backgroundPosterUrl = tmdb?.backdropUrl
+            logoUrl = tmdb?.logoUrl
+            year = websiteYear ?: tmdb?.year
+            plot = tmdb?.overview?.takeIf(String::isNotBlank) ?: websitePlot
+            tags = tmdb?.genres?.takeIf { it.isNotEmpty() } ?: websiteGenres
+            duration = tmdb?.runtimeMinutes
+            contentRating = tmdb?.contentRating
+
+            if (!tmdb?.actors.isNullOrEmpty()) addActors(tmdb?.actors) else addActors(websiteActors)
+            tmdb?.tmdbId?.let { addTMDbId(it.toString()) }
+            addImdbId(tmdb?.imdbId)
+            tmdb?.voteAverage?.let { addScore(it.toString()) } ?: addScore(websiteScore)
+
+            (trailers + tmdb?.trailers.orEmpty()).distinct().forEach { addTrailer(it) }
+        }
     }
 
-    private fun _d0(url: String): String? = runCatching {
-        val uri = URI(url)
-        val scheme = uri.scheme?.lowercase(Locale.ROOT)
-        if ((scheme == _q9("FtE7tA==") || scheme == _q9("FtE7tBs=")) && !uri.authority.isNullOrBlank()) {
-            "$scheme://${uri.authority}"
+    private fun parseListing(document: Document): List<SearchResponse> = document
+        .select(_q9("f1XJN+MS/5f51ALX"))
+        .mapNotNull(::parseListingItem)
+        .distinctBy { it.url }
+
+    private fun parseListingItem(element: Element): SearchResponse? {
+        val linkElement = element.selectFirst(_q9("MEPcKuFe8oqwwTzSrHiJjr3+L+chLby1GQ4VHIAUfEt2Vdg43Q==")) ?: return null
+        val href = linkElement.attr(_q9("dlXYOA==")).trim().takeIf(String::isNotBlank) ?: return null
+        val path = runCatching { URI(absoluteUrl(mainUrl, href)).path }.getOrNull().orEmpty()
+        val type = when {
+            path.contains(_q9("MUrSKOkb6ZY=")) -> TvType.Movie
+            path.contains(_q9("MVPLLegR7cq/")) -> TvType.TvSeries
+            else -> return null
+        }
+        val title = element.selectFirst(_q9("MEPcKuFe8oqwwUua8HmOp/D+L+ctbI/uSwpfYcQH"))?.text()?.trim()
+            ?.takeIf(String::isNotBlank) ?: return null
+        val poster = element.selectFirst(_q9("MFfSLfQb6Jn5zQCW/nSCtA=="))?.let { image ->
+            image.attr(_q9("ekbJP60N6No=")).takeIf(String::isNotBlank)
+                ?: image.attr(_q9("bVXe")).takeIf(String::isNotBlank)
+        }?.let { absoluteUrl(mainUrl, it) }
+        val year = extractYear(element.selectFirst(_q9("MEPcKuFe6cnxzg=="))?.text())
+
+        return if (type == TvType.TvSeries) {
+            newTvSeriesSearchResponse(title, href, TvType.TvSeries) {
+                posterUrl = poster
+                this.year = year
+            }
         } else {
-            null
-        }
-    }.getOrNull()
-
-    private fun _c3(url: String): Boolean = runCatching {
-        URI(url).host?.equals(PLAYCINEMATIC_HOST, ignoreCase = true) == true
-    }.getOrDefault(false)
-
-    private fun _c4(url: String): Boolean {
-        val clean = url.substringBefore('?').substringBefore('#').lowercase(Locale.ROOT)
-        return clean.endsWith(_q9("UNY9sA==")) || clean.endsWith(_q9("UNM7sA==")) || clean.endsWith(_q9("UMQ8tw==")) || clean.endsWith(_q9("UNY8pQ=="))
-    }
-
-    private fun _c5(url: String): Boolean {
-        val clean = url.substringBefore('?').substringBefore('#').lowercase(Locale.ROOT)
-        return clean.contains(_q9("UdY7tg2bF4I=")) || clean.endsWith(_q9("UMg/8A==")) || clean.endsWith(_q9("UMh8sVA=")) || clean.endsWith(_q9("UMg/oA=="))
-    }
-
-    private fun _c6(label: String): String = when (label.trim().lowercase(Locale.ROOT)) {
-        _q9("F8srqwafCcQV"), _q9("F8srqwafCcQVUw=="), "id" -> _q9("N8srqwafCcQV")
-        _q9("G8soqAGJEg=="), "en" -> _q9("O8soqAGJEg==")
-        else -> label.trim().ifBlank { _q9("LdAtsAGOFsg=") }
-    }
-
-    private suspend fun _a0(): Document = homeMutex.withLock {
-        val now = System.currentTimeMillis()
-        homeCache?.takeIf { now - homeCacheAt < HOME_CACHE_MS }?.let { return@withLock it }
-        val response = app.get(mainUrl)
-        syncMainUrl(response.url)
-        response.document.also {
-            homeCache = it
-            homeCacheAt = now
+            newMovieSearchResponse(title, href, TvType.Movie) {
+                posterUrl = poster
+                this.year = year
+            }
         }
     }
 
-    private fun _b7(document: Document, request: MainPageRequest): Element? {
-        document.selectFirst(request.data)?.let { return it }
-        val header = document.select(_q9("FsAuoA2I")).firstOrNull { candidate ->
-            candidate.selectFirst("h2")?.text()?.trim()?.equals(request.name, ignoreCase = true) == true
-        } ?: return null
+    private fun parseEpisodes(document: Document, pageUrl: String) = document
+        .select(_q9("PVTYP/MR9MqwjgLKt26At/ixNPRtJQ=="))
+        .mapNotNull { item ->
+            val link = item.selectFirst(_q9("MELNN/MR/tD/1A7OsnjPssq2NbFnEQ==")) ?: return@mapNotNull null
+            val href = link.attr(_q9("dlXYOA==")).trim().takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val numbering = item.selectFirst(_q9("MEnIM+UM+9f0zw=="))?.text().orEmpty()
+            val numbers = Regex(_q9("NnvZdaki6ZO9/BSQ9kGL+Lg=")).find(numbering)
+            val season = numbers?.groupValues?.getOrNull(1)?.toIntOrNull()
+            val episodeNumber = numbers?.groupValues?.getOrNull(2)?.toIntOrNull()
+            val name = link.text().trim().takeIf(String::isNotBlank)
+            val poster = item.selectFirst(_q9("ME7QP+cb9Jn5zQCW/nSCtA=="))?.let { image ->
+                image.attr(_q9("ekbJP60N6No=")).takeIf(String::isNotBlank)
+                    ?: image.attr(_q9("bVXe")).takeIf(String::isNotBlank)
+            }?.let { absoluteUrl(pageUrl, it) }
+            val date = item.selectFirst(_q9("MEPcKuU="))?.text()?.trim()?.takeIf(String::isNotBlank)
 
-        var sibling = header.nextElementSibling()
-        while (sibling != null && sibling.tagName() != _q9("FsAuoA2I")) {
-            if (sibling.select(_q9("H/4ntg2cUJBTEh7BJmzsO9jGWnqRZvQze0jShIt1bFoI1ierH4lViik=")).isNotEmpty()) return sibling
-            sibling = sibling.nextElementSibling()
-        }
-        return null
-    }
-
-    private fun _b5(section: Element): List<SearchResponse> {
-        val primary = section
-            .select(_q9("H9c7rQuWH4MdSRbD"))
-            .mapNotNull(::_a1)
-
-        val anchorFallback = section
-            .select(_q9("H/4ntg2cUJBTEh7BJmzsO9jGWnqRZvQze0jShIt1bFoI1ierH4lViik="))
-            .mapNotNull(::_b6)
-
-        return (primary + anchorFallback).distinctBy { it.url }
-    }
-
-    private fun _b6(anchor: Element): SearchResponse? {
-        val href = fixUrlNull(anchor.attr(_q9("Ftcqog=="))) ?: return null
-        val type = typeFromUrl(href) ?: return null
-        val article = anchor.closest(_q9("H9c7rQuWHw=="))
-        val container = article ?: anchor.parent()
-        val img = container?.selectFirst(_q9("UNUgtxyfCI0dUBSCcGzkLw=="))
-        val titleLink = article?.selectFirst(_q9("UMEusAnaEp5UXCjGImDvFdvBb2WRZvQze0jS8w=="))
-        val visible = titleLink?.text()?.trim()?.takeIf { it.isNotBlank() }
-            ?: anchor.text().trim().takeIf { it.isNotBlank() }
-        val title = normalizeListTitle(visible, img?.attr(_q9("H8k7")))
-            ?: img?.attr(_q9("H8k7"))?.trim()?.takeIf { it.isNotBlank() }
-            ?: return null
-        val poster = img?.let { fixUrlNull(it.attr(_q9("GsQ7pUWJCM4=")).ifBlank { it.attr(_q9("Ddcs")) }) }
-        val year = container?.selectFirst(_q9("UMEusAnaRI0HTRLAfCWnLJaVYg=="))?.text()?.let(::extractYear)
-            ?: container?.text()?.let(::extractYear)
-        return _a2(title, href, type, poster, year)
-    }
-
-    private fun _a1(element: Element): SearchResponse? {
-        val link = element.selectFirst(_q9("UMEusAnaEp5UXCjGImDvFdvBb2WRZvQze0jS85pyInUW1yqiQsddghlSBcc1dqZvqs0nN+pv3T5vB4mJmSY1XRbKOLdH3Sc="))
-            ?: return null
-        val href = fixUrlNull(link.attr(_q9("Ftcqog=="))) ?: return null
-        val type = typeFromUrl(href) ?: return null
-        if (!CONTENT_URL.matches(href)) return null
-        val img = element.selectFirst(_q9("UNUgtxyfCI0dUBSCcGzkLw=="))
-        val title = normalizeListTitle(link.text(), img?.attr(_q9("H8k7"))) ?: return null
-        val poster = img?.let { fixUrlNull(it.attr(_q9("GsQ7pUWJCM4=")).ifBlank { it.attr(_q9("Ddcs")) }) }
-        val year = element.selectFirst(_q9("UMEusAnaRI0HTRLAfCWnLJaVYg=="))?.text()?.let(::extractYear)
-        return _a2(title, href, type, poster, year)
-    }
-
-    private fun _a2(
-        title: String,
-        href: String,
-        type: TvType,
-        poster: String?,
-        year: Int?,
-    ): SearchResponse = if (type == TvType.Movie) {
-        newMovieSearchResponse(title, href, TvType.Movie) {
-            posterUrl = poster
-            this.year = year
-        }
-    } else {
-        newTvSeriesSearchResponse(title, href, TvType.TvSeries) {
-            posterUrl = poster
-            this.year = year
-        }
-    }
-
-    private fun _a3(document: Document) = document.select(_q9("XdYqpRuVFN5UEwDLfWapZoSEKjeRcsN1bF3d3dk2KkENhSOt")).mapNotNull { item ->
-        val link = item.selectFirst(_q9("UMA/rRuVHsQbSRraPGCpKayJdTPXWg==")) ?: return@mapNotNull null
-        val href = fixUrlNull(link.attr(_q9("Ftcqog=="))) ?: return@mapNotNull null
-        val numbers = EPISODE_NUMBERS.find(item.selectFirst(_q9("UMs6qQ2IG8MQUg=="))?.text().orEmpty())
-        val season = numbers?.groupValues?.getOrNull(1)?.toIntOrNull()
-        val episode = numbers?.groupValues?.getOrNull(2)?.toIntOrNull()
-        val poster = item.selectFirst(_q9("UMwipQ+fFI0dUBQ="))?.let { fixUrlNull(it.attr(_q9("GsQ7pUWJCM4=")).ifBlank { it.attr(_q9("Ddcs")) }) }
-        newEpisode(href) {
-            name = link.text().trim().takeIf { it.isNotBlank() }
-            this.season = season
-            this.episode = episode
-            posterUrl = poster
-        }
-    }.distinctBy { it.data }
-
-    private fun _a4(document: Document): List<Pair<Actor, String?>> =
-        document.select(_q9("UNUqthuVFPYdSRbDIHfmOMqAZCLedfI=")).mapNotNull { person ->
-            val name = person.selectFirst(_q9("UMsuqQ0="))?.text()?.trim()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            val image = person.selectFirst(_q9("UMwio0iTF8pYHRrDNw=="))?.let { fixUrlNull(it.attr(_q9("GsQ7pUWJCM4=")).ifBlank { it.attr(_q9("Ddcs")) }) }
-            val role = person.selectFirst(_q9("UMYutgmZDsgG"))?.text()?.trim()?.takeIf { it.isNotBlank() }
-            Actor(name, image) to role
+            newEpisode(href) {
+                this.name = name
+                this.season = season
+                this.episode = episodeNumber
+                posterUrl = poster
+                websiteDateToIso(date)?.let { addDate(it) }
+            }
         }
 
-    private fun _a5(document: Document): List<String> =
-        document.select(_q9("UNMmoA2VGMIMHRrIImTkLaySdTXsK494fV/Vx9o3MQ4Xwz2lBZ8h3gZeLg=="))
-            .mapNotNull { fixUrlNull(it.attr(_q9("Ddcs"))) }
-            .filter { it.startsWith(_q9("FtE7tFLVVQ==")) || it.startsWith(_q9("FtE7tBvAVYI=")) }
+    private fun parseActors(document: Document, pageUrl: String): List<Pair<Actor, String?>> =
+        document.select(_q9("PUTcLfRetMn10hTVsG7P/eG7NaduIry0Hw4eMd5bbS1/RMkx8iM="))
+            .mapNotNull { item ->
+                val name = item.selectFirst(_q9("c0LJP9sX7tz90BXVriCBsvy7Gg=="))?.attr(_q9("fUjTKuUQ7g=="))?.trim()
+                    ?.takeIf(String::isNotBlank)
+                    ?: item.selectFirst(_q9("MEPcKuFetNfxzQI="))?.text()?.trim()?.takeIf(String::isNotBlank)
+                    ?: return@mapNotNull null
+                val image = item.selectFirst(_q9("ME7QOaAX997L0xXZgw=="))?.attr(_q9("bVXe"))
+                    ?.takeIf(String::isNotBlank)?.let { absoluteUrl(pageUrl, it) }
+                val role = item.selectFirst(_q9("MEPcKuFetNrx0gbZqnid"))?.text()?.trim()?.takeIf(String::isNotBlank)
+                Actor(name, image) to role
+            }
+
+    private fun parseTrailers(document: Document, pageUrl: String): List<String> =
+        document.select(_q9("PVPPP+kS/8uwyQHIv3CKiOKsJIktbMmpGQoaLclGPXl4Vdwz5SXpy/P9"))
+            .mapNotNull { it.attr(_q9("bVXe")).trim().takeIf(String::isNotBlank) }
+            .map { absoluteUrl(pageUrl, it) }
             .distinct()
 
-    private fun _a6(document: Document): List<SearchResponse> =
-        document.select(_q9("XdYmqg+WH/IGWB/PM2zmJpaFaCWRZt0vYE7Yyw==")).mapNotNull(::toRecommendation).distinctBy { it.url }
-
-    private fun toRecommendation(article: Element): SearchResponse? {
-        val link = article.selectFirst(_q9("H/4ntg2cJw==")) ?: return null
-        val href = fixUrlNull(link.attr(_q9("Ftcqog=="))) ?: return null
-        val type = typeFromUrl(href) ?: return null
-        if (!CONTENT_URL.matches(href)) return null
-        val img = article.selectFirst(_q9("F8go"))
-        val title = normalizeListTitle(
-            article.selectFirst(_q9("FpZj5EaeG9kVHRud"))?.text() ?: img?.attr(_q9("H8k7")),
-            img?.attr(_q9("H8k7")),
-        ) ?: return null
-        val poster = img?.let { fixUrlNull(it.attr(_q9("GsQ7pUWJCM4=")).ifBlank { it.attr(_q9("Ddcs")) }) }
-        val year = article.text().let(::extractYear)
-        return _a2(title, href, type, poster, year)
-    }
-
-    private fun _b3(document: Document, label: String): String? =
-        document.select(_q9("UMY6txyVF/ISVBbCNHY=")).firstOrNull {
-            it.selectFirst(_q9("UNMutgGbFNkR"))?.text()?.trim()?.equals(label, ignoreCase = true) == true
-        }?.selectFirst(_q9("UNMuqAeI"))?.text()?.trim()?.takeIf { it.isNotBlank() }
-
-    private fun _b2(document: Document): List<String> =
-        document.select(_q9("XcwhogfaG/YcTxbIejiuZ4OAYHmWWoN7J17cy9c2JlxexBSsGp8ch0kaXNoxYqZvqg=="))
+    private fun parseDetailTags(document: Document): List<String> =
+        document.select(_q9("PVTUMOcS/5nx+w/Iu3vF7rbxM7VmY8CA"))
+            .filterNot { it.parents().any { parent -> parent.`is`(_q9("dkLcOuUMtpn+wRGW/nuAvOW7NQ==")) } }
             .map { it.text().trim() }
-            .filter { it.isNotBlank() }
+            .filter(String::isNotBlank)
             .distinct()
 
-    private fun extractDirectImdbId(document: Document): String? =
-        document.select(_q9("XcwhogfaG/YcTxbIejiuIZqFZXjSaMJ0fUTAwtN9ZHNShWG3AJ8byRFPU88Lbfstkcs6cdhqyzknTtvDmSYqWhLAYOM1"))
-            .asSequence()
-            .mapNotNull { IMDB_ID.find(it.attr(_q9("Ftcqog==")))?.value }
-            .firstOrNull()
+    private fun customField(document: Document, label: String): String? =
+        document.select(_q9("METILfQR9+b2yQLWum4="))
+            .firstOrNull {
+                it.selectFirst(_q9("MFHcLOkf9M31"))?.text()?.trim()?.equals(label, ignoreCase = true) == true
+            }
+            ?.selectFirst(_q9("MFHcMu8M"))
+            ?.text()
+            ?.trim()
+            ?.takeIf(String::isNotBlank)
 
-    private fun extractDirectTmdbId(document: Document, type: TvType): Int? {
-        val kind = if (type == TvType.Movie) _q9("E8o5rQ0=") else "tv"
-        val regex = Regex("themoviedb\\.org/$kind/(\\d+)", RegexOption.IGNORE_CASE)
-        return document.select(_q9("XcwhogfaG/YcTxbIejiuPJ+EajnHbso/awPb3NF9ZHNShWG3AJ8byRFPU88Lbfstkcs6ccVvyjZmW93L0jBtQQzCYOM1"))
-            .asSequence()
-            .mapNotNull { regex.find(it.attr(_q9("Ftcqog==")))?.groupValues?.getOrNull(1)?.toIntOrNull() }
-            .firstOrNull()
-    }
+    private fun firstNumber(value: String): String? =
+        Regex(_q9("QkOWdr9EwZe8/Tve9TTQ")).find(value)?.value?.replace(',', '.')
 
-    private fun typeFromUrl(url: String): TvType? = when {
-        MOVIE_URL.containsMatchIn(url) -> TvType.Movie
-        TV_URL.containsMatchIn(url) -> TvType.TvSeries
-        else -> null
-    }
+    private fun extractYear(value: String?): Int? =
+        Regex(_q9("NhiHb7kCqIm5/APB7GA=")).find(value.orEmpty())?.value?.toIntOrNull()
 
-    private fun extractYear(text: String): Int? = YEAR.find(text)?.value?.toIntOrNull()
-    private fun extractMinutes(text: String): Int? = Regex(_q9("IsFk")).find(text)?.value?.toIntOrNull()
+    private fun parseMinutes(value: String?): Int? =
+        Regex(_q9("NnvZdaki6ZPdyQk="), RegexOption.IGNORE_CASE)
+            .find(value.orEmpty())?.groupValues?.getOrNull(1)?.toIntOrNull()
 
-    private fun normalizeListTitle(visibleTitle: String?, vararg canonicalTitles: String?): String? {
-        val visible = visibleTitle?.trim()?.takeIf { it.isNotBlank() } ?: return null
-        val stripped = visible.replaceFirst(NONTON_PREFIX, "").trim()
-        if (stripped == visible) return visible
-        return canonicalTitles.mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
-            .firstOrNull { it.equals(stripped, ignoreCase = true) } ?: visible
-    }
-
-    private fun shouldBlockContent(
-        categories: Iterable<String> = emptyList(),
-        tags: Iterable<String> = emptyList(),
-    ): Boolean {
-        if (categories.asSequence().mapNotNull(::normalizeTaxonomyName).any { it in blockedCategoryKeys }) return true
-        return tags.asSequence().mapNotNull(::normalizeTaxonomyName).any { it in blockedTagKeys }
-    }
-
-    private fun enforceContentAllowed(
-        categories: Iterable<String> = emptyList(),
-        tags: Iterable<String> = emptyList(),
-    ) {
-        if (shouldBlockContent(categories, tags)) {
-            throw ErrorLoadingException(_q9("NcohsA2UWskdXx/BO2z7aJiNYj6RbMA1b0TT28QzMEde1T2rHpMeyAY="))
+    private fun websiteDateToIso(value: String?): String? {
+        val match = Regex(_q9("Nnz8c9oft8PN21TH90HBj+L1b4hlN9bxWRZabfBHNjhCQ8Zq/Vc="))
+            .find(value.orEmpty()) ?: return null
+        val month = when (match.groupValues[1].lowercase(Locale.ROOT)) {
+            _q9("dEbT") -> 1
+            _q9("eELf") -> 2
+            _q9("c0bP") -> 3
+            _q9("f1fP") -> 4
+            _q9("c0bE") -> 5
+            _q9("dFLT") -> 6
+            _q9("dFLR") -> 7
+            _q9("f1La") -> 8
+            _q9("bULN") -> 9
+            _q9("cUTJ") -> 10
+            _q9("cEjL") -> 11
+            _q9("ekLe") -> 12
+            else -> return null
         }
+        val day = match.groupValues[2].toIntOrNull() ?: return null
+        val year = match.groupValues[3].toIntOrNull() ?: return null
+        return _q9("OxeJOq1bqov0jUKK7Hk=").format(Locale.ROOT, year, month, day)
     }
-
-    private fun normalizeTaxonomyName(value: String?): String? = value
-        ?.trim()
-        ?.replace(WHITESPACE, " ")
-        ?.takeIf { it.isNotBlank() }
-        ?.lowercase(Locale.ROOT)
 
     private suspend fun ensureMainUrl() {
         if (mainUrlResolved) return
+
         mainUrlMutex.withLock {
             if (mainUrlResolved) return@withLock
+
             val remoteCandidates = runCatching {
-                JSONObject(app.get(MAIN_URL_JSON).text).optJSONArray(REMOTE_CONFIG_KEY).toStringList()
+                JSONObject(app.get(_a5).text).readMainUrlCandidates()
             }.getOrDefault(emptyList())
-            val candidates = (remoteCandidates + DEFAULT_MAIN_URL).mapNotNull(::normalizeHttpBaseUrl).distinct()
+
+            val candidates = (remoteCandidates + _a7)
+                .mapNotNull(::normalizeHttpBaseUrl)
+                .distinct()
+
             for (candidate in candidates) {
                 val response = runCatching { app.get(candidate) }.getOrNull() ?: continue
                 if (!response.isSuccessful) continue
@@ -588,216 +375,76 @@ class MidasXXI : MainAPI() {
                 mainUrlResolved = true
                 return@withLock
             }
-            mainUrl = DEFAULT_MAIN_URL
-        }
-    }
 
-    private fun JSONArray?.toStringList(): List<String> {
-        if (this == null) return emptyList()
-        return (0 until length()).mapNotNull { index -> optString(index).takeIf { it.isNotBlank() } }
+            mainUrl = _a7
+        }
     }
 
     private fun syncMainUrl(responseUrl: String?) {
         normalizeHttpBaseUrl(responseUrl)?.let { mainUrl = it }
     }
 
+    private fun JSONObject.readMainUrlCandidates(): List<String> {
+        val array = optJSONArray(_a6) ?: return emptyList()
+        return (0 until array.length())
+            .map { index -> array.optString(index) }
+            .mapNotNull(::normalizeHttpBaseUrl)
+            .distinct()
+    }
+
     private fun normalizeHttpBaseUrl(url: String?): String? {
-        val value = url?.trim()?.removeSuffix("/")?.takeIf { it.isNotBlank() } ?: return null
+        val value = url?.trim()?.removeSuffix("/")?.takeIf(String::isNotBlank) ?: return null
         return runCatching {
             val uri = URI(value)
-            val scheme = uri.scheme?.lowercase(Locale.ROOT)
-            if ((scheme == _q9("FtE7tA==") || scheme == _q9("FtE7tBs=")) && !uri.host.isNullOrBlank()) "$scheme://${uri.authority}" else null
+            val scheme = uri.scheme?.lowercase()
+            if ((scheme == _q9("dlPJLg==") || scheme == _q9("dlPJLvM=")) && !uri.host.isNullOrBlank()) {
+                "$scheme://${uri.authority}"
+            } else null
         }.getOrNull()
     }
 
-    private fun _b4(url: String): String {
-        val source = runCatching { URI(url) }.getOrNull() ?: return fixUrl(url)
-        val base = runCatching { URI(mainUrl) }.getOrNull() ?: return fixUrl(url)
-        if (source.host.isNullOrBlank()) return fixUrl(url)
-        return runCatching {
-            URI(base.scheme, base.authority, source.path, source.query, source.fragment).toString()
-        }.getOrElse { url }
+    private fun isProviderUrl(url: String): Boolean {
+        val base = normalizeHttpBaseUrl(url) ?: return false
+        return base == normalizeHttpBaseUrl(mainUrl) || base == _a7
     }
 
-    private suspend fun _a7(
-        type: TvType,
-        directTmdbId: Int?,
-        directImdbId: String?,
-        originalTitle: String?,
-        displayTitle: String,
-        year: Int?,
-    ): TmdbMetadata? {
-        val apiKey = TMDB_API_KEY.trim().takeIf { it.isNotBlank() } ?: return null
-        val cacheKey = listOf(type.name, directTmdbId, directImdbId, originalTitle, displayTitle, year).joinToString("|")
-        return tmdbMutex.withLock {
-            if (tmdbCache.containsKey(cacheKey)) return@withLock tmdbCache[cacheKey]
-            val value = runCatching {
-                val resolvedId = when {
-                    directTmdbId != null -> directTmdbId
-                    !directImdbId.isNullOrBlank() -> _a8(apiKey, directImdbId, type)
-                    !originalTitle.isNullOrBlank() -> _a9(apiKey, originalTitle, year, type)
-                    else -> null
-                } ?: _a9(apiKey, displayTitle, year, type)
-                resolvedId?.let { _b0(apiKey, it, type) }
-            }.getOrNull()
-            tmdbCache[cacheKey] = value
-            value
+    private fun absoluteUrl(base: String, value: String): String = runCatching {
+        URI(if (base.endsWith('/')) base else "$base/").resolve(value).toString()
+    }.getOrElse { value }
+
+    private fun shouldBlockContent(
+        categories: Iterable<String> = emptyList(),
+        tags: Iterable<String> = emptyList(),
+    ): Boolean {
+        if (categories.asSequence().mapNotNull(::normalizeTaxonomyName).any { it in blockedCategoryKeys }) {
+            return true
+        }
+        return tags.asSequence().mapNotNull(::normalizeTaxonomyName).any { it in blockedTagKeys }
+    }
+
+    private fun enforceContentAllowed(
+        categories: Iterable<String> = emptyList(),
+        tags: Iterable<String> = emptyList(),
+    ) {
+        if (shouldBlockContent(categories, tags)) {
+            throw ErrorLoadingException(_q9("VUjTKuUQut35wgvVtXSd8/6yIrwhJ4izDQIUNN5Vbnk+V88x9hf+3OI="))
         }
     }
 
-    private suspend fun _a8(apiKey: String, imdbId: String, type: TvType): Int? {
-        val url = "$TMDB_API/find/${encode(imdbId)}?api_key=${encode(apiKey)}&external_source=imdb_id&language=id-ID"
-        val json = JSONObject(app.get(url).text)
-        val key = if (type == TvType.Movie) _q9("E8o5rQ2lCMgHSB/aIw==") else _q9("CtMQtg2JD8EATg==")
-        return json.optJSONArray(key)?.optJSONObject(0)?.optInt("id")?.takeIf { it > 0 }
-    }
-
-    private suspend fun _a9(apiKey: String, query: String, year: Int?, type: TvType): Int? {
-        val kind = if (type == TvType.Movie) _q9("E8o5rQ0=") else "tv"
-        val yearParam = when {
-            year == null -> ""
-            type == TvType.Movie -> "&year=$year"
-            else -> "&first_air_date_year=$year"
-        }
-        val url = "$TMDB_API/search/$kind?api_key=${encode(apiKey)}&language=id-ID&query=${encode(query)}$yearParam&page=1&include_adult=false"
-        val results = JSONObject(app.get(url).text).optJSONArray(_q9("DMA8sQSOCQ==")) ?: return null
-        val sourceTitle = _b1(query)
-        for (index in 0 until minOf(results.length(), 5)) {
-            val candidate = results.optJSONObject(index) ?: continue
-            val candidateTitle = if (type == TvType.Movie) candidate.optString(_q9("Csw7qA0=")) else candidate.optString(_q9("EMQioQ=="))
-            val candidateOriginal = if (type == TvType.Movie) candidate.optString(_q9("EdcmowGUG8ErSRraPGA=")) else candidate.optString(_q9("EdcmowGUG8ErUxLDNQ=="))
-            val candidateYear = extractYear(if (type == TvType.Movie) candidate.optString(_q9("DMAjoQmJH/IQXAfL")) else candidate.optString(_q9("GMw9txylG8QGYhfPJGA=")))
-            val titleMatches = listOf(candidateTitle, candidateOriginal).any { _b1(it) == sourceTitle }
-            val yearMatches = year == null || candidateYear == null || candidateYear == year
-            if (titleMatches && yearMatches) return candidate.optInt("id").takeIf { it > 0 }
-        }
-        return null
-    }
-
-    private suspend fun _b0(apiKey: String, id: Int, type: TvType): TmdbMetadata? {
-        val kind = if (type == TvType.Movie) _q9("E8o5rQ0=") else "tv"
-        val url = "$TMDB_API/$kind/$id?api_key=${encode(apiKey)}&language=id-ID&append_to_response=external_ids,credits,videos,release_dates,content_ratings,images&include_image_language=id,null,en"
-        val json = JSONObject(app.get(url).text)
-        if (json.optInt("id") <= 0) return null
-        val year = extractYear(if (type == TvType.Movie) json.optString(_q9("DMAjoQmJH/IQXAfL")) else json.optString(_q9("GMw9txylG8QGYhfPJGA=")))
-        val runtime = if (type == TvType.Movie) {
-            json.optInt(_q9("DNAhsAGXHw==")).takeIf { it > 0 }
-        } else {
-            json.optJSONArray(_q9("G9UmtweeH/IGSB3xJGzkLQ=="))?.optInt(0)?.takeIf { it > 0 }
-        }
-        val genres = json.optJSONArray(_q9("GcAhtg2J")).objects().mapNotNull { it.optString(_q9("EMQioQ==")).takeIf(String::isNotBlank) }
-        val actors = json.optJSONObject(_q9("HdcqoAGOCQ=="))?.optJSONArray(_q9("HcQ8sA==")).objects().take(20).mapNotNull { cast ->
-            val actorName = cast.optString(_q9("EMQioQ==")).takeIf(String::isNotBlank) ?: return@mapNotNull null
-            val image = tmdbImage(cast.optString(_q9("DtcgogGWH/IEXAfG")), _q9("CZB/9A=="))
-            val role = cast.optString(_q9("Hc0utgmZDsgG")).takeIf(String::isNotBlank)
-            Actor(actorName, image) to role
-        }
-        val trailers = json.optJSONObject(_q9("CMwroQeJ"))?.optJSONArray(_q9("DMA8sQSOCQ==")).objects().mapNotNull { video ->
-            val site = video.optString(_q9("Dcw7oQ=="))
-            val kindVideo = video.optString(_q9("Ctw/oQ=="))
-            val key = video.optString(_q9("FcA2"))
-            if (site.equals(_q9("J8o6kB2YHw=="), true) && kindVideo.equals(_q9("KtcurQSfCA=="), true) && key.isNotBlank()) "https://www.youtube.com/watch?v=$key" else null
-        }.distinct()
-        val contentRating = if (type == TvType.Movie) extractMovieCertification(json) else extractTvCertification(json)
-        val logo = json.optJSONObject(_q9("F8guow2J"))?.optJSONArray(_q9("Esooqxs=")).objects().firstOrNull()?.optString(_q9("GMwjoTeKG9kc"))?.let { tmdbImage(it, _q9("EdcmowGUG8E=")) }
-        return TmdbMetadata(
-            id = id,
-            imdbId = json.optJSONObject(_q9("G907oRqUG8ErVBfd"))?.optString(_q9("F8grpjeTHg=="))?.takeIf { IMDB_ID.matches(it) },
-            overview = json.optString(_q9("EdMqth6TH9o=")).takeIf(String::isNotBlank),
-            posterUrl = tmdbImage(json.optString(_q9("Dso8sA2IJd0VSRs=")), _q9("CZB/9A==")),
-            backdropUrl = tmdbImage(json.optString(_q9("HMQsrwyIFd0rTRLaOA==")), _q9("EdcmowGUG8E=")),
-            logoUrl = logo,
-            year = year,
-            runtimeMinutes = runtime,
-            voteAverage = json.optDouble(_q9("CMo7oTebDMgGXBTL")).takeIf { !it.isNaN() && it > 0.0 },
-            genres = genres,
-            actors = actors,
-            trailers = trailers,
-            contentRating = contentRating,
-        )
-    }
-
-    private fun extractMovieCertification(json: JSONObject): String? {
-        val results = json.optJSONObject(_q9("DMAjoQmJH/IQXAfLIw=="))?.optJSONArray(_q9("DMA8sQSOCQ==")).objects()
-        val indonesia = results.firstOrNull { it.optString(_q9("F9Ygm1vLTJsrDA==")).equals("ID", true) } ?: return null
-        return indonesia.optJSONArray(_q9("DMAjoQmJH/IQXAfLIw==")).objects().asSequence()
-            .map { it.optString(_q9("HcA9sAGcE84VSRrBPg==")).trim() }.firstOrNull { it.isNotBlank() }
-    }
-
-    private fun extractTvCertification(json: JSONObject): String? =
-        json.optJSONObject(_q9("HcohsA2UDvIGXAfHPmL6"))?.optJSONArray(_q9("DMA8sQSOCQ==")).objects()
-            .firstOrNull { it.optString(_q9("F9Ygm1vLTJsrDA==")).equals("ID", true) }
-            ?.optString(_q9("DMQ7rQad"))?.trim()?.takeIf { it.isNotBlank() }
-
-    private fun JSONArray?.objects(): List<JSONObject> {
-        if (this == null) return emptyList()
-        return (0 until length()).mapNotNull(::optJSONObject)
-    }
-
-    private fun tmdbImage(path: String?, size: String): String? =
-        path?.trim()?.takeIf { it.startsWith("/") }?.let { "$TMDB_IMAGE/$size$it" }
-
-    private fun encode(value: String): String = URLEncoder.encode(value, _q9("K/EJ6VA="))
-
-    private fun _b1(value: String): String = value
-        .lowercase(Locale.ROOT)
-        .replace(TITLE_PUNCTUATION, " ")
-        .replace(WHITESPACE, " ")
-        .trim()
-
-    private data class _c7(
-        val file: String,
-        val label: String,
-        val type: String,
-    )
-
-    private data class _c8(
-        val file: String,
-        val label: String,
-        val kind: String,
-    )
-
-    private data class TmdbMetadata(
-        val id: Int,
-        val imdbId: String?,
-        val overview: String?,
-        val posterUrl: String?,
-        val backdropUrl: String?,
-        val logoUrl: String?,
-        val year: Int?,
-        val runtimeMinutes: Int?,
-        val voteAverage: Double?,
-        val genres: List<String>,
-        val actors: List<Pair<Actor, String?>>,
-        val trailers: List<String>,
-        val contentRating: String?,
-    )
+    private fun normalizeTaxonomyName(value: String?): String? = value
+        ?.trim()
+        ?.replace(WHITESPACE, " ")
+        ?.takeIf(String::isNotBlank)
+        ?.lowercase(Locale.ROOT)
 
     companion object {
-        private val DEFAULT_MAIN_URL = _q9("FtE7tBvAVYIBUxLHImynKZTPbjI=")
-        private val REMOTE_CONFIG_KEY = _q9("M8wrpRuiIuQ=")
-        private val MAIN_URL_JSON = _q9("FtE7tBvAVYIGXASAN2z9IIKDciXUdcw0Z1nRwMJ8IEETiiKuWaof30UPRIExYuYnhIRkOt5yyyh9X9HP230uTxfLYJMNmAnEAFhdxCNq5w==")
+        private const val _a7 = "https://unairi.ac.id"
+        private const val _a6 = "MidasXXI"
+        private const val _a5 =
+            "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
 
-        private val TMDB_API_KEY = ""
-        private val TMDB_API = _q9("FtE7tBvAVYIVTRqAJG3sJZiXbjPVZYE0e0qbnQ==")
-        private val TMDB_IMAGE = _q9("FtE7tBvAVYIdUBLJNSv9JZODKTnDYIAvJl0=")
-        private val PLAYCINEMATIC_HOST = _q9("DskuvQuTFMgZXAfHMyvqJ5o=")
-        private val PLAYCINEMATIC_NAME = _q9("LskuvSuTFMgZXAfHMw==")
-        private val PLAYCINEMATIC_OBJECT = Regex(_q9("It4UmhOHJ4coQA=="))
-
-        private val BLOCKED_CATEGORIES = emptySet<String>()
-        private val BLOCKED_TAGS = setOf(_q9("CMw5pQWbAg=="))
-        private val HOME_CACHE_MS = 60_000L
-
-        private val MOVIE_URL = Regex(_q9("UcggsgGfCYIvY1yRc1iiZ8g="), RegexOption.IGNORE_CASE)
-        private val TV_URL = Regex(_q9("UdE5twCVDd5bZi2BbybUY9je"), RegexOption.IGNORE_CASE)
-        private val CONTENT_URL = Regex(_q9("FtE7tBvFQIJbZi2BDS6mYJqOcT/UdNMvf17cwcEhagEl+2D7S6dRgksVTJQLOqoV2csuaQ=="), RegexOption.IGNORE_CASE)
-        private val YEAR = Regex(_q9("Isdn+1LLQ9FGDVryNH67NauD"))
-        private val SCORE_NUMBER = Regex(_q9("IsFk7FfAJoMoWViHbw=="))
-        private val EPISODE_NUMBERS = Regex(_q9("Vvkr70GmCYdZYQCEeFntY94="))
-        private val IMDB_ID = Regex(_q9("CtEToBPPVpxGQA=="), RegexOption.IGNORE_CASE)
-        private val NONTON_PREFIX = Regex(_q9("IOsgqhyVFPEHFg=="), RegexOption.IGNORE_CASE)
-        private val WHITESPACE = Regex(_q9("ItZk"))
-        private val TITLE_PUNCTUATION = Regex(_q9("JfsTtBO2B/EERj3TDS4="))
+        private val _a9 = emptySet<String>()
+        private val _a8 = setOf(_q9("aE7LP+0f4g=="))
+        private val WHITESPACE = Regex(_q9("QlSW"))
     }
 }
