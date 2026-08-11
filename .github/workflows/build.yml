@@ -52,7 +52,34 @@ jobs:
             \( -name "*.cs3" -o -name "*.jar" -o -name "plugins.json" \) \
             -delete
 
+      - name: Detect Gradle modules
+        id: detect_modules
+        working-directory: src
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MODULE_COUNT=0
+
+          for module_dir in */; do
+            if [ -f "${module_dir}build.gradle.kts" ] || \
+               [ -f "${module_dir}build.gradle" ]; then
+              echo "Detected module: ${module_dir%/}"
+              MODULE_COUNT=$((MODULE_COUNT + 1))
+            fi
+          done
+
+          echo "module_count=$MODULE_COUNT" >> "$GITHUB_OUTPUT"
+
+          if [ "$MODULE_COUNT" -eq 0 ]; then
+            echo "Tidak ada modul Gradle yang ditemukan."
+            echo "Langkah Gradle akan dilewati dan artifact lama pada branch builds akan dibersihkan."
+          else
+            echo "Total modul terdeteksi: $MODULE_COUNT"
+          fi
+
       - name: Setup JDK 17
+        if: steps.detect_modules.outputs.module_count != '0'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -63,11 +90,13 @@ jobs:
             src/**/gradle-wrapper.properties
 
       - name: Setup Android SDK
+        if: steps.detect_modules.outputs.module_count != '0'
         uses: android-actions/setup-android@v4
         with:
           packages: ""
 
       - name: Show Java and Android environment
+        if: steps.detect_modules.outputs.module_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -84,6 +113,7 @@ jobs:
           sdkmanager --version || true
 
       - name: Show detected Gradle projects
+        if: steps.detect_modules.outputs.module_count != '0'
         working-directory: src
         shell: bash
         run: |
@@ -98,6 +128,7 @@ jobs:
             --stacktrace
 
       - name: Update optional Anoboy constants
+        if: steps.detect_modules.outputs.module_count != '0'
         working-directory: src
         shell: bash
         run: |
@@ -111,6 +142,7 @@ jobs:
           fi
 
       - name: Build every detected module
+        if: steps.detect_modules.outputs.module_count != '0'
         working-directory: src
         shell: bash
         run: |
@@ -138,14 +170,10 @@ jobs:
             fi
           done
 
-    if [ ${#modules[@]} -eq 0 ]; then
-    echo "Tidak ada modul Gradle yang ditemukan. Tidak ada yang perlu dibuild."
-    exit 0
-    fi
-
           echo "Total module berhasil dibuild: $MODULE_COUNT"
 
       - name: Generate plugins.json
+        if: steps.detect_modules.outputs.module_count != '0'
         working-directory: src
         shell: bash
         run: |
@@ -158,6 +186,7 @@ jobs:
             --stacktrace
 
       - name: Collect publish files
+        if: steps.detect_modules.outputs.module_count != '0'
         shell: bash
         run: |
           set -euo pipefail
