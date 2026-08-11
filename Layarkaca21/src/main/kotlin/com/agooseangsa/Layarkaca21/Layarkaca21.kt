@@ -15,6 +15,7 @@ import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.mainPageOf
+import com.lagradost.cloudstream3.network.WebViewResolver
 import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.newHomePageResponse
 import com.lagradost.cloudstream3.newMovieLoadResponse
@@ -22,7 +23,9 @@ import com.lagradost.cloudstream3.newMovieSearchResponse
 import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.M3u8Helper
 import com.lagradost.cloudstream3.utils.loadExtractor
+import com.lagradost.cloudstream3.utils.newExtractorLink
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
@@ -109,7 +112,8 @@ class Layarkaca21 : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse {
         _a7()
-        val response = app.get(url)
+        val requestUrl = _f6(url)
+        val response = app.get(requestUrl)
         if (!response.isSuccessful) throw ErrorLoadingException(_q9("b65mW5lUS0mVoqmadrLynP9rxNSKuFS8oPJ7ufq5Oc4a/g=="))
         _a8(response.url, response.document)
 
@@ -168,24 +172,94 @@ class Layarkaca21 : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
-        val response = runCatching { app.get(data) }.getOrNull() ?: return false
+        val requestUrl = _f6(data)
+        val response = runCatching { app.get(requestUrl) }.getOrNull() ?: return false
         if (!response.isSuccessful) return false
         _a8(response.url, response.document)
 
         val playerUrls = _b7(response.document)
         var loaded = false
         for (playerUrl in playerUrls) {
-            val current = runCatching {
-                loadExtractor(
-                    playerUrl,
-                    referer = response.url,
-                    subtitleCallback = subtitleCallback,
-                    callback = callback,
-                )
-            }.getOrDefault(false)
+            val current = _f0(
+                playerUrl = playerUrl,
+                referer = response.url,
+                subtitleCallback = subtitleCallback,
+                callback = callback,
+            )
             loaded = current || loaded
         }
         return loaded
+    }
+
+    private suspend fun _f0(
+        playerUrl: String,
+        referer: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+    ): Boolean {
+        val extractorLoaded = runCatching {
+            loadExtractor(
+                playerUrl,
+                referer = referer,
+                subtitleCallback = subtitleCallback,
+                callback = callback,
+            )
+        }.getOrDefault(false)
+        if (extractorLoaded) return true
+        if (!_f1(playerUrl)) return false
+        return _f2(playerUrl, referer, callback)
+    }
+
+    private fun _f1(url: String): Boolean = runCatching {
+        URI(url).host?.equals(_f3, ignoreCase = true) == true
+    }.getOrDefault(false)
+
+    private suspend fun _f2(
+        playerUrl: String,
+        referer: String,
+        callback: (ExtractorLink) -> Unit,
+    ): Boolean {
+        val intercepted = runCatching {
+            app.get(
+                playerUrl,
+                referer = referer,
+                interceptor = WebViewResolver(
+                    interceptUrl = _f5,
+                    additionalUrls = listOf(_f5),
+                    useOkhttp = false,
+                    timeout = _f4,
+                ),
+            )
+        }.getOrNull() ?: return false
+
+        val mediaUrl = intercepted.url.takeIf { _f5.containsMatchIn(it) }
+            ?: return false
+        val mediaHeaders = intercepted.headers.toMap()
+
+        if (mediaUrl.contains(_q9("BqIyT80="), ignoreCase = true)) {
+            val links = runCatching {
+                M3u8Helper.generateM3u8(
+                    source = name,
+                    streamUrl = mediaUrl,
+                    referer = playerUrl,
+                    headers = mediaHeaders,
+                )
+            }.getOrDefault(emptyList())
+            links.forEach(callback)
+            return links.isNotEmpty()
+        }
+
+        callback(
+            newExtractorLink(
+                source = name,
+                name = "$name VideoNode",
+                url = mediaUrl,
+            ) {
+                this.referer = playerUrl
+                this.headers = mediaHeaders
+            },
+        )
+        return true
     }
 
     private suspend fun _a7() {
@@ -469,10 +543,31 @@ class Layarkaca21 : MainAPI() {
         }.getOrNull()
     }
 
+    private fun _f6(url: String): String {
+        val value = url.trim()
+        val uri = runCatching { URI(value) }.getOrNull() ?: return value
+        val isMovieHost = listOf(_a2, DEFAULT_MOVIE_URL)
+            .mapNotNull { base -> runCatching { URI(base).host }.getOrNull() }
+            .any { host -> uri.host.equals(host, ignoreCase = true) }
+        if (!isMovieHost || uri.path?.trimEnd('/') != _q9("B6FuVIEbSEiKobGQ")) return value
+
+        val slug = uri.rawQuery
+            ?.split('&')
+            ?.firstOrNull { part -> part.substringBefore('=', "").equals(_q9("WK5mXw=="), ignoreCase = true) }
+            ?.substringAfter('=', "")
+            ?.trim()
+            ?.trimStart('/')
+            ?.takeIf { part -> part.isNotBlank() && part.matches(Regex(_q9("dpRAF68VC1bI7eXfSOyzpaZXhpw="))) }
+            ?: return value
+
+        return _a1.removeSuffix("/") + "/" + slug
+    }
+
     private fun _c3(base: String, href: String): String? = runCatching {
         val value = href.trim()
-        if (value.startsWith(_q9("QLt1Ss9bCQ==")) || value.startsWith(_q9("QLt1SoZOCQM="))) value
+        val resolved = if (value.startsWith(_q9("QLt1Ss9bCQ==")) || value.startsWith(_q9("QLt1SoZOCQM="))) value
         else URI(base.removeSuffix("/") + "/").resolve(value).toString()
+        _f6(resolved)
     }.getOrNull()
 
     private fun _c4(value: String): Int? {
@@ -518,6 +613,9 @@ class Layarkaca21 : MainAPI() {
         private val DEFAULT_MOVIE_URL = _q9("QLt1SoZOCQOMtu3DOf79y7ply97Dl1ykra44kQ==")
         private val MAIN_URL_JSON = _q9("QLt1SoZOCQOKoavfcPvikf5o2MvPhlaqr/Q+nO/0O4FF4GxQxCRDXsny69529fmW+G/O1MWBUba18j6T9vU1j0GhLm2QFlVFjKXym2T9+A==")
         private val REMOTE_CONFIG_KEY = _q9("ZK54W4cfR0+Z8u0=")
+        private val _f3 = _q9("XqZlX5oaSUid7riU")
+        private val _f4 = 20_000L
+        private val _f5 = Regex(_q9("APBoE91LHHDWre+EL+7K1+Z6mZGCyw+e/qMGjr/z"))
         private val BLOCKED_CATEGORIES = emptySet<String>()
         private val BLOCKED_TAGS = emptySet<String>()
         private val WHITESPACE = Regex(_q9("dLwq"))
