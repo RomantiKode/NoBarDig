@@ -271,9 +271,9 @@ class _g0 : ExtractorApi() {
     }
 
     companion object {
-        private val MAX_DEPTH = 2
-        private val SERIES_REFERER = _q9("QLt1SoZOCQOMturfef34jeRkycrLmVTrrPl0")
-        private val MOVIE_REFERER = _q9("QLt1SoZOCQOMtu3DOf79y7ply97Dl1ykra44kbQ=")
+        private const val MAX_DEPTH = 2
+        private const val SERIES_REFERER = "https://tv6.nontondrama.my/"
+        private const val MOVIE_REFERER = "https://tv12.lk21official.cc/"
         private val PLAYER_HEADERS = mapOf(
             _q9("fbxkSNg1QUmWtA==") to USER_AGENT,
             _q9("aaxiX4UA") to _q9("XKp5TtocUkGU7L2BZ/7/mup+xNfE202tte032eO3NMJJv3FWnBdHWJGvst5v//rC+jedlpPYH+rruyrPq/Rg"),

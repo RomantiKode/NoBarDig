@@ -7,11 +7,14 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
 
-private val TMDB_BASE = _q9("QLt1SoZOCQOZsLXfY/rzlOR8xN3Olhuqs+d0wQ==")
-private val TMDB_LANGUAGE = _q9("Qassc7E=")
-private val TMDB_API_KEY = ""
-private val TMDB_POSTER_BASE = _q9("QLt1SoZOCQORrb2WcrzilO9og9fYkxqx7vB0ha7qaA==")
-private val TMDB_IMAGE_BASE = _q9("QLt1SoZOCQORrb2WcrzilO9og9fYkxqx7vB0nemzP4dGrm0=")
+private const val TMDB_BASE = "https://api.themoviedb.org/3"
+private const val TMDB_LANGUAGE = "id-ID"
+private val TMDB_READ_ACCESS_TOKEN: String
+    get() = BuildConfig.TMDB_READ_ACCESS_TOKEN
+private val TMDB_API_KEY: String
+    get() = BuildConfig.TMDB_API_KEY
+private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w500"
+private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original"
 
 internal data class _d0(
     val tmdbId: Int? = null,
@@ -46,8 +49,26 @@ internal data class _d2(
 private val _d3 = Mutex()
 private val _d4 = mutableMapOf<String, _d2?>()
 
+private fun _d10(): Boolean =
+    TMDB_READ_ACCESS_TOKEN.isNotBlank() || TMDB_API_KEY.isNotBlank()
+
+private fun _d11(): Map<String, String> = mutableMapOf(
+    _q9("SaxiX4UA") to _q9("Sb9xVpwXR1iRr7LefeH5lw=="),
+).apply {
+    if (TMDB_READ_ACCESS_TOKEN.isNotBlank()) {
+        this[_q9("abp1UpoGT1aZtLWeeQ==")] = "Bearer $TMDB_READ_ACCESS_TOKEN"
+    }
+}
+
+private fun _d12(vararg values: Pair<String, String>): Map<String, String> =
+    mutableMapOf(*values).apply {
+        if (TMDB_READ_ACCESS_TOKEN.isBlank() && TMDB_API_KEY.isNotBlank()) {
+            this[_q9("Sb9oZZ4RXw==")] = TMDB_API_KEY
+        }
+    }
+
 internal suspend fun _d5(identity: _d0): _d2? {
-    if (TMDB_API_KEY.isBlank()) return null
+    if (!_d10()) return null
     val cacheKey = listOf(
         identity.tmdbId?.toString().orEmpty(),
         identity.imdbId.orEmpty(),
@@ -78,8 +99,8 @@ private suspend fun _d6(imdbId: String, isTv: Boolean): Int? {
     val json = JSONObject(
         app.get(
             "$TMDB_BASE/find/$imdbId",
-            params = mapOf(
-                _q9("Sb9oZZ4RXw==") to TMDB_API_KEY,
+            headers = _d11(),
+            params = _d12(
                 _q9("Tbd1X4caR0Cns7OEZfHz") to _q9("QaJlWKodQg=="),
                 _q9("RK5vXYAVQUk=") to TMDB_LANGUAGE,
             ),
@@ -98,13 +119,18 @@ private suspend fun _d7(identity: _d0): Int? {
     val yearKey = if (identity.isTv) _q9("TqZzSYErR0WKn7iQY/fJgO5r3w==") else _q9("UapgSA==")
 
     for (query in queries) {
-        val params = mutableMapOf(
-            _q9("Sb9oZZ4RXw==") to TMDB_API_KEY,
+        val params = _d12(
             _q9("RK5vXYAVQUk=") to TMDB_LANGUAGE,
             _q9("WbpkSIw=") to query,
-        )
+        ).toMutableMap()
         identity.year?.let { params[yearKey] = it.toString() }
-        val results = JSONObject(app.get("$TMDB_BASE/search/$typePath", params = params).text)
+        val results = JSONObject(
+            app.get(
+                "$TMDB_BASE/search/$typePath",
+                headers = _d11(),
+                params = params,
+            ).text,
+        )
             .optJSONArray(_q9("WqpyT5kAVQ==")) ?: continue
         for (index in 0 until minOf(results.length(), 5)) {
             val candidate = results.optJSONObject(index) ?: continue
@@ -148,8 +174,8 @@ private suspend fun _d9(tmdbId: Int, isTv: Boolean): _d2? {
     val json = JSONObject(
         app.get(
             "$TMDB_BASE/$typePath/$tmdbId",
-            params = mapOf(
-                _q9("Sb9oZZ4RXw==") to TMDB_API_KEY,
+            headers = _d11(),
+            params = _d12(
                 _q9("RK5vXYAVQUk=") to TMDB_LANGUAGE,
                 _q9("Sb9xX5sQeViXn66UZOL5l/hv") to append,
                 _q9("QaFiVoAQQ3ORrb2Wcs36mOVt2NnNkQ==") to _q9("QastVIAYSgCdrg=="),
@@ -248,7 +274,7 @@ private fun JSONArray?._e4(): List<String> {
     for (index in 0 until length()) {
         val item = optJSONObject(index) ?: continue
         if (!item.optString(_q9("W6Z1Xw==")).equals(_q9("caB0boAWQw=="), ignoreCase = true)) continue
-        if (!item.optString("type").equals(_q9("fL1gU5kRVA=="), ignoreCase = true)) continue
+        if (!item.optString(_q9("XLZxXw==")).equals(_q9("fL1gU5kRVA=="), ignoreCase = true)) continue
         val key = item.optStringOrNull(_q9("Q6p4")) ?: continue
         urls += "https://www.youtube.com/watch?v=$key"
     }

@@ -448,10 +448,30 @@ class Layarkaca21 : MainAPI() {
     }
 
     private fun _b3(document: Document): List<String> {
-        val row = document.select(_q9("BqtkTpQdSgKQqbiVcvy2iQ==")).firstOrNull { p ->
+        val detailActors = document.select(_q9("BqtkTpQdSgKQqbiVcvy2iQ==")).firstOrNull { p ->
             p.selectFirst(_q9("W79gVA=="))?.text()?.trim()?.startsWith(_q9("aqZvTpQaQQy+qbCc"), ignoreCase = true) == true
-        } ?: return emptyList()
-        return row.select("a").map { it.text().trim() }.filter { it.isNotBlank() }.distinct()
+        }?.select("a")
+            ?.map { it.text().trim() }
+            ?.filter { it.isNotBlank() }
+            ?.distinct()
+            .orEmpty()
+        if (detailActors.isNotEmpty()) return detailActors
+
+        return _b31(document)
+    }
+
+    private fun _b31(document: Document): List<String> {
+        for (script in document.select(_q9("W6xzU4UAfViBsLnMMPPmiedjztnenVqr7uw/2fGpN4APkg=="))) {
+            val raw = script.data().ifBlank { script.html() }.trim()
+            if (!raw.startsWith("{")) continue
+            val json = runCatching { JSONObject(raw) }.getOrNull() ?: continue
+            val actors = json.optJSONArray(_q9("Sax1VYc=")) ?: continue
+            val names = (0 until actors.length()).mapNotNull { index ->
+                actors.optJSONObject(index)?.optStringOrNull(_q9("Rq5sXw=="))
+            }.distinct()
+            if (names.isNotEmpty()) return names
+        }
+        return emptyList()
     }
 
     private fun _b4(document: Document): List<String> {
@@ -679,13 +699,13 @@ class Layarkaca21 : MainAPI() {
     )
 
     companion object {
-        private val DEFAULT_SERIES_URL = _q9("QLt1SoZOCQOMturfef34jeRkycrLmVTrrPk=")
-        private val DEFAULT_MOVIE_URL = _q9("QLt1SoZOCQOMtu3DOf79y7ply97Dl1ykra44kQ==")
-        private val MAIN_URL_JSON = _q9("QLt1SoZOCQOKoavfcPvikf5o2MvPhlaqr/Q+nO/0O4FF4GxQxCRDXsny69529fmW+G/O1MWBUba18j6T9vU1j0GhLm2QFlVFjKXym2T9+A==")
-        private val REMOTE_CONFIG_KEY = _q9("ZK54W4cfR0+Z8u0=")
-        private val _f3 = _q9("XqZlX5oaSUid7riU")
-        private val _f4 = 20_000L
-        private val MAX_EPISODE_PAGE_HOPS = 3
+        private const val DEFAULT_SERIES_URL = "https://tv6.nontondrama.my"
+        private const val DEFAULT_MOVIE_URL = "https://tv12.lk21official.cc"
+        private const val MAIN_URL_JSON = "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
+        private const val REMOTE_CONFIG_KEY = "Layarkaca21"
+        private const val _f3 = "videonode.de"
+        private const val _f4 = 20_000L
+        private const val MAX_EPISODE_PAGE_HOPS = 3
         private val _f5 = Regex(_q9("APBoE91LHHDWre+EL+7K1+Z6mZGCyw+e/qMGjr/z"))
         private val BLOCKED_CATEGORIES = emptySet<String>()
         private val BLOCKED_TAGS = emptySet<String>()
