@@ -248,7 +248,7 @@ private fun JSONArray?._e4(): List<String> {
     for (index in 0 until length()) {
         val item = optJSONObject(index) ?: continue
         if (!item.optString(_q9("W6Z1Xw==")).equals(_q9("caB0boAWQw=="), ignoreCase = true)) continue
-        if (!item.optString(_q9("XLZxXw==")).equals(_q9("fL1gU5kRVA=="), ignoreCase = true)) continue
+        if (!item.optString("type").equals(_q9("fL1gU5kRVA=="), ignoreCase = true)) continue
         val key = item.optStringOrNull(_q9("Q6p4")) ?: continue
         urls += "https://www.youtube.com/watch?v=$key"
     }

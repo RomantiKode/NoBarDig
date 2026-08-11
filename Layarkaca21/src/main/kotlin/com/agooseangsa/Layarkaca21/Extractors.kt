@@ -196,7 +196,7 @@ class _g0 : ExtractorApi() {
             if (!_i2(subtitleUrl)) return@forEach
             subtitleCallback(
                 newSubtitleFile(
-                    track.attr(_q9("W71iVpQaQQ==")).ifBlank { track.attr(_q9("RK5jX5k=")).ifBlank { _q9("faFqVJoDSA==") } },
+                    track.attr(_q9("W71iVpQaQQ==")).ifBlank { track.attr("label").ifBlank { _q9("faFqVJoDSA==") } },
                     subtitleUrl,
                 )
             )
@@ -388,13 +388,13 @@ open class _g1 : ExtractorApi() {
     }
 
     private data class HownetworkResponse(
-        @JsonProperty(_q9("TqZtXw==")) val file: String? = null,
-        @JsonProperty(_q9("RKZvUQ==")) val link: String? = null,
-        @JsonProperty(_q9("RK5jX5k=")) val label: String? = null,
+        @JsonProperty("file") val file: String? = null,
+        @JsonProperty("link") val link: String? = null,
+        @JsonProperty("label") val label: String? = null,
     )
 
     private data class HownetworkEnvelope(
-        @JsonProperty(_q9("TK51Ww==")) val data: List<HownetworkResponse>? = null,
+        @JsonProperty("data") val data: List<HownetworkResponse>? = null,
     )
 }
 
@@ -464,11 +464,11 @@ open class _g7 : ExtractorApi() {
         }
     }
 
-    private data class AbyssResponse(@JsonProperty(_q9("WqpyT5kA")) val result: AbyssResult? = null)
-    private data class AbyssResult(@JsonProperty(_q9("W6B0SJYRVQ==")) val sources: List<AbyssSource>? = null)
+    private data class AbyssResponse(@JsonProperty("result") val result: AbyssResult? = null)
+    private data class AbyssResult(@JsonProperty("sources") val sources: List<AbyssSource>? = null)
     private data class AbyssSource(
-        @JsonProperty(_q9("Xb1t")) val url: String? = null,
-        @JsonProperty(_q9("XLZxXw==")) val type: String? = null,
+        @JsonProperty("url") val url: String? = null,
+        @JsonProperty("type") val type: String? = null,
     )
 }
 
