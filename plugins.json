@@ -44,20 +44,20 @@
     },
     {
         "iconUrl": "https://donghub.vip/wp-content/uploads/2026/04/Donghub-Baru.png",
-        "fileHash": "sha256-2aad53f47e0b4ae6b7652ebd264923a9ac95fcd69c17b67292b7d6b0564ec6aa",
+        "fileHash": "sha256-b02e1ce437beefdf93dc30b6f67fb898d2f9b09bafc3a575d66800e9b9a83e4a",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 34204,
-        "status": 1,
+        "fileSize": 45108,
+        "status": 3,
         "language": "id",
         "authors": [
             "Agoose"
         ],
         "tvTypes": [
             "Movie",
-            "Anime"
+            "TvSeries"
         ],
-        "version": 2,
+        "version": 1,
         "internalName": "Donghub",
         "description": "Nonton Anime Anichin, Auratail, Donghub, Donghive, Anixverse, Animexin, Kazefuri Donghua dengan Subtitle Indo hanya di Donghub",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Donghub.cs3",
