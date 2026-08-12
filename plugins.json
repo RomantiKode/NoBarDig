@@ -83,11 +83,11 @@
         "name": "Layarkaca21"
     },
     {
-        "iconUrl": "https://unairi.ac.id/wp-content/uploads/2024/01/cropped-favicon-192x192.png",
-        "fileHash": "sha256-f87c3fb6da47a4ae24fcb4b3e72cc3f31729ed6613a96ca603c8d4cac4f3935b",
+        "iconUrl": "https://unairi.ac.id/wp-content/uploads/2024/01/cropped-favicon.png",
+        "fileHash": "sha256-c9742918b7123a83fb1a21ac62fdaab436a9de6d166c34f241c6b83d01d71260",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 51761,
+        "fileSize": 49420,
         "status": 3,
         "language": "id",
         "authors": [
