@@ -213,22 +213,24 @@ class AnimeXin : MainAPI() {
         val response = app.get(episodeUrl)
         syncMainUrl(response.url)
 
-        var resolvedAny = false
+        var mediaResolved = false
         response.document.select(_q9("YM9vx2jHXHYrdiSjnyT6zU3M018VsU81cOSM")).forEach { option ->
             val label = option.text().trim()
             if (!_a9(label)) return@forEach
             val iframeUrl = _b0(option.attr(_q9("Zctv124="))) ?: return@forEach
-            val resolved = runCatching {
+            runCatching {
                 loadExtractor(
                     url = iframeUrl,
                     referer = response.url,
                     subtitleCallback = subtitleCallback,
-                    callback = callback,
+                    callback = { link ->
+                        mediaResolved = true
+                        callback(link)
+                    },
                 )
-            }.getOrDefault(false)
-            if (resolved) resolvedAny = true
+            }
         }
-        return resolvedAny
+        return mediaResolved
     }
 
     private suspend fun parseDetail(document: Document, detailUrl: String): LoadResponse {
