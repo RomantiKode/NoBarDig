@@ -511,15 +511,11 @@ class DrakorKita : MainAPI() {
             ?.lowercase(Locale.ROOT) ?: return false
         if (host == _q9("Pf3URpNHdlqTOuHAX8P6mQ==")) return true
 
-        val parentMatches = PROVIDER_PARENT_DOMAINS.any { parent ->
-            host == parent || host.endsWith(".$parent")
+        return PROVIDER_PARENT_DOMAINS.any { parent ->
+            if (!host.endsWith(".$parent")) return@any false
+            val subdomain = host.removeSuffix(".$parent")
+            subdomain.isNotBlank() && !subdomain.contains('.')
         }
-        if (!parentMatches) return false
-
-        val subdomain = PROVIDER_PARENT_DOMAINS.firstNotNullOfOrNull { parent ->
-            host.removeSuffix(".$parent").takeIf { host.endsWith(".$parent") }
-        } ?: return false
-        return PROVIDER_ROTATING_SUBDOMAIN.matches(subdomain)
     }
 
     private fun _b2(url: String, origin: String): String {
@@ -600,8 +596,6 @@ class DrakorKita : MainAPI() {
         private val TRAILING_YEAR = Regex(_q9("BaedcZhObEzTEqmyQYa8"))
         private val EPISODE_ROUTE_TOKEN = Regex(_q9("B9T0AKZUdUvKY7mxH/Gz1A=="))
         private val PROVIDER_PARENT_DOMAINS = listOf(_q9("MubBTNJYN1w="), _q9("MubBTNJXOVOD"), _q9("N+bWSItUKB+JLPM="))
-        private val PROVIDER_ROTATING_SUBDOMAIN =
-            Regex("""^(?:drakorkita|xdrakor|drakor|drakorindo)\d+$""", RegexOption.IGNORE_CASE)
         private val META_REFRESH_URL =
             Regex("""(?i)(?:^|;)\s*url\s*=\s*['"]?([^;'"\s]+)""")
         private val SCRIPT_REDIRECT_URL = Regex(
