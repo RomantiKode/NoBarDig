@@ -2,6 +2,7 @@ package com.agooseangsa.MidasXXI
 
 import com.lagradost.cloudstream3.Actor
 import com.lagradost.cloudstream3.ErrorLoadingException
+import com.lagradost.cloudstream3.HomePageList
 import com.lagradost.cloudstream3.HomePageResponse
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.LoadResponse.Companion.addActors
@@ -10,7 +11,6 @@ import com.lagradost.cloudstream3.LoadResponse.Companion.addScore
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTMDbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.MainPageData
 import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.SubtitleFile
@@ -29,6 +29,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.json.JSONObject
@@ -37,30 +38,32 @@ import java.net.URLEncoder
 import java.util.Locale
 
 class MidasXXI : MainAPI() {
-    override var mainUrl = _a7
-    override var name = _q9("U07ZP/NewuHZ")
+    override var mainUrl = DEFAULT_MAIN_URL
+    override var name = _q9("K7a1NqYMJCHY")
     override var lang = "id"
 
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
     override val hasMainPage = true
+
     override val mainPage = mainPageOf(
-        _q9("MUDYMPIbtdjz1A7VsDI=") to _q9("X2TpF88w"),
-        _q9("MUDYMPIbtdH/0hXVrDI=") to _q9("VmjvDM8s"),
-        _q9("MUDYMPIbtd3iwQrb8Q==") to _q9("WnX8E8E="),
-        _q9("MUDYMPIbtdj+yQrf8Q==") to _q9("X2n0E8U="),
-        _q9("MUDYMPIbtd3iwQrb83aAofS/aA==") to _q9("WnX8E8Fe0fbC5SY="),
-        _q9("MUrSKOkb6ZY=") to _q9("WG7xE6Aq3+vS4TXv"),
-        _q9("MVPLLegR7cq/") to _q9("SnGdDcUs0/zDgDP/jF+ugcQ="),
+        "/" to _q9("J5yFHppi"),
+        "/" to _q9("LpCDBZp+"),
+        "/" to _q9("Io2QGpQ="),
+        "/" to _q9("J5GYGpA="),
+        "/" to _q9("MJaHFphtJA=="),
+        "/" to _q9("Io2QGpQMNzbD884="),
+        "/" to _q9("IJadGvV4OSvT993A"),
+        "/" to _q9("MonxBJB+NTzCltvQX6TgNzQ="),
     )
 
-    private val mainUrlMutex = Mutex()
-    private var mainUrlResolved = false
+    private val _a0 = Mutex()
+    private var _a1 = false
 
-    private val blockedCategoryKeys by lazy(LazyThreadSafetyMode.NONE) {
-        _a9.mapNotNull(::normalizeTaxonomyName).toSet()
+    private val _a2 by lazy(LazyThreadSafetyMode.NONE) {
+        BLOCKED_CATEGORIES.mapNotNull(::normalizeTaxonomyName).toSet()
     }
-    private val blockedTagKeys by lazy(LazyThreadSafetyMode.NONE) {
-        _a8.mapNotNull(::normalizeTaxonomyName).toSet()
+    private val _a3 by lazy(LazyThreadSafetyMode.NONE) {
+        BLOCKED_TAGS.mapNotNull(::normalizeTaxonomyName).toSet()
     }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
@@ -69,13 +72,16 @@ class MidasXXI : MainAPI() {
 
         val response = app.get(fixUrl(request.data))
         syncMainUrl(response.url)
-        val results = parseListing(response.document)
-        return newHomePageResponse(request, results, false)
+        val items = _a4(response.document, request.name)
+        return newHomePageResponse(
+            listOf(HomePageList(request.name, items, isHorizontalImages = false)),
+            false,
+        )
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
         ensureMainUrl()
-        val encoded = URLEncoder.encode(query, _q9("S3P7c7g="))
+        val encoded = URLEncoder.encode(query, _q9("M4uXeu0="))
         val response = app.get("$mainUrl/?s=$encoded")
         syncMainUrl(response.url)
         return parseListing(response.document)
@@ -85,13 +91,12 @@ class MidasXXI : MainAPI() {
         ensureMainUrl()
         val response = app.get(url)
         syncMainUrl(response.url)
-        val document = response.document
-        val resolvedUrl = response.url
+        val path = runCatching { URI(response.url).path }.getOrNull().orEmpty()
 
         return when {
-            URI(resolvedUrl).path.contains(_q9("MVPLLegR7cq/")) -> loadSeries(resolvedUrl, document)
-            URI(resolvedUrl).path.contains(_q9("MUrSKOkb6ZY=")) -> loadMovie(resolvedUrl, document)
-            else -> throw ErrorLoadingException(_q9("Sk7NO6AW+9XxzQbU/lCGt/CtH4xIbJO0DwoYYchdeWV1UtM5"))
+            path.contains(_q9("SaunJL1DCwq+")) -> loadSeries(response.url, response.document)
+            path.contains(_q9("SbK+IbxJD1Y=")) -> loadMovie(response.url, response.document)
+            else -> throw ErrorLoadingException(_q9("MrahMvVEHRXw2+77LavIAQDxcK2ydzwz8erOe7MFmcoNqr8w"))
         }
     }
 
@@ -102,20 +107,29 @@ class MidasXXI : MainAPI() {
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
         ensureMainUrl()
-        val response = app.get(data)
-        if (isProviderUrl(response.url)) syncMainUrl(response.url)
+        val pageResponse = app.get(data)
+        if (isProviderUrl(pageResponse.url)) syncMainUrl(pageResponse.url)
 
-        val players = response.document
-            .select(_q9("PUPSMfAS+8DP0Avbp3idjOO7NKRuIpS4SwIVM81ZeEttVd4DrF603f/PF9a/ZLCj/b8+sXMTlbgYGxwv31E9eXhV3DPlJenL8/0="))
-            .mapNotNull { it.attr(_q9("bVXe")).trim().takeIf(String::isNotBlank) }
-            .map { absoluteUrl(response.url, it) }
-            .distinct()
+        val directPlayers = _b4(pageResponse.document, pageResponse.url)
+        if (directPlayers.isNotEmpty()) {
+            return _b5(directPlayers, pageResponse.url, subtitleCallback, callback)
+        }
 
+        val ajaxPlayers = _b2(pageResponse.document, pageResponse.url)
+        return _b5(ajaxPlayers, pageResponse.url, subtitleCallback, callback)
+    }
+
+    private suspend fun _b5(
+        players: List<String>,
+        referer: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+    ): Boolean {
         var matched = false
-        for (playerUrl in players) {
+        for (playerUrl in players.distinct()) {
             matched = loadExtractor(
                 url = playerUrl,
-                referer = response.url,
+                referer = referer,
                 subtitleCallback = subtitleCallback,
                 callback = callback,
             ) || matched
@@ -123,26 +137,81 @@ class MidasXXI : MainAPI() {
         return matched
     }
 
+    private suspend fun _b2(document: Document, pageUrl: String): List<String> {
+        val options = document.select(_q9("SLu+OKVAHQDOxuP0dIPTOg7yXJyUORM+9P/EdqcDjss7hLU2oU1RDejG6shWgsARAK9GgJYyFQ=="))
+        if (options.isEmpty()) return emptyList()
+
+        val endpoint = absoluteUrl(pageUrl, _q9("SaiherRIERD/me7xYI/PSADoSY3VJyAq"))
+        return options.mapNotNull { option ->
+            val post = option.attr(_q9("Ar6lNvhcEwrl")).trim().takeIf(String::isNotBlank)
+                ?: return@mapNotNull null
+            val type = option.attr(_q9("Ar6lNvhYBQn0")).trim().takeIf(String::isNotBlank)
+                ?: return@mapNotNull null
+            val nume = option.attr(_q9("Ar6lNvhCCRT0")).trim().takeIf(String::isNotBlank)
+                ?: return@mapNotNull null
+
+            val response = runCatching {
+                app.post(
+                    endpoint,
+                    referer = pageUrl,
+                    data = mapOf(
+                        _q9("B7ylPrpC") to _q9("ArC+CKVAHQD0xND0Z4fZ"),
+                        _q9("FrCiIw==") to post,
+                        _q9("CKq8Mg==") to nume,
+                        _q9("EqahMg==") to type,
+                    ),
+                )
+            }.getOrNull() ?: return@mapNotNull null
+
+            _b3(response.text, response.url)
+        }.distinct()
+    }
+
+    private fun _b3(text: String, responseUrl: String): String? {
+        val trimmed = text.trim()
+        if (trimmed.isBlank()) return null
+
+        val embed = runCatching { JSONObject(trimmed).optString(_q9("A7KzMrFzCQv9")) }
+            .getOrNull()
+            ?.trim()
+            ?.takeIf(String::isNotBlank)
+            ?: trimmed
+
+        val iframe = Jsoup.parse(embed).selectFirst(_q9("D7mjNrhJJwrj1dI="))?.attr(_q9("Fa2y"))
+            ?.trim()?.takeIf(String::isNotBlank)
+        if (iframe != null) return absoluteUrl(responseUrl, iframe)
+
+        val decoded = embed.replace("\\/", "/").trim()
+        return decoded.takeIf { it.startsWith(_q9("DqulJ+8DUw==")) || it.startsWith(_q9("DqulJ6YWU1Y=")) }
+            ?.let { absoluteUrl(responseUrl, it) }
+    }
+
+    private fun _b4(document: Document, pageUrl: String): List<String> = document
+        .select(_q9("Rbu+OKVAHQDOxuP0dIPTOhPnW4WUOTs/teLDKbYBmOQVrbIK+QxSHf7Z//lsn/4VDeNRkIl3ITzn6sg+jB+P3Ds="))
+        .mapNotNull { it.attr(_q9("Fa2y")).trim().takeIf(String::isNotBlank) }
+        .map { absoluteUrl(pageUrl, it) }
+        .filter { it.startsWith(_q9("DqulJ+8DUw==")) || it.startsWith(_q9("DqulJ6YWU1Y=")) }
+        .distinct()
+
     private suspend fun loadMovie(url: String, document: Document): LoadResponse {
-        val title = document.selectFirst(_q9("MFTVO+Ea/8uwjgPbqnzPu6A="))?.text()?.trim()
+        val title = document.selectFirst(_q9("SKy5MrRIGQuxmOv0eYeBDVA="))?.text()?.trim()
             ?.takeIf(String::isNotBlank)
-            ?: throw ErrorLoadingException(_q9("VFLZK+xe99bmyQKaqnSLsvr+I711KYqoAAod"))
-        val websitePoster = document.selectFirst(_q9("MFTVO+Ea/8uwjhfVrWmKobG3KrNaP5W+Ng=="))?.attr(_q9("bVXe"))
+            ?: throw ErrorLoadingException(_q9("LKq1IrkMERbn3+q1eY/FBAqiTJyPMiUv/urL"))
+        val websitePoster = document.selectFirst(_q9("SKy5MrRIGQuxmP/6fpLEF0HrRZKgJDo5yA=="))?.attr(_q9("Fa2y"))
+            ?.trim()?.takeIf(String::isNotBlank)?.let { absoluteUrl(url, it) }
+        val websiteYear = extractYear(document.selectFirst(_q9("SKy5MrRIGQuxmOrteZTARU/mSYGe"))?.text())
+        val websitePlot = document.selectFirst(_q9("Rba/MboMUg7hm+z6Y5LECxU="))?.text()?.trim()
             ?.takeIf(String::isNotBlank)
-            ?.let { absoluteUrl(url, it) }
-        val websiteYear = extractYear(document.selectFirst(_q9("MFTVO+Ea/8uwjgLCqm+O87+6JqBk"))?.text())
-        val websitePlot = document.selectFirst(_q9("PU7TOO9etM7gjQTVsGmKveX+efRx"))?.text()?.trim()
-            ?.takeIf(String::isNotBlank)
-        val websiteGenres = document.select(_q9("MFTVO+Ea/8uwjhTdu3OKof6tZ7VaJJW4DUFOZoNTeH5sQpJ53Q=="))
+        val websiteGenres = document.select(_q9("SKy5MrRIGQuxmPzyaIjEFw7xCJSgPzo/86GYfPgLmNEUuv5wiA=="))
             .map { it.text().trim() }.filter(String::isNotBlank)
-        val websiteTags = parseDetailTags(document)
-        val websiteRuntime = parseMinutes(document.selectFirst(_q9("MFTVO+Ea/8uwjhXPsGmGvvQ="))?.text())
-        val websiteRating = document.selectFirst(_q9("MFTVO+Ea/8uw+w7Ou3Cfof6uerduIpO4BR8hINhdc3dD"))?.text()?.trim()
+        val websiteTags = _a9(document)
+        val websiteRuntime = parseMinutes(document.selectFirst(_q9("SKy5MrRIGQuxmP3gY5LICAQ="))?.text())
+        val websiteRating = document.selectFirst(_q9("SKy5MrRIGQux7ebhaIvRFw7yFZaUOTw/+//3OqMFk9g7"))?.text()?.trim()
             ?.takeIf(String::isNotBlank)
-        val websiteActors = parseActors(document, url)
-        val websiteScore = customField(document, _q9("Smr5PKAs+835zgA="))?.let(::firstNumber)
-        val originalTitle = customField(document, _q9("UVXUOekQ+9Ww1A7Osng="))
-        val trailers = parseTrailers(document, url)
+        val websiteActors = _a7(document, url)
+        val websiteScore = _b0(document, _q9("MpKVNfV+HQ342Og="))?.let(::firstNumber)
+        val originalTitle = _b0(document, _q9("Ka24MLxCHRWxwubhYYM="))
+        val websiteTrailers = _a8(document, url)
 
         enforceContentAllowed(websiteGenres, websiteTags)
 
@@ -156,42 +225,40 @@ class MidasXXI : MainAPI() {
         )
 
         return newMovieLoadResponse(title, url, TvType.Movie, dataUrl = url) {
-            posterUrl = websitePoster ?: tmdb?.posterUrl
+            posterUrl = tmdb?.posterUrl ?: websitePoster
             backgroundPosterUrl = tmdb?.backdropUrl
-            logoUrl = tmdb?.logoUrl
-            year = websiteYear ?: tmdb?.year
+            year = tmdb?.year ?: websiteYear
             plot = tmdb?.overview?.takeIf(String::isNotBlank) ?: websitePlot
             tags = tmdb?.genres?.takeIf { it.isNotEmpty() } ?: websiteGenres
             duration = tmdb?.runtimeMinutes ?: websiteRuntime
-            contentRating = tmdb?.contentRating ?: websiteRating
+            contentRating = websiteRating
 
-            if (!tmdb?.actors.isNullOrEmpty()) addActors(tmdb?.actors) else addActors(websiteActors)
+            addActors(websiteActors)
             tmdb?.tmdbId?.let { addTMDbId(it.toString()) }
-            addImdbId(tmdb?.imdbId)
-            tmdb?.voteAverage?.let { addScore(it.toString()) } ?: addScore(websiteScore)
-
-            (trailers + tmdb?.trailers.orEmpty()).distinct().forEach { addTrailer(it) }
+            tmdb?.imdbId?.let { addImdbId(it) }
+            tmdb?.voteAverage?.let { addScore(it.toString()) }
+                ?: websiteScore?.let { addScore(it) }
+            (websiteTrailers + tmdb?.trailers.orEmpty()).distinct().forEach { addTrailer(it) }
         }
     }
 
     private suspend fun loadSeries(url: String, document: Document): LoadResponse {
-        val title = document.selectFirst(_q9("MFTVO+Ea/8uwjgPbqnzPu6A="))?.text()?.trim()
+        val title = document.selectFirst(_q9("SKy5MrRIGQuxmOv0eYeBDVA="))?.text()?.trim()
             ?.takeIf(String::isNotBlank)
-            ?: throw ErrorLoadingException(_q9("VFLZK+xe6dziyQbW/mmGt/C1Z7BoOIKwHgASLw=="))
-        val websitePoster = document.selectFirst(_q9("MFTVO+Ea/8uwjhfVrWmKobG3KrNaP5W+Ng=="))?.attr(_q9("bVXe"))
+            ?: throw ErrorLoadingException(_q9("LKq1IrkMDxzj3+75LZLIAQDpCJGSIy034ODENQ=="))
+        val websitePoster = document.selectFirst(_q9("SKy5MrRIGQuxmP/6fpLEF0HrRZKgJDo5yA=="))?.attr(_q9("Fa2y"))
+            ?.trim()?.takeIf(String::isNotBlank)?.let { absoluteUrl(url, it) }
+        val websiteYear = extractYear(document.selectFirst(_q9("SKy5MrRIGQuxmOrteZTARU/mSYGe"))?.text())
+        val websitePlot = document.selectFirst(_q9("Rba/MboMUg7hm+z6Y5LECxU="))?.text()?.trim()
             ?.takeIf(String::isNotBlank)
-            ?.let { absoluteUrl(url, it) }
-        val websiteYear = extractYear(document.selectFirst(_q9("MFTVO+Ea/8uwjgLCqm+O87+6JqBk"))?.text())
-        val websitePlot = document.selectFirst(_q9("PU7TOO9etM7gjQTVsGmKveX+efRx"))?.text()?.trim()
-            ?.takeIf(String::isNotBlank)
-        val websiteGenres = document.select(_q9("MFTVO+Ea/8uwjhTdu3OKof6tZ7VaJJW4DUFOZoNTeH5sQpJ53Q=="))
+        val websiteGenres = document.select(_q9("SKy5MrRIGQuxmPzyaIjEFw7xCJSgPzo/86GYfPgLmNEUuv5wiA=="))
             .map { it.text().trim() }.filter(String::isNotBlank)
-        val websiteTags = parseDetailTags(document)
-        val websiteActors = parseActors(document, url)
-        val websiteScore = customField(document, _q9("Smr5PKAs+835zgA="))?.let(::firstNumber)
-        val originalTitle = customField(document, _q9("UVXUOekQ+9Ww1A7Osng="))
-        val trailers = parseTrailers(document, url)
-        val episodes = parseEpisodes(document, url)
+        val websiteTags = _a9(document)
+        val websiteActors = _a7(document, url)
+        val websiteScore = _b0(document, _q9("MpKVNfV+HQ342Og="))?.let(::firstNumber)
+        val originalTitle = _b0(document, _q9("Ka24MLxCHRWxwubhYYM="))
+        val websiteTrailers = _a8(document, url)
+        val episodes = _a6(document, url)
 
         enforceContentAllowed(websiteGenres, websiteTags)
 
@@ -203,167 +270,177 @@ class MidasXXI : MainAPI() {
                 isTv = true,
             ),
         )
-        enrichAgooseTmdbEpisodes(tmdb?.tmdbId, episodes)
 
         return newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
-            posterUrl = websitePoster ?: tmdb?.posterUrl
+            posterUrl = tmdb?.posterUrl ?: websitePoster
             backgroundPosterUrl = tmdb?.backdropUrl
-            logoUrl = tmdb?.logoUrl
-            year = websiteYear ?: tmdb?.year
+            year = tmdb?.year ?: websiteYear
             plot = tmdb?.overview?.takeIf(String::isNotBlank) ?: websitePlot
             tags = tmdb?.genres?.takeIf { it.isNotEmpty() } ?: websiteGenres
             duration = tmdb?.runtimeMinutes
-            contentRating = tmdb?.contentRating
 
-            if (!tmdb?.actors.isNullOrEmpty()) addActors(tmdb?.actors) else addActors(websiteActors)
+            addActors(websiteActors)
             tmdb?.tmdbId?.let { addTMDbId(it.toString()) }
-            addImdbId(tmdb?.imdbId)
-            tmdb?.voteAverage?.let { addScore(it.toString()) } ?: addScore(websiteScore)
-
-            (trailers + tmdb?.trailers.orEmpty()).distinct().forEach { addTrailer(it) }
+            tmdb?.imdbId?.let { addImdbId(it) }
+            tmdb?.voteAverage?.let { addScore(it.toString()) }
+                ?: websiteScore?.let { addScore(it) }
+            (websiteTrailers + tmdb?.trailers.orEmpty()).distinct().forEach { addTrailer(it) }
         }
     }
 
+    private fun _a4(document: Document, heading: String): List<SearchResponse> {
+        val header = document.select(_q9("DrqwM7Be"))
+            .firstOrNull { it.selectFirst("h2")?.text()?.trim()?.equals(heading, ignoreCase = true) == true }
+            ?: return emptyList()
+
+        var sibling = header.nextElementSibling()
+        while (sibling != null && !sibling.`is`(_q9("DrqwM7Be"))) {
+            val items = sibling.select(_q9("B62lPrZAGVf4wur4"))
+            if (items.isNotEmpty()) {
+                return items.mapNotNull(::_a5).distinctBy { it.url }
+            }
+            sibling = sibling.nextElementSibling()
+        }
+        return emptyList()
+    }
+
     private fun parseListing(document: Document): List<SearchResponse> = document
-        .select(_q9("f1XJN+MS/5f51ALX"))
-        .mapNotNull(::parseListingItem)
+        .select(_q9("B62lPrZAGVf4wur4"))
+        .mapNotNull(::_a5)
         .distinctBy { it.url }
 
-    private fun parseListingItem(element: Element): SearchResponse? {
-        val linkElement = element.selectFirst(_q9("MEPcKuFe8oqwwTzSrHiJjr3+L+chLby1GQ4VHIAUfEt2Vdg43Q==")) ?: return null
-        val href = linkElement.attr(_q9("dlXYOA==")).trim().takeIf(String::isNotBlank) ?: return null
-        val path = runCatching { URI(absoluteUrl(mainUrl, href)).path }.getOrNull().orEmpty()
+    private fun _a5(element: Element): SearchResponse? {
+        val link = element.selectFirst(_q9("SLuwI7QMFEqx19T9f4PHOE2iQMbbNhMy5+7DBvtM088JrKUypwwdIvnE6vNQ"))
+            ?: return null
+        val href = link.attr(_q9("Dq20MQ==")).trim().takeIf(String::isNotBlank) ?: return null
+        val absolute = absoluteUrl(mainUrl, href)
+        val path = runCatching { URI(absolute).path }.getOrNull().orEmpty()
         val type = when {
-            path.contains(_q9("MUrSKOkb6ZY=")) -> TvType.Movie
-            path.contains(_q9("MVPLLegR7cq/")) -> TvType.TvSeries
+            path.contains(_q9("SbK+IbxJD1Y=")) -> TvType.Movie
+            path.contains(_q9("SaunJL1DCwq+")) -> TvType.TvSeries
             else -> return null
         }
-        val title = element.selectFirst(_q9("MEPcKuFe8oqwwUua8HmOp/D+L+ctbI/uSwpfYcQH"))?.text()?.trim()
+        val title = element.selectFirst(_q9("SLuwI7QMFEqx16O1I4LAEQCiQMbXdyBpteqJe79f"))?.text()?.trim()
             ?.takeIf(String::isNotBlank) ?: return null
-        val poster = element.selectFirst(_q9("MFfSLfQb6Jn5zQCW/nSCtA=="))?.let { image ->
-            image.attr(_q9("ekbJP60N6No=")).takeIf(String::isNotBlank)
-                ?: image.attr(_q9("bVXe")).takeIf(String::isNotBlank)
+        val poster = element.selectFirst(_q9("SK++JKFJDln42+i5LY/MAg=="))?.let { image ->
+            image.attr(_q9("Ar6lNvhfDho=")).takeIf(String::isNotBlank)
+                ?: image.attr(_q9("Fa2y")).takeIf(String::isNotBlank)
         }?.let { absoluteUrl(mainUrl, it) }
-        val year = extractYear(element.selectFirst(_q9("MEPcKuFe6cnxzg=="))?.text())
+        val year = extractYear(element.selectFirst(_q9("SLuwI7QMDwnw2A=="))?.text())
 
         return if (type == TvType.TvSeries) {
-            newTvSeriesSearchResponse(title, href, TvType.TvSeries) {
+            newTvSeriesSearchResponse(title, absolute, TvType.TvSeries) {
                 posterUrl = poster
                 this.year = year
             }
         } else {
-            newMovieSearchResponse(title, href, TvType.Movie) {
+            newMovieSearchResponse(title, absolute, TvType.Movie) {
                 posterUrl = poster
                 this.year = year
             }
         }
     }
 
-    private fun parseEpisodes(document: Document, pageUrl: String) = document
-        .select(_q9("PVTYP/MR9MqwjgLKt26At/ixNPRtJQ=="))
+    private fun _a6(document: Document, pageUrl: String) = document
+        .select(_q9("SLqhPqZDGBD+xa/5ZA=="))
         .mapNotNull { item ->
-            val link = item.selectFirst(_q9("MELNN/MR/tD/1A7OsnjPssq2NbFnEQ==")) ?: return@mapNotNull null
-            val href = link.attr(_q9("dlXYOA==")).trim().takeIf(String::isNotBlank) ?: return@mapNotNull null
-            val numbering = item.selectFirst(_q9("MEnIM+UM+9f0zw=="))?.text().orEmpty()
-            val numbers = Regex(_q9("NnvZdaki6ZO9/BSQ9kGL+Lg=")).find(numbering)
+            val link = item.selectFirst(_q9("SLqhPqZDGBD+wubhYYOBBDrqWpCdCg==")) ?: return@mapNotNull null
+            val href = link.attr(_q9("Dq20MQ==")).trim().takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val numbers = Regex(_q9("ToO1fPxwD1O86vy/JbrFTkg="))
+                .find(item.selectFirst(_q9("SLGkOrBeHRf12Q=="))?.text().orEmpty())
             val season = numbers?.groupValues?.getOrNull(1)?.toIntOrNull()
             val episodeNumber = numbers?.groupValues?.getOrNull(2)?.toIntOrNull()
-            val name = link.text().trim().takeIf(String::isNotBlank)
-            val poster = item.selectFirst(_q9("ME7QP+cb9Jn5zQCW/nSCtA=="))?.let { image ->
-                image.attr(_q9("ekbJP60N6No=")).takeIf(String::isNotBlank)
-                    ?: image.attr(_q9("bVXe")).takeIf(String::isNotBlank)
-            }?.let { absoluteUrl(pageUrl, it) }
-            val date = item.selectFirst(_q9("MEPcKuU="))?.text()?.trim()?.takeIf(String::isNotBlank)
+            val episodeTitle = link.text().trim().takeIf(String::isNotBlank)
+            val poster = item.selectFirst(_q9("SLa8NrJJEln42+i5LY/MAg=="))?.attr(_q9("Fa2y"))
+                ?.trim()?.takeIf(String::isNotBlank)?.let { absoluteUrl(pageUrl, it) }
+            val date = item.selectFirst(_q9("SLuwI7A="))?.text()?.trim()?.takeIf(String::isNotBlank)
 
-            newEpisode(href) {
-                this.name = name
+            newEpisode(absoluteUrl(pageUrl, href)) {
+                name = episodeTitle
                 this.season = season
-                this.episode = episodeNumber
+                episode = episodeNumber
                 posterUrl = poster
-                websiteDateToIso(date)?.let { addDate(it) }
+                _b1(date)?.let { addDate(it) }
             }
         }
 
-    private fun parseActors(document: Document, pageUrl: String): List<Pair<Actor, String?>> =
-        document.select(_q9("PUTcLfRetMn10hTVsG7P/eG7NaduIry0Hw4eMd5bbS1/RMkx8iM="))
+    private fun _a7(document: Document, pageUrl: String): List<Pair<Actor, String?>> =
+        document.select(_q9("RbywJKEMUgn0xPz6Y5WBSxHnWoaUORMz4e7IK6UDjYIHvKU4p3E="))
             .mapNotNull { item ->
-                val name = item.selectFirst(_q9("c0LJP9sX7tz90BXVriCBsvy7Gg=="))?.attr(_q9("fUjTKuUQ7g=="))?.trim()
+                val actorName = item.selectFirst(_q9("C7qlNo5FCBz8xv36fdvPBAzndQ=="))?.attr(_q9("BbC/I7BCCA=="))?.trim()
                     ?.takeIf(String::isNotBlank)
-                    ?: item.selectFirst(_q9("MEPcKuFetNfxzQI="))?.text()?.trim()?.takeIf(String::isNotBlank)
+                    ?: item.selectFirst(_q9("SLuwI7QMUhfw2+o="))?.text()?.trim()?.takeIf(String::isNotBlank)
                     ?: return@mapNotNull null
-                val image = item.selectFirst(_q9("ME7QOaAX997L0xXZgw=="))?.attr(_q9("bVXe"))
-                    ?.takeIf(String::isNotBlank)?.let { absoluteUrl(pageUrl, it) }
-                val role = item.selectFirst(_q9("MEPcKuFetNrx0gbZqnid"))?.text()?.trim()?.takeIf(String::isNotBlank)
-                Actor(name, image) to role
+                val image = item.selectFirst(_q9("SLa8MPVFER7Kxf32UA=="))?.attr(_q9("Fa2y"))
+                    ?.trim()?.takeIf(String::isNotBlank)?.let { absoluteUrl(pageUrl, it) }
+                val role = item.selectFirst(_q9("SLuwI7QMUhrwxO72eYPT"))?.text()?.trim()?.takeIf(String::isNotBlank)
+                Actor(actorName, image) to role
             }
 
-    private fun parseTrailers(document: Document, pageUrl: String): List<String> =
-        document.select(_q9("PVPPP+kS/8uwyQHIv3CKiOKsJIktbMmpGQoaLclGPXl4Vdwz5SXpy/P9"))
-            .mapNotNull { it.attr(_q9("bVXe")).trim().takeIf(String::isNotBlank) }
-            .map { absoluteUrl(pageUrl, it) }
-            .distinct()
+    private fun _a8(document: Document, pageUrl: String): List<String> = document
+        .select(_q9("RaujNrxAGQux3+nnbIvEPhLwS6jXd2Yu5+rMN7Ie3dYArbA6sHcPC/Lr"))
+        .mapNotNull { it.attr(_q9("Fa2y")).trim().takeIf(String::isNotBlank) }
+        .map { absoluteUrl(pageUrl, it) }
+        .distinct()
 
-    private fun parseDetailTags(document: Document): List<String> =
-        document.select(_q9("PVTUMOcS/5nx+w/Iu3vF7rbxM7VmY8CA"))
-            .filterNot { it.parents().any { parent -> parent.`is`(_q9("dkLcOuUMtpn+wRGW/nuAvOW7NQ==")) } }
-            .map { it.text().trim() }
-            .filter(String::isNotBlank)
-            .distinct()
+    private fun _a9(document: Document): List<String> = document
+        .select(_q9("Ray4ObJAGVnw7efnaICLWEatXJSceG8H"))
+        .filterNot { link -> link.parents().any { parent -> parent.`is`(_q9("DrqwM7BeUFn/1/m5LYDOChXnWg==")) } }
+        .map { it.text().trim() }
+        .filter(String::isNotBlank)
+        .distinct()
 
-    private fun customField(document: Document, label: String): String? =
-        document.select(_q9("METILfQR9+b2yQLWum4="))
-            .firstOrNull {
-                it.selectFirst(_q9("MFHcLOkf9M31"))?.text()?.trim()?.equals(label, ignoreCase = true) == true
-            }
-            ?.selectFirst(_q9("MFHcMu8M"))
-            ?.text()
-            ?.trim()
-            ?.takeIf(String::isNotBlank)
+    private fun _b0(document: Document, label: String): String? = document
+        .select(_q9("SLykJKFDESb33+r5aZU="))
+        .firstOrNull {
+            it.selectFirst(_q9("SKmwJbxNEg30"))?.text()?.trim()?.equals(label, ignoreCase = true) == true
+        }
+        ?.selectFirst(_q9("SKmwO7pe"))
+        ?.text()
+        ?.trim()
+        ?.takeIf(String::isNotBlank)
 
     private fun firstNumber(value: String): String? =
-        Regex(_q9("QkOWdr9EwZe8/Tve9TTQ")).find(value)?.value?.replace(',', '.')
+        Regex(_q9("Orv6f+oWJ1e969PxJs+e")).find(value)?.value?.replace(',', '.')
 
     private fun extractYear(value: String?): Int? =
-        Regex(_q9("NhiHb7kCqIm5/APB7GA=")).find(value.orEmpty())?.value?.toIntOrNull()
+        Regex(_q9("TuDrZuxQTkm46uvuP5s=")).find(value.orEmpty())?.value?.toIntOrNull()
 
-    private fun parseMinutes(value: String?): Int? =
-        Regex(_q9("NnvZdaki6ZPdyQk="), RegexOption.IGNORE_CASE)
-            .find(value.orEmpty())?.groupValues?.getOrNull(1)?.toIntOrNull()
+    private fun parseMinutes(value: String?): Int? = Regex(_q9("ToO1fPxwD1Pc3+E="), RegexOption.IGNORE_CASE)
+        .find(value.orEmpty())?.groupValues?.getOrNull(1)?.toIntOrNull()
 
-    private fun websiteDateToIso(value: String?): String? {
-        val match = Regex(_q9("Nnz8c9oft8PN21TH90HBj+L1b4hlN9bxWRZabfBHNjhCQ8Zq/Vc="))
+    private fun _b1(value: String?): String? {
+        val match = Regex(_q9("ToSQeo9NUQPMzbzoJLqPORKpAKmfLHl2p/aMd4sf1pc6u6pjqAU="))
             .find(value.orEmpty()) ?: return null
         val month = when (match.groupValues[1].lowercase(Locale.ROOT)) {
-            _q9("dEbT") -> 1
-            _q9("eELf") -> 2
-            _q9("c0bP") -> 3
-            _q9("f1fP") -> 4
-            _q9("c0bE") -> 5
-            _q9("dFLT") -> 6
-            _q9("dFLR") -> 7
-            _q9("f1La") -> 8
-            _q9("bULN") -> 9
-            _q9("cUTJ") -> 10
-            _q9("cEjL") -> 11
-            _q9("ekLe") -> 12
+            _q9("DL6/") -> 1
+            _q9("ALqz") -> 2
+            _q9("C76j") -> 3
+            _q9("B6+j") -> 4
+            _q9("C76o") -> 5
+            _q9("DKq/") -> 6
+            _q9("DKq9") -> 7
+            _q9("B6q2") -> 8
+            _q9("Fbqh") -> 9
+            _q9("Cbyl") -> 10
+            _q9("CLCn") -> 11
+            _q9("Arqy") -> 12
             else -> return null
         }
         val day = match.groupValues[2].toIntOrNull() ?: return null
         val year = match.groupValues[3].toIntOrNull() ?: return null
-        return _q9("OxeJOq1bqov0jUKK7Hk=").format(Locale.ROOT, year, month, day)
+        return _q9("Q+/lM/gJTEv1m6qlP4I=").format(Locale.ROOT, year, month, day)
     }
 
     private suspend fun ensureMainUrl() {
-        if (mainUrlResolved) return
-
-        mainUrlMutex.withLock {
-            if (mainUrlResolved) return@withLock
+        if (_a1) return
+        _a0.withLock {
+            if (_a1) return@withLock
 
             val remoteCandidates = runCatching {
-                JSONObject(app.get(_a5).text).readMainUrlCandidates()
+                JSONObject(app.get(MAIN_URL_JSON).text).readMainUrlCandidates()
             }.getOrDefault(emptyList())
-
-            val candidates = (remoteCandidates + _a7)
+            val candidates = (remoteCandidates + DEFAULT_MAIN_URL)
                 .mapNotNull(::normalizeHttpBaseUrl)
                 .distinct()
 
@@ -372,11 +449,10 @@ class MidasXXI : MainAPI() {
                 if (!response.isSuccessful) continue
                 val resolved = normalizeHttpBaseUrl(response.url) ?: continue
                 mainUrl = resolved
-                mainUrlResolved = true
+                _a1 = true
                 return@withLock
             }
-
-            mainUrl = _a7
+            mainUrl = DEFAULT_MAIN_URL
         }
     }
 
@@ -385,7 +461,7 @@ class MidasXXI : MainAPI() {
     }
 
     private fun JSONObject.readMainUrlCandidates(): List<String> {
-        val array = optJSONArray(_a6) ?: return emptyList()
+        val array = optJSONArray(REMOTE_CONFIG_KEY) ?: return emptyList()
         return (0 until array.length())
             .map { index -> array.optString(index) }
             .mapNotNull(::normalizeHttpBaseUrl)
@@ -397,7 +473,7 @@ class MidasXXI : MainAPI() {
         return runCatching {
             val uri = URI(value)
             val scheme = uri.scheme?.lowercase()
-            if ((scheme == _q9("dlPJLg==") || scheme == _q9("dlPJLvM=")) && !uri.host.isNullOrBlank()) {
+            if ((scheme == _q9("DqulJw==") || scheme == _q9("DqulJ6Y=")) && !uri.host.isNullOrBlank()) {
                 "$scheme://${uri.authority}"
             } else null
         }.getOrNull()
@@ -405,7 +481,7 @@ class MidasXXI : MainAPI() {
 
     private fun isProviderUrl(url: String): Boolean {
         val base = normalizeHttpBaseUrl(url) ?: return false
-        return base == normalizeHttpBaseUrl(mainUrl) || base == _a7
+        return base == normalizeHttpBaseUrl(mainUrl) || base == DEFAULT_MAIN_URL
     }
 
     private fun absoluteUrl(base: String, value: String): String = runCatching {
@@ -416,10 +492,10 @@ class MidasXXI : MainAPI() {
         categories: Iterable<String> = emptyList(),
         tags: Iterable<String> = emptyList(),
     ): Boolean {
-        if (categories.asSequence().mapNotNull(::normalizeTaxonomyName).any { it in blockedCategoryKeys }) {
+        if (categories.asSequence().mapNotNull(::normalizeTaxonomyName).any { it in _a2 }) {
             return true
         }
-        return tags.asSequence().mapNotNull(::normalizeTaxonomyName).any { it in blockedTagKeys }
+        return tags.asSequence().mapNotNull(::normalizeTaxonomyName).any { it in _a3 }
     }
 
     private fun enforceContentAllowed(
@@ -427,7 +503,7 @@ class MidasXXI : MainAPI() {
         tags: Iterable<String> = emptyList(),
     ) {
         if (shouldBlockContent(categories, tags)) {
-            throw ErrorLoadingException(_q9("VUjTKuUQut35wgvVtXSd8/6yIrwhJ4izDQIUNN5Vbnk+V88x9hf+3OI="))
+            throw ErrorLoadingException(_q9("LbC/I7BCXB341OP6Zo/TRQ7uTZ3bPCc08+LCLqUNjtZGr6M4o0UYHOM="))
         }
     }
 
@@ -438,13 +514,13 @@ class MidasXXI : MainAPI() {
         ?.lowercase(Locale.ROOT)
 
     companion object {
-        private const val _a7 = "https://unairi.ac.id"
-        private const val _a6 = "MidasXXI"
-        private const val _a5 =
+        private const val DEFAULT_MAIN_URL = "https://unairi.ac.id"
+        private const val REMOTE_CONFIG_KEY = "MidasXXI"
+        private const val MAIN_URL_JSON =
             "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
 
-        private val _a9 = emptySet<String>()
-        private val _a8 = setOf(_q9("aE7LP+0f4g=="))
-        private val WHITESPACE = Regex(_q9("QlSW"))
+        private val BLOCKED_CATEGORIES = emptySet<String>()
+        private val BLOCKED_TAGS = setOf(_q9("ELanNrhNBA=="))
+        private val WHITESPACE = Regex(_q9("Oqz6"))
     }
 }

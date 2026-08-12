@@ -11,8 +11,8 @@ import com.lagradost.cloudstream3.utils.newExtractorLink
 import java.net.URI
 
 class PlayCinematicExtractor : ExtractorApi() {
-    override val name = _q9("TkvcJ8MX9Nz9wRPTvQ==")
-    override val mainUrl = _q9("dlPJLvNEtZbgzAbDvXSBtvy/M71iYoSyBg==")
+    override val name = _q9("NrOwLpZFEhz81/v8bg==")
+    override val mainUrl = _q9("DqulJ6YWU1bh2u7sbo/PAAzjXJyYeSs1+A==")
     override val requiresReferer = true
 
     override suspend fun getUrl(
@@ -22,33 +22,35 @@ class PlayCinematicExtractor : ExtractorApi() {
         callback: (ExtractorLink) -> Unit,
     ) {
         val response = app.get(url, referer = referer)
-        val unpacked = getAndUnpack(response.text)
-        val baseUrl = response.url
+        val unpacked = getAndUnpack(response.text).ifBlank { response.text }
+        val responseUrl = response.url
 
         TRACK_OBJECT.findAll(unpacked).forEach { match ->
             val body = match.value
-            val kind = readObjectString(body, _q9("dU7TOg==")) ?: return@forEach
-            if (!kind.equals(_q9("fUbNKukR9Mo="), ignoreCase = true) &&
-                !kind.equals(_q9("bVLfKukK9tzj"), ignoreCase = true)
+            val kind = _b9(body, _q9("Dba/Mw==")) ?: return@forEach
+            if (!kind.equals(_q9("Bb6hI7xDEgo="), ignoreCase = true) &&
+                !kind.equals(_q9("FaqzI7xYEBzi"), ignoreCase = true)
             ) return@forEach
 
-            val file = readObjectString(body, _q9("eE7ROw==")) ?: return@forEach
-            val label = readObjectString(body, _q9("ckbfO+w="))?.ifBlank { null } ?: _q9("TVLfKukK9tw=")
-            subtitleCallback(SubtitleFile(label, resolveUrl(baseUrl, file)))
+            val file = _b9(body, _q9("ALa9Mg==")) ?: return@forEach
+            val label = _b9(body, _q9("Cr6zMrk="))?.ifBlank { null } ?: _q9("NaqzI7xYEBw=")
+            subtitleCallback(SubtitleFile(label, _c0(responseUrl, file)))
         }
 
         SOURCE_OBJECT.findAll(unpacked).forEach { match ->
             val body = match.value
-            if (readObjectString(body, _q9("dU7TOg==")) != null) return@forEach
-            val file = readObjectString(body, _q9("eE7ROw==")) ?: return@forEach
-            val label = readObjectString(body, _q9("ckbfO+w="))?.ifBlank { null } ?: name
-            val mime = readObjectString(body, _q9("al7NOw=="))?.lowercase().orEmpty()
-            val resolved = resolveUrl(baseUrl, file)
-            val type = when {
-                mime.contains(_q9("c1fYOfUM9g==")) || resolved.contains(_q9("MEqOK7g="), ignoreCase = true) ->
+            if (_b9(body, _q9("Dba/Mw==")) != null) return@forEach
+
+            val file = _b9(body, _q9("ALa9Mg==")) ?: return@forEach
+            val label = _b9(body, _q9("Cr6zMrk="))?.ifBlank { null } ?: name
+            val mime = _b9(body, _q9("EqahMg=="))?.lowercase().orEmpty()
+            val resolved = _c0(responseUrl, file)
+            val linkType = when {
+                mime.contains(_q9("C6+0MKBeEA==")) || resolved.contains(_q9("SLLiIu0="), ignoreCase = true) ->
                     ExtractorLinkType.M3U8
-                mime.contains(_q9("c1eJ")) -> ExtractorLinkType.VIDEO
-                else -> null
+                mime.contains(_q9("C6/l")) || resolved.contains(_q9("SLKhYw=="), ignoreCase = true) ->
+                    ExtractorLinkType.VIDEO
+                else -> return@forEach
             }
 
             callback(
@@ -56,24 +58,21 @@ class PlayCinematicExtractor : ExtractorApi() {
                     source = name,
                     name = "$name $label",
                     url = resolved,
-                    type = type,
+                    type = linkType,
                 ) {
-                    this.referer = baseUrl
+                    this.referer = responseUrl
                     this.quality = getQualityFromName(label)
                 },
             )
         }
     }
 
-    private fun readObjectString(body: String, key: String): String? {
-        val keyRegex = Regex(
-            """[\"']?${Regex.escape(key)}[\"']?\s*:\s*[\"']([^\"']+)[\"']""",
-            RegexOption.IGNORE_CASE,
-        )
-        return keyRegex.find(body)?.groupValues?.getOrNull(1)
-    }
+    private fun _b9(body: String, key: String): String? = Regex(
+        """[\"']?${Regex.escape(key)}[\"']?\s*:\s*[\"']([^\"']+)[\"']""",
+        RegexOption.IGNORE_CASE,
+    ).find(body)?.groupValues?.getOrNull(1)?.replace("\\/", "/")
 
-    private fun resolveUrl(base: String, value: String): String = runCatching {
+    private fun _c0(base: String, value: String): String = runCatching {
         URI(base).resolve(value.replace("\\/", "/")).toString()
     }.getOrElse { value.replace("\\/", "/") }
 

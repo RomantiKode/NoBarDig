@@ -6,7 +6,11 @@ import com.lagradost.cloudstream3.plugins.Plugin
 
 @CloudstreamPlugin
 class MidasXXIPlugin : Plugin() {
-    override fun load(_a10: Context) {
+    override fun load(context: Context) {
+        _p0()
+    }
+
+    private fun _p0() {
         registerMainAPI(MidasXXI())
         registerExtractorAPI(PlayCinematicExtractor())
     }

@@ -34,9 +34,9 @@ cloudstream {
     language = "id"
     description = "MIDASXXI Tempat seru buat nonton film dan drama Korea! Mulai dari LK21, IDLIX, hingga Bioskopkeren, Rebahin Sub Indo. dan Nonton Film semi bikin mager makin asyik!"
     authors = listOf("Agoose")
-    iconUrl = "https://unairi.ac.id/wp-content/uploads/2024/01/cropped-favicon-192x192.png"
+    iconUrl = "https://unairi.ac.id/wp-content/uploads/2024/01/cropped-favicon.png"
 
-    // New provider: runtime has not been exercised in Cloudstream yet.
+    // Runtime Cloudstream belum diuji untuk delivery ini.
     status = 3
 
     tvTypes = listOf(

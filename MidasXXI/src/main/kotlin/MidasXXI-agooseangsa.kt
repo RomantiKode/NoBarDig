@@ -3,7 +3,7 @@ package com.agooseangsa.MidasXXI
 import android.util.Base64
 
 internal object _x7P {
-    private val k = byteArrayOf(30, 39, -67, 94, -128, 126, -102, -71, -112, -96, 103, -70, -34, 29, -17, -45, -111, -34, 71, -44, 1, 76, -25, -35, 107, 107, 115, 65, -84, 52, 29, 16)
+    private val k = byteArrayOf(102, -33, -47, 87, -43, 44, 124, 121, -111, -74, -113, -107, 13, -26, -95, 101, 97, -126, 40, -11, -5, 87, 72, 90, -107, -117, -91, 91, -41, 108, -3, -65)
 
     fun d(value: String): String {
         val bytes = Base64.decode(value, Base64.NO_WRAP)
