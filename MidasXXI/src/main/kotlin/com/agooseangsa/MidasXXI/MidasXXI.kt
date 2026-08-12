@@ -39,21 +39,21 @@ import java.util.Locale
 
 class MidasXXI : MainAPI() {
     override var mainUrl = DEFAULT_MAIN_URL
-    override var name = _q9("K7a1NqYMJCHY")
+    override var name = _q9("Mt5xFw0i12/q")
     override var lang = "id"
 
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
     override val hasMainPage = true
 
     override val mainPage = mainPageOf(
-        "/" to _q9("J5yFHppi"),
-        "/" to _q9("LpCDBZp+"),
-        "/" to _q9("Io2QGpQ="),
-        "/" to _q9("J5GYGpA="),
-        "/" to _q9("MJaHFphtJA=="),
-        "/" to _q9("Io2QGpQMNzbD884="),
-        "/" to _q9("IJadGvV4OSvT993A"),
-        "/" to _q9("MonxBJB+NTzCltvQX6TgNzQ="),
+        "/" to _q9("PvRBPzFM"),
+        "/" to _q9("N/hHJDFQ"),
+        "/" to _q9("O+VUOz8="),
+        "/" to _q9("PvlcOzs="),
+        "/" to _q9("Kf5DNzND1w=="),
+        "/" to _q9("O+VUOz8ixHjxUFw="),
+        "/" to _q9("Of5ZO15WymXhVE95"),
+        "/" to _q9("K+E1JTtQxnLwNUlp6+cRnEE="),
     )
 
     private val _a0 = Mutex()
@@ -81,7 +81,7 @@ class MidasXXI : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         ensureMainUrl()
-        val encoded = URLEncoder.encode(query, _q9("M4uXeu0="))
+        val encoded = URLEncoder.encode(query, _q9("KuNTW0Y="))
         val response = app.get("$mainUrl/?s=$encoded")
         syncMainUrl(response.url)
         return parseListing(response.document)
@@ -94,9 +94,9 @@ class MidasXXI : MainAPI() {
         val path = runCatching { URI(response.url).path }.getOrNull().orEmpty()
 
         return when {
-            path.contains(_q9("SaunJL1DCwq+")) -> loadSeries(response.url, response.document)
-            path.contains(_q9("SbK+IbxJD1Y=")) -> loadMovie(response.url, response.document)
-            else -> throw ErrorLoadingException(_q9("MrahMvVEHRXw2+77LavIAQDxcK2ydzwz8erOe7MFmcoNqr8w"))
+            path.contains(_q9("UMNjBRZt+ESM")) -> loadSeries(response.url, response.document)
+            path.contains(_q9("UNp6ABdn/Bg=")) -> loadMovie(response.url, response.document)
+            else -> throw ErrorLoadingException(_q9("K95lE15q7lvCeHxCmeg5qnXzk5h0lWKAPsyCOTeUdtoUwnsR"))
         }
     }
 
@@ -138,16 +138,16 @@ class MidasXXI : MainAPI() {
     }
 
     private suspend fun _b2(document: Document, pageUrl: String): List<String> {
-        val options = document.select(_q9("SLu+OKVAHQDOxuP0dIPTOg7yXJyUORM+9P/EdqcDjss7hLU2oU1RDejG6shWgsARAK9GgJYyFQ=="))
+        val options = document.select(_q9("UdN6GQ5u7k78ZXFNwMAikXvwv6lS202NO9mINCOSYdsi7HEXCmOiQ9pleHHiwTG6da2ltVDQSw=="))
         if (options.isEmpty()) return emptyList()
 
-        val endpoint = absoluteUrl(pageUrl, _q9("SaiherRIERD/me7xYI/PSADoSY3VJyAq"))
+        val endpoint = absoluteUrl(pageUrl, _q9("UMBlWx9m4l7NOnxI1Mw+43XqqrgTxX6Z"))
         return options.mapNotNull { option ->
-            val post = option.attr(_q9("Ar6lNvhcEwrl")).trim().takeIf(String::isNotBlank)
+            val post = option.attr(_q9("G9ZhF1Ny4ETX")).trim().takeIf(String::isNotBlank)
                 ?: return@mapNotNull null
-            val type = option.attr(_q9("Ar6lNvhYBQn0")).trim().takeIf(String::isNotBlank)
+            val type = option.attr(_q9("G9ZhF1N29kfG")).trim().takeIf(String::isNotBlank)
                 ?: return@mapNotNull null
-            val nume = option.attr(_q9("Ar6lNvhCCRT0")).trim().takeIf(String::isNotBlank)
+            val nume = option.attr(_q9("G9ZhF1Ns+lrG")).trim().takeIf(String::isNotBlank)
                 ?: return@mapNotNull null
 
             val response = runCatching {
@@ -155,10 +155,10 @@ class MidasXXI : MainAPI() {
                     endpoint,
                     referer = pageUrl,
                     data = mapOf(
-                        _q9("B7ylPrpC") to _q9("ArC+CKVAHQD0xND0Z4fZ"),
-                        _q9("FrCiIw==") to post,
-                        _q9("CKq8Mg==") to nume,
-                        _q9("EqahMg==") to type,
+                        _q9("HtRhHxFs") to _q9("G9h6KQ5u7k7GZ0JN08Qo"),
+                        _q9("D9hmAg==") to post,
+                        _q9("EcJ4Ew==") to nume,
+                        _q9("C85lEw==") to type,
                     ),
                 )
             }.getOrNull() ?: return@mapNotNull null
@@ -171,46 +171,46 @@ class MidasXXI : MainAPI() {
         val trimmed = text.trim()
         if (trimmed.isBlank()) return null
 
-        val embed = runCatching { JSONObject(trimmed).optString(_q9("A7KzMrFzCQv9")) }
+        val embed = runCatching { JSONObject(trimmed).optString(_q9("Gtp3Expd+kXP")) }
             .getOrNull()
             ?.trim()
             ?.takeIf(String::isNotBlank)
             ?: trimmed
 
-        val iframe = Jsoup.parse(embed).selectFirst(_q9("D7mjNrhJJwrj1dI="))?.attr(_q9("Fa2y"))
+        val iframe = Jsoup.parse(embed).selectFirst(_q9("FtFnFxNn1ETRdkA="))?.attr(_q9("DMV2"))
             ?.trim()?.takeIf(String::isNotBlank)
         if (iframe != null) return absoluteUrl(responseUrl, iframe)
 
         val decoded = embed.replace("\\/", "/").trim()
-        return decoded.takeIf { it.startsWith(_q9("DqulJ+8DUw==")) || it.startsWith(_q9("DqulJ6YWU1Y=")) }
+        return decoded.takeIf { it.startsWith(_q9("F8NhBkQtoA==")) || it.startsWith(_q9("F8NhBg04oBg=")) }
             ?.let { absoluteUrl(responseUrl, it) }
     }
 
     private fun _b4(document: Document, pageUrl: String): List<String> = document
-        .select(_q9("Rbu+OKVAHQDOxuP0dIPTOhPnW4WUOTs/teLDKbYBmOQVrbIK+QxSHf7Z//lsn/4VDeNRkIl3ITzn6sg+jB+P3Ds="))
-        .mapNotNull { it.attr(_q9("Fa2y")).trim().takeIf(String::isNotBlank) }
+        .select(_q9("XNN6GQ5u7k78ZXFNwMAikWbluLBS22WMesSPazKQd/QMxXYrUiKhU8x6bUDY3A++eOGypU+Vf48ozIR8CI5gzCI="))
+        .mapNotNull { it.attr(_q9("DMV2")).trim().takeIf(String::isNotBlank) }
         .map { absoluteUrl(pageUrl, it) }
-        .filter { it.startsWith(_q9("DqulJ+8DUw==")) || it.startsWith(_q9("DqulJ6YWU1Y=")) }
+        .filter { it.startsWith(_q9("F8NhBkQtoA==")) || it.startsWith(_q9("F8NhBg04oBg=")) }
         .distinct()
 
     private suspend fun loadMovie(url: String, document: Document): LoadResponse {
-        val title = document.selectFirst(_q9("SKy5MrRIGQuxmOv0eYeBDVA="))?.text()?.trim()
+        val title = document.selectFirst(_q9("UcR9Ex9m6kWDO3lNzcRwpiU="))?.text()?.trim()
             ?.takeIf(String::isNotBlank)
-            ?: throw ErrorLoadingException(_q9("LKq1IrkMERbn3+q1eY/FBAqiTJyPMiUv/urL"))
-        val websitePoster = document.selectFirst(_q9("SKy5MrRIGQuxmP/6fpLEF0HrRZKgJDo5yA=="))?.attr(_q9("Fa2y"))
+            ?: throw ErrorLoadingException(_q9("NcJxAxIi4ljVfHgMzcw0r3+gr6lJ0HucMcyH"))
+        val websitePoster = document.selectFirst(_q9("UcR9Ex9m6kWDO21DytE1vDTppqdmxmSKBw=="))?.attr(_q9("DMV2"))
             ?.trim()?.takeIf(String::isNotBlank)?.let { absoluteUrl(url, it) }
-        val websiteYear = extractYear(document.selectFirst(_q9("SKy5MrRIGQuxmOrteZTARU/mSYGe"))?.text())
-        val websitePlot = document.selectFirst(_q9("Rba/MboMUg7hm+z6Y5LECxU="))?.text()?.trim()
+        val websiteYear = extractYear(document.selectFirst(_q9("UcR9Ex9m6kWDO3hUzdcx7jrkqrRY"))?.text())
+        val websitePlot = document.selectFirst(_q9("XN57EBEioUDTOH5D19E1oGA="))?.text()?.trim()
             ?.takeIf(String::isNotBlank)
-        val websiteGenres = document.select(_q9("SKy5MrRIGQuxmPzyaIjEFw7xCJSgPzo/86GYfPgLmNEUuv5wiA=="))
+        val websiteGenres = document.select(_q9("UcR9Ex9m6kWDO25L3Ms1vHvz66Fm3WSMPIfUPnyad8EN0jpRIw=="))
             .map { it.text().trim() }.filter(String::isNotBlank)
         val websiteTags = _a9(document)
-        val websiteRuntime = parseMinutes(document.selectFirst(_q9("SKy5MrRIGQuxmP3gY5LICAQ="))?.text())
-        val websiteRating = document.selectFirst(_q9("SKy5MrRIGQux7ebhaIvRFw7yFZaUOTw/+//3OqMFk9g7"))?.text()?.trim()
+        val websiteRuntime = parseMinutes(document.selectFirst(_q9("UcR9Ex9m6kWDO29Z19E5o3E="))?.text())
+        val websiteRating = document.selectFirst(_q9("UcR9Ex9m6kWDTnRY3MggvHvw9qNS22KMNNm7eCeUfMgi"))?.text()?.trim()
             ?.takeIf(String::isNotBlank)
         val websiteActors = _a7(document, url)
-        val websiteScore = _b0(document, _q9("MpKVNfV+HQ342Og="))?.let(::firstNumber)
-        val originalTitle = _b0(document, _q9("Ka24MLxCHRWxwubhYYM="))
+        val websiteScore = _b0(document, _q9("K/pRFF5Q7kPKe3o="))?.let(::firstNumber)
+        val originalTitle = _b0(document, _q9("MMV8ERds7luDYXRY1cA="))
         val websiteTrailers = _a8(document, url)
 
         enforceContentAllowed(websiteGenres, websiteTags)
@@ -243,20 +243,20 @@ class MidasXXI : MainAPI() {
     }
 
     private suspend fun loadSeries(url: String, document: Document): LoadResponse {
-        val title = document.selectFirst(_q9("SKy5MrRIGQuxmOv0eYeBDVA="))?.text()?.trim()
+        val title = document.selectFirst(_q9("UcR9Ex9m6kWDO3lNzcRwpiU="))?.text()?.trim()
             ?.takeIf(String::isNotBlank)
-            ?: throw ErrorLoadingException(_q9("LKq1IrkMDxzj3+75LZLIAQDpCJGSIy034ODENQ=="))
-        val websitePoster = document.selectFirst(_q9("SKy5MrRIGQuxmP/6fpLEF0HrRZKgJDo5yA=="))?.attr(_q9("Fa2y"))
+            ?: throw ErrorLoadingException(_q9("NcJxAxIi/FLRfHxAmdE5qnXr66RUwXOEL8aIdw=="))
+        val websitePoster = document.selectFirst(_q9("UcR9Ex9m6kWDO21DytE1vDTppqdmxmSKBw=="))?.attr(_q9("DMV2"))
             ?.trim()?.takeIf(String::isNotBlank)?.let { absoluteUrl(url, it) }
-        val websiteYear = extractYear(document.selectFirst(_q9("SKy5MrRIGQuxmOrteZTARU/mSYGe"))?.text())
-        val websitePlot = document.selectFirst(_q9("Rba/MboMUg7hm+z6Y5LECxU="))?.text()?.trim()
+        val websiteYear = extractYear(document.selectFirst(_q9("UcR9Ex9m6kWDO3hUzdcx7jrkqrRY"))?.text())
+        val websitePlot = document.selectFirst(_q9("XN57EBEioUDTOH5D19E1oGA="))?.text()?.trim()
             ?.takeIf(String::isNotBlank)
-        val websiteGenres = document.select(_q9("SKy5MrRIGQuxmPzyaIjEFw7xCJSgPzo/86GYfPgLmNEUuv5wiA=="))
+        val websiteGenres = document.select(_q9("UcR9Ex9m6kWDO25L3Ms1vHvz66Fm3WSMPIfUPnyad8EN0jpRIw=="))
             .map { it.text().trim() }.filter(String::isNotBlank)
         val websiteTags = _a9(document)
         val websiteActors = _a7(document, url)
-        val websiteScore = _b0(document, _q9("MpKVNfV+HQ342Og="))?.let(::firstNumber)
-        val originalTitle = _b0(document, _q9("Ka24MLxCHRWxwubhYYM="))
+        val websiteScore = _b0(document, _q9("K/pRFF5Q7kPKe3o="))?.let(::firstNumber)
+        val originalTitle = _b0(document, _q9("MMV8ERds7luDYXRY1cA="))
         val websiteTrailers = _a8(document, url)
         val episodes = _a6(document, url)
 
@@ -289,13 +289,13 @@ class MidasXXI : MainAPI() {
     }
 
     private fun _a4(document: Document, heading: String): List<SearchResponse> {
-        val header = document.select(_q9("DrqwM7Be"))
+        val header = document.select(_q9("F9J0Ehtw"))
             .firstOrNull { it.selectFirst("h2")?.text()?.trim()?.equals(heading, ignoreCase = true) == true }
             ?: return emptyList()
 
         var sibling = header.nextElementSibling()
-        while (sibling != null && !sibling.`is`(_q9("DrqwM7Be"))) {
-            val items = sibling.select(_q9("B62lPrZAGVf4wur4"))
+        while (sibling != null && !sibling.`is`(_q9("F9J0Ehtw"))) {
+            val items = sibling.select(_q9("HsVhHx1u6hnKYXhB"))
             if (items.isNotEmpty()) {
                 return items.mapNotNull(::_a5).distinctBy { it.url }
             }
@@ -305,28 +305,28 @@ class MidasXXI : MainAPI() {
     }
 
     private fun parseListing(document: Document): List<SearchResponse> = document
-        .select(_q9("B62lPrZAGVf4wur4"))
+        .select(_q9("HsVhHx1u6hnKYXhB"))
         .mapNotNull(::_a5)
         .distinctBy { it.url }
 
     private fun _a5(element: Element): SearchResponse? {
-        val link = element.selectFirst(_q9("SLuwI7QMFEqx19T9f4PHOE2iQMbbNhMy5+7DBvtM088JrKUypwwdIvnE6vNQ"))
+        val link = element.selectFirst(_q9("UdN0Ah8i5wSDdEZEy8A2kzigo/Md1E2BKMiPRH/dPN8QxGETDCLubMtneErk"))
             ?: return null
-        val href = link.attr(_q9("Dq20MQ==")).trim().takeIf(String::isNotBlank) ?: return null
+        val href = link.attr(_q9("F8VwEA==")).trim().takeIf(String::isNotBlank) ?: return null
         val absolute = absoluteUrl(mainUrl, href)
         val path = runCatching { URI(absolute).path }.getOrNull().orEmpty()
         val type = when {
-            path.contains(_q9("SbK+IbxJD1Y=")) -> TvType.Movie
-            path.contains(_q9("SaunJL1DCwq+")) -> TvType.TvSeries
+            path.contains(_q9("UNp6ABdn/Bg=")) -> TvType.Movie
+            path.contains(_q9("UMNjBRZt+ESM")) -> TvType.TvSeries
             else -> return null
         }
-        val title = element.selectFirst(_q9("SLuwI7QMFEqx16O1I4LAEQCiQMbXdyBpteqJe79f"))?.text()?.trim()
+        val title = element.selectFirst(_q9("UdN0Ah8i5wSDdDEMl8ExunWgo/MRlX7aeszFOTvO"))?.text()?.trim()
             ?.takeIf(String::isNotBlank) ?: return null
-        val poster = element.selectFirst(_q9("SK++JKFJDln42+i5LY/MAg=="))?.let { image ->
-            image.attr(_q9("Ar6lNvhfDho=")).takeIf(String::isNotBlank)
-                ?: image.attr(_q9("Fa2y")).takeIf(String::isNotBlank)
+        val poster = element.selectFirst(_q9("Ucd6BQpn/RfKeHoAmcw9qQ=="))?.let { image ->
+            image.attr(_q9("G9ZhF1Nx/VQ=")).takeIf(String::isNotBlank)
+                ?: image.attr(_q9("DMV2")).takeIf(String::isNotBlank)
         }?.let { absoluteUrl(mainUrl, it) }
-        val year = extractYear(element.selectFirst(_q9("SLuwI7QMDwnw2A=="))?.text())
+        val year = extractYear(element.selectFirst(_q9("UdN0Ah8i/EfCew=="))?.text())
 
         return if (type == TvType.TvSeries) {
             newTvSeriesSearchResponse(title, absolute, TvType.TvSeries) {
@@ -342,18 +342,18 @@ class MidasXXI : MainAPI() {
     }
 
     private fun _a6(document: Document, pageUrl: String) = document
-        .select(_q9("SLqhPqZDGBD+xa/5ZA=="))
+        .select(_q9("UdJlHw1t617MZj1A0A=="))
         .mapNotNull { item ->
-            val link = item.selectFirst(_q9("SLqhPqZDGBD+wubhYYOBBDrqWpCdCg==")) ?: return@mapNotNull null
-            val href = link.attr(_q9("Dq20MQ==")).trim().takeIf(String::isNotBlank) ?: return@mapNotNull null
-            val numbers = Regex(_q9("ToO1fPxwD1O86vy/JbrFTkg="))
-                .find(item.selectFirst(_q9("SLGkOrBeHRf12Q=="))?.text().orEmpty())
+            val link = item.selectFirst(_q9("UdJlHw1t617MYXRY1cBwr0/ouaVb6A==")) ?: return@mapNotNull null
+            val href = link.attr(_q9("F8VwEA==")).trim().takeIf(String::isNotBlank) ?: return@mapNotNull null
+            val numbers = Regex(_q9("V+txXVde/B2OSW4Gkfk05T0="))
+                .find(item.selectFirst(_q9("UdlgGxtw7lnHeg=="))?.text().orEmpty())
             val season = numbers?.groupValues?.getOrNull(1)?.toIntOrNull()
             val episodeNumber = numbers?.groupValues?.getOrNull(2)?.toIntOrNull()
             val episodeTitle = link.text().trim().takeIf(String::isNotBlank)
-            val poster = item.selectFirst(_q9("SLa8NrJJEln42+i5LY/MAg=="))?.attr(_q9("Fa2y"))
+            val poster = item.selectFirst(_q9("Ud54Fxln4RfKeHoAmcw9qQ=="))?.attr(_q9("DMV2"))
                 ?.trim()?.takeIf(String::isNotBlank)?.let { absoluteUrl(pageUrl, it) }
-            val date = item.selectFirst(_q9("SLuwI7A="))?.text()?.trim()?.takeIf(String::isNotBlank)
+            val date = item.selectFirst(_q9("UdN0Ahs="))?.text()?.trim()?.takeIf(String::isNotBlank)
 
             newEpisode(absoluteUrl(pageUrl, href)) {
                 name = episodeTitle
@@ -365,71 +365,71 @@ class MidasXXI : MainAPI() {
         }
 
     private fun _a7(document: Document, pageUrl: String): List<Pair<Actor, String?>> =
-        document.select(_q9("RbywJKEMUgn0xPz6Y5WBSxHnWoaUORMz4e7IK6UDjYIHvKU4p3E="))
+        document.select(_q9("XNR0BQoioUfGZ25D19Zw4GTlubNS202ALsiEaSGSYpIe1GEZDF8="))
             .mapNotNull { item ->
-                val actorName = item.selectFirst(_q9("C7qlNo5FCBz8xv36fdvPBAzndQ=="))?.attr(_q9("BbC/I7BCCA=="))?.trim()
+                val actorName = item.selectFirst(_q9("EtJhFyVr+1LOZW9DyZg+r3nllg=="))?.attr(_q9("HNh7Ahts+w=="))?.trim()
                     ?.takeIf(String::isNotBlank)
-                    ?: item.selectFirst(_q9("SLuwI7QMUhfw2+o="))?.text()?.trim()?.takeIf(String::isNotBlank)
+                    ?: item.selectFirst(_q9("UdN0Ah8ioVnCeHg="))?.text()?.trim()?.takeIf(String::isNotBlank)
                     ?: return@mapNotNull null
-                val image = item.selectFirst(_q9("SLa8MPVFER7Kxf32UA=="))?.attr(_q9("Fa2y"))
+                val image = item.selectFirst(_q9("Ud54EV5r4lD4Zm9P5A=="))?.attr(_q9("DMV2"))
                     ?.trim()?.takeIf(String::isNotBlank)?.let { absoluteUrl(pageUrl, it) }
-                val role = item.selectFirst(_q9("SLuwI7QMUhrwxO72eYPT"))?.text()?.trim()?.takeIf(String::isNotBlank)
+                val role = item.selectFirst(_q9("UdN0Ah8ioVTCZ3xPzcAi"))?.text()?.trim()?.takeIf(String::isNotBlank)
                 Actor(actorName, image) to role
             }
 
     private fun _a8(document: Document, pageUrl: String): List<String> = document
-        .select(_q9("RaujNrxAGQux3+nnbIvEPhLwS6jXd2Yu5+rMN7Ie3dYArbA6sHcPC/Lr"))
-        .mapNotNull { it.attr(_q9("Fa2y")).trim().takeIf(String::isNotBlank) }
+        .select(_q9("XMNnFxdu6kWDfHte2Mg1lWfyqJ0RlTidKMyAdTaPMsYZxXQbG1n8RcBI"))
+        .mapNotNull { it.attr(_q9("DMV2")).trim().takeIf(String::isNotBlank) }
         .map { absoluteUrl(pageUrl, it) }
         .distinct()
 
     private fun _a9(document: Document): List<String> = document
-        .select(_q9("Ray4ObJAGVnw7efnaICLWEatXJSceG8H"))
-        .filterNot { link -> link.parents().any { parent -> parent.`is`(_q9("DrqwM7BeUFn/1/m5LYDOChXnWg==")) } }
+        .select(_q9("XMR8GBlu6hfCTnVe3MN68zOvv6FamjG0"))
+        .filterNot { link -> link.parents().any { parent -> parent.`is`(_q9("F9J0EhtwoxfNdGsAmcM/oWDluQ==")) } }
         .map { it.text().trim() }
         .filter(String::isNotBlank)
         .distinct()
 
     private fun _b0(document: Document, label: String): String? = document
-        .select(_q9("SLykJKFDESb33+r5aZU="))
+        .select(_q9("UdRgBQpt4mjFfHhA3dY="))
         .firstOrNull {
-            it.selectFirst(_q9("SKmwJbxNEg30"))?.text()?.trim()?.equals(label, ignoreCase = true) == true
+            it.selectFirst(_q9("UcF0BBdj4UPG"))?.text()?.trim()?.equals(label, ignoreCase = true) == true
         }
-        ?.selectFirst(_q9("SKmwO7pe"))
+        ?.selectFirst(_q9("UcF0GhFw"))
         ?.text()
         ?.trim()
         ?.takeIf(String::isNotBlank)
 
     private fun firstNumber(value: String): String? =
-        Regex(_q9("Orv6f+oWJ1e969PxJs+e")).find(value)?.value?.replace(',', '.')
+        Regex(_q9("I9M+XkE41BmPSEFIkoxv")).find(value)?.value?.replace(',', '.')
 
     private fun extractYear(value: String?): Int? =
-        Regex(_q9("TuDrZuxQTkm46uvuP5s=")).find(value.orEmpty())?.value?.toIntOrNull()
+        Regex(_q9("V4gvR0d+vQeKSXlXi9g=")).find(value.orEmpty())?.value?.toIntOrNull()
 
-    private fun parseMinutes(value: String?): Int? = Regex(_q9("ToO1fPxwD1Pc3+E="), RegexOption.IGNORE_CASE)
+    private fun parseMinutes(value: String?): Int? = Regex(_q9("V+txXVde/B3ufHM="), RegexOption.IGNORE_CASE)
         .find(value.orEmpty())?.groupValues?.getOrNull(1)?.toIntOrNull()
 
     private fun _b1(value: String?): String? {
-        val match = Regex(_q9("ToSQeo9NUQPMzbzoJLqPORKpAKmfLHl2p/aMd4sf1pc6u6pjqAU="))
+        val match = Regex(_q9("V+xUWyRjok3+bi5RkPl+kmer45xZzifFaNDANQ+OOYcj025CAys="))
             .find(value.orEmpty()) ?: return null
         val month = when (match.groupValues[1].lowercase(Locale.ROOT)) {
-            _q9("DL6/") -> 1
-            _q9("ALqz") -> 2
-            _q9("C76j") -> 3
-            _q9("B6+j") -> 4
-            _q9("C76o") -> 5
-            _q9("DKq/") -> 6
-            _q9("DKq9") -> 7
-            _q9("B6q2") -> 8
-            _q9("Fbqh") -> 9
-            _q9("Cbyl") -> 10
-            _q9("CLCn") -> 11
-            _q9("Arqy") -> 12
+            _q9("FdZ7") -> 1
+            _q9("GdJ3") -> 2
+            _q9("EtZn") -> 3
+            _q9("Hsdn") -> 4
+            _q9("EtZs") -> 5
+            _q9("FcJ7") -> 6
+            _q9("FcJ5") -> 7
+            _q9("HsJy") -> 8
+            _q9("DNJl") -> 9
+            _q9("ENRh") -> 10
+            _q9("Edhj") -> 11
+            _q9("G9J2") -> 12
             else -> return null
         }
         val day = match.groupValues[2].toIntOrNull() ?: return null
         val year = match.groupValues[3].toIntOrNull() ?: return null
-        return _q9("Q+/lM/gJTEv1m6qlP4I=").format(Locale.ROOT, year, month, day)
+        return _q9("WochElMnvwXHODgci8E=").format(Locale.ROOT, year, month, day)
     }
 
     private suspend fun ensureMainUrl() {
@@ -473,7 +473,7 @@ class MidasXXI : MainAPI() {
         return runCatching {
             val uri = URI(value)
             val scheme = uri.scheme?.lowercase()
-            if ((scheme == _q9("DqulJw==") || scheme == _q9("DqulJ6Y=")) && !uri.host.isNullOrBlank()) {
+            if ((scheme == _q9("F8NhBg==") || scheme == _q9("F8NhBg0=")) && !uri.host.isNullOrBlank()) {
                 "$scheme://${uri.authority}"
             } else null
         }.getOrNull()
@@ -503,7 +503,7 @@ class MidasXXI : MainAPI() {
         tags: Iterable<String> = emptyList(),
     ) {
         if (shouldBlockContent(categories, tags)) {
-            throw ErrorLoadingException(_q9("LbC/I7BCXB341OP6Zo/TRQ7uTZ3bPCc08+LCLqUNjtZGr6M4o0UYHOM="))
+            throw ErrorLoadingException(_q9("NNh7Ahtsr1PKd3FD0swi7nvsrqgd3nmHPMSObCGcYcZfx2cZCGvrUtE="))
         }
     }
 
@@ -520,7 +520,7 @@ class MidasXXI : MainAPI() {
             "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
 
         private val BLOCKED_CATEGORIES = emptySet<String>()
-        private val BLOCKED_TAGS = setOf(_q9("ELanNrhNBA=="))
-        private val WHITESPACE = Regex(_q9("Oqz6"))
+        private val BLOCKED_TAGS = setOf(_q9("Cd5jFxNj9w=="))
+        private val WHITESPACE = Regex(_q9("I8Q+"))
     }
 }

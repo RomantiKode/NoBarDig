@@ -1,6 +1,6 @@
 import java.util.Properties
 
-version = 1
+version = 2
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
@@ -36,8 +36,8 @@ cloudstream {
     authors = listOf("Agoose")
     iconUrl = "https://unairi.ac.id/wp-content/uploads/2024/01/cropped-favicon.png"
 
-    // Runtime Cloudstream belum diuji untuk delivery ini.
-    status = 3
+    // Public provider metadata; runtime playback remains separately gated in docs.
+    status = 1
 
     tvTypes = listOf(
         "Movie",

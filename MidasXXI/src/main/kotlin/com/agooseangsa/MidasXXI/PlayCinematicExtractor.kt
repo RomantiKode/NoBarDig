@@ -11,8 +11,8 @@ import com.lagradost.cloudstream3.utils.newExtractorLink
 import java.net.URI
 
 class PlayCinematicExtractor : ExtractorApi() {
-    override val name = _q9("NrOwLpZFEhz81/v8bg==")
-    override val mainUrl = _q9("DqulJ6YWU1bh2u7sbo/PAAzjXJyYeSs1+A==")
+    override val name = _q9("L9t0Dz1r4VLOdGlF2g==")
+    override val mainUrl = _q9("F8NhBg04oBjTeXxV2sw+q3nhv6lem3WGNw==")
     override val requiresReferer = true
 
     override suspend fun getUrl(
@@ -27,28 +27,28 @@ class PlayCinematicExtractor : ExtractorApi() {
 
         TRACK_OBJECT.findAll(unpacked).forEach { match ->
             val body = match.value
-            val kind = _b9(body, _q9("Dba/Mw==")) ?: return@forEach
-            if (!kind.equals(_q9("Bb6hI7xDEgo="), ignoreCase = true) &&
-                !kind.equals(_q9("FaqzI7xYEBzi"), ignoreCase = true)
+            val kind = _b9(body, _q9("FN57Eg==")) ?: return@forEach
+            if (!kind.equals(_q9("HNZlAhdt4UQ="), ignoreCase = true) &&
+                !kind.equals(_q9("DMJ3Ahd241LQ"), ignoreCase = true)
             ) return@forEach
 
-            val file = _b9(body, _q9("ALa9Mg==")) ?: return@forEach
-            val label = _b9(body, _q9("Cr6zMrk="))?.ifBlank { null } ?: _q9("NaqzI7xYEBw=")
+            val file = _b9(body, _q9("Gd55Ew==")) ?: return@forEach
+            val label = _b9(body, _q9("E9Z3ExI="))?.ifBlank { null } ?: _q9("LMJ3Ahd241I=")
             subtitleCallback(SubtitleFile(label, _c0(responseUrl, file)))
         }
 
         SOURCE_OBJECT.findAll(unpacked).forEach { match ->
             val body = match.value
-            if (_b9(body, _q9("Dba/Mw==")) != null) return@forEach
+            if (_b9(body, _q9("FN57Eg==")) != null) return@forEach
 
-            val file = _b9(body, _q9("ALa9Mg==")) ?: return@forEach
-            val label = _b9(body, _q9("Cr6zMrk="))?.ifBlank { null } ?: name
-            val mime = _b9(body, _q9("EqahMg=="))?.lowercase().orEmpty()
+            val file = _b9(body, _q9("Gd55Ew==")) ?: return@forEach
+            val label = _b9(body, _q9("E9Z3ExI="))?.ifBlank { null } ?: name
+            val mime = _b9(body, _q9("C85lEw=="))?.lowercase().orEmpty()
             val resolved = _c0(responseUrl, file)
             val linkType = when {
-                mime.contains(_q9("C6+0MKBeEA==")) || resolved.contains(_q9("SLLiIu0="), ignoreCase = true) ->
+                mime.contains(_q9("EsdwEQtw4w==")) || resolved.contains(_q9("UdomA0Y="), ignoreCase = true) ->
                     ExtractorLinkType.M3U8
-                mime.contains(_q9("C6/l")) || resolved.contains(_q9("SLKhYw=="), ignoreCase = true) ->
+                mime.contains(_q9("Esch")) || resolved.contains(_q9("UdplQg=="), ignoreCase = true) ->
                     ExtractorLinkType.VIDEO
                 else -> return@forEach
             }
