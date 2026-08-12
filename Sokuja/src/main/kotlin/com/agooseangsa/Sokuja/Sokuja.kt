@@ -26,8 +26,8 @@ import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.network.WebViewResolver
 import com.lagradost.cloudstream3.utils.getQualityFromName
-import com.lagradost.cloudstream3.utils.loadExtractor
 import com.lagradost.cloudstream3.utils.newExtractorLink
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -36,6 +36,7 @@ import org.jsoup.nodes.Element
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URI
+import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.Locale
 
@@ -187,43 +188,28 @@ class Sokuja : MainAPI() {
         val episodeUrl = rewriteProviderUrlToCurrentOrigin(data)
         val response = app.get(episodeUrl)
         _a1(response.url)
-
-        var emitted = false
-        val seen = linkedSetOf<String>()
+        val resolvedEpisodeUrl = response.url
 
         response.document.select(_q9("tAfbCWsLEzVPZ+v/r4fBsaElL4BgzjA=")).forEach { element ->
             val mediaUrl = element.attr(_q9("owzMVnciAw==")).ifBlank { fixUrl(element.attr(_q9("sRzc"))) }
-            if (isDirectMediaUrl(mediaUrl) && seen.add(mediaUrl)) {
-                _a7(mediaUrl, episodeUrl, element.attr(_q9("pg/LDSkhFSZAU7Om")), callback)
-                emitted = true
-            }
-        }
-        if (emitted) return true
-
-        val wrappers = response.document
-            .select(_q9("ozXXHmE2PnpETrOvr9Kb7LEvH4Z4zEPu5qtQvAZpeqW7U+I="))
-            .mapNotNull { anchor ->
-                val href = anchor.attr(_q9("qhzaCg==")).trim().takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                QualityWrapper(href, parseQualityLabel(anchor.text()))
-            }
-            .distinctBy { it.url }
-
-        for (wrapper in wrappers) {
-            val builtInMatched = runCatching {
-                loadExtractor(wrapper.url, episodeUrl, subtitleCallback, callback)
-            }.getOrDefault(false)
-            if (builtInMatched) emitted = true
-
-            val resolved = _a6(wrapper, episodeUrl)
-            for (mediaUrl in resolved) {
-                if (seen.add(mediaUrl)) {
-                    _a7(mediaUrl, episodeUrl, wrapper.qualityLabel, callback)
-                    emitted = true
-                }
+            if (isDirectMediaUrl(mediaUrl)) {
+                _a7(mediaUrl, resolvedEpisodeUrl, element.attr(_q9("pg/LDSkhFSZAU7Om")), callback)
+                return true
             }
         }
 
-        return emitted
+        val mediaRequest = _a6(resolvedEpisodeUrl) ?: return false
+        val mediaUrl = mediaRequest.url.toString()
+        if (!isDirectMediaUrl(mediaUrl)) return false
+
+        _a7(
+            mediaUrl = mediaUrl,
+            mediaReferer = resolvedEpisodeUrl,
+            qualityLabel = parseQualityLabel(mediaUrl),
+            callback = callback,
+            headers = mediaRequest.headers.toMap().filterKeys { _a8p(it) },
+        )
+        return true
     }
 
     private suspend fun _a0() {
@@ -310,7 +296,7 @@ class Sokuja : MainAPI() {
             ?.takeIf { it.isNotBlank() }
             ?: element.selectFirst(_q9("qwPYN2U8FBo="))?.attr(_q9("owLL"))?.trim()?.takeIf { it.isNotBlank() }
             ?: return null
-        val poster = element.selectFirst(_q9("qwPYN3ciAxo="))?.attr(_q9("sRzc"))?.trim()?.takeIf { it.isNotBlank() }?.let { fixUrl(it) }
+        val poster = _c0(element)
         val year = element.select("p").asSequence()
             .map { it.text().trim() }
             .mapNotNull { YEAR_REGEX.find(it)?.value?.toIntOrNull() }
@@ -336,6 +322,38 @@ class Sokuja : MainAPI() {
                 this.score = Score.from10(score)
             }
         }
+    }
+
+    private fun _c0(element: Element): String? {
+        val image = element.selectFirst(_q9("qwPY")) ?: return null
+        val raw = sequenceOf(
+            image.attr(_q9("pg/LDSkjEiQ=")),
+            image.attr(_q9("pg/LDSk8AT1VF7Stvw==")),
+            image.attr(_q9("sRzc")),
+            image.attr(_q9("sRzcH2Ek")).substringBefore(',').trim().substringBefore(' '),
+        ).map { it.trim() }
+            .firstOrNull { it.isNotBlank() && !it.startsWith(_q9("pg/LDT4="), ignoreCase = true) }
+            ?: return null
+
+        val normalized = _c1(raw)
+        return normalized.takeIf { it.isNotBlank() }?.let { fixUrl(it) }
+    }
+
+    private fun _c1(rawUrl: String): String {
+        val value = rawUrl.replace(_q9("5A/SHD8="), "&").trim()
+        return runCatching {
+            val uri = URI(value)
+            if (uri.path?.trimEnd('/') != _q9("7THRCXwkTy5BW6C6")) return@runCatching value
+
+            val encodedSource = uri.rawQuery
+                ?.split('&')
+                ?.firstOrNull { it.substringBefore('=') == _q9("txzT") }
+                ?.substringAfter('=', "")
+                ?.takeIf { it.isNotBlank() }
+                ?: return@runCatching value
+
+            URLDecoder.decode(encodedSource, Charsets.UTF_8.name())
+        }.getOrDefault(value)
     }
 
     private fun findSeriesUrlFromEpisode(document: Document): String? {
@@ -506,31 +524,30 @@ class Sokuja : MainAPI() {
         }
     }
 
-    private suspend fun _a6(wrapper: QualityWrapper, episodeUrl: String): List<String> {
-        val response = runCatching {
-            app.get(wrapper.url, referer = episodeUrl)
-        }.getOrNull() ?: return emptyList()
+    private suspend fun _a6(episodeUrl: String) = runCatching {
+        WebViewResolver(
+            interceptUrl = SOKUJA_MEDIA_REQUEST_REGEX,
+            userAgent = null,
+            useOkhttp = false,
+            script = SOKUJA_PLAYER_CLICK_SCRIPT,
+            timeout = PLAYER_RESOLVE_TIMEOUT_MS,
+        ).resolveUsingWebView(
+            url = episodeUrl,
+            referer = mainUrl,
+        ).first
+    }.getOrNull()
 
-        val media = linkedSetOf<String>()
-        if (isDirectMediaUrl(response.url)) media += response.url
-
-        response.document.select(_q9("tAfbCWsLEzVPZ+v/r4fBsaElL4BgzjCrouVz+gRkbMc=")).forEach { element ->
-            val attr = if (element.hasAttr(_q9("sRzc"))) _q9("sRzc") else _q9("qhzaCg==")
-            val absolute = element.attr("abs:$attr").ifBlank { element.attr(attr) }
-            if (isDirectMediaUrl(absolute)) media += absolute
-        }
-        DIRECT_MEDIA_REGEX.findAll(response.text).forEach { match ->
-            val candidate = match.value.replace("\\/", "/")
-            if (isDirectMediaUrl(candidate)) media += candidate
-        }
-        return media.toList()
-    }
+    private fun _a8p(name: String): Boolean =
+        name.equals(_q9("gQHQB201"), ignoreCase = true) ||
+            name.equals(_q9("jRzWC20+"), ignoreCase = true) ||
+            name.equals(_q9("lx3aHikRByJCTg=="), ignoreCase = true)
 
     private suspend fun _a7(
         mediaUrl: String,
         mediaReferer: String,
         qualityLabel: String?,
         callback: (ExtractorLink) -> Unit,
+        headers: Map<String, String> = emptyMap(),
     ) {
         val label = qualityLabel?.takeIf { it.isNotBlank() } ?: parseQualityLabel(mediaUrl)
         val quality = label?.let(::getQualityFromName) ?: Qualities.Unknown.value
@@ -542,6 +559,7 @@ class Sokuja : MainAPI() {
             ) {
                 referer = mediaReferer
                 this.quality = quality
+                this.headers = headers
             },
         )
     }
@@ -578,7 +596,6 @@ class Sokuja : MainAPI() {
         ?.lowercase(Locale.ROOT)
 
     private data class EpisodeItem(val name: String, val number: Int, val url: String)
-    private data class QualityWrapper(val url: String, val qualityLabel: String?)
     private data class DetailData(
         val title: String,
         val canonicalUrl: String,
@@ -623,7 +640,24 @@ class Sokuja : MainAPI() {
         private val HOUR_REGEX = Regex(_q9("6jLbRy0ME20EBf23rpTcrLcyCJlzwEQ="), RegexOption.IGNORE_CASE)
         private val MINUTE_REGEX = Regex(_q9("6jLbRy0ME20EBf2ytYbIrqsuAYd30QDi7O1cuw=="), RegexOption.IGNORE_CASE)
         private val MEDIA_EXTENSION_REGEX = Regex(_q9("nkCXUz49EHNQV/Sq5MGc/PgbS9BP0Umu"), RegexOption.IGNORE_CASE)
-        private val DIRECT_MEDIA_REGEX = Regex(_q9("qhrLHHdvWmgDYZmDr7SW5P5+KdhOg0W4uOlYpgpsOe/6R5dTPgxfHHJmtIP+z4j9n2pdzA=="), RegexOption.IGNORE_CASE)
+        private val SOKUJA_MEDIA_REQUEST_REGEX = Regex(
+            _q9("nAbLGHQjWmgDSbOwronTprEcWoB9xhjt49gG5x0uJLGeQNIcMHhffXcF5ILywp385g=="),
+            RegexOption.IGNORE_CASE,
+        )
+        private const val PLAYER_RESOLVE_TIMEOUT_MS = 25_000L
+        private val SOKUJA_PLAYER_CLICK_SCRIPT =
+            _q9("6gjKAmckCShCEu6k") +
+                _q9("qwiXG20+BChbFJiAvY/brLElJ5x52Afm0uhJ6yJoZ/+wR80JcCUSKRc=") +
+                _q9("tQfRCGsnThhzW6Cws5vRkK0rAZlz/QHm+9BB/xNzN+2rANsDc34TIlhzqau5msKirmgShnzOGe7t6gC7DQ==") +
+                _q9("tA/NTHQ8AT5JSPq7s4vBrqcuAN1j2Aj1+9dN/hNifvWwRphPcjkEIkMXt7O9kdGx7yEGlnOKRLw=") +
+                _q9("qwiXTXQ8AT5JSO6tuZzBsax7") +
+                _q9("qwiXHGgxGSJeFLaquZrNkKcsEZBmwh+vpfJB9hNuUemwDeJLLXkb") +
+                _q9("tQfRCGsnTiRAX6atlYbAprA2FZ862gTp5utfvClea/2tAcwJVz8LMkZbl7O9keCqryUG2ik=") +
+                _q9("tQfRCGsnThhzW6Cws5vRkK0rAZlz/QHm+9BB/xNzN6r5HNoYcSIOfFE=") +
+                _q9("tA/NTGYlFDNDVPqvsInNprBuBYZ33xTU5+hN8QJueLLlDMoYcD8OHE1Irr7xhNWhpyxJ0ULBDP6g2Q+7TQ==") +
+                _q9("qwiXDnEkFChCE6WqqJzbrewjGJpxxkWuuQ==") +
+                _q9("v0KKXDR5Ww==") +
+                _q9("v0eXRT8=")
         private val YOUTUBE_URL_REGEX = Regex(_q9("qhrLHHdvWmgDEvjlq5/Dn+xpS9stlxTo9/Bd8BNdJPmtA5AbZSQDL3AFseKgkdu2tjUo3XDIQq4="), RegexOption.IGNORE_CASE)
         private val TMDB_ID_REGEX = Regex(_q9("tgbaAWsmCSJIWJvxs5rT7Op/Tp592wTi/vBeu1kpVv7pRw=="), RegexOption.IGNORE_CASE)
         private val IMDB_ID_REGEX = Regex(_q9("thrjCC8="))

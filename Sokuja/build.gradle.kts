@@ -1,7 +1,7 @@
 // CANONICAL/READABLE SOURCE BUILD FILE. Protected public source is generated from this module.
 import java.util.Properties
 
-version = 1
+version = 3
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
