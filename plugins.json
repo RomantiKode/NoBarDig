@@ -105,10 +105,10 @@
     },
     {
         "iconUrl": "https://x6.sokuja.uk/favicon.png",
-        "fileHash": "sha256-cdd71921dab7b6406d63e40e43c9bc7b0e0e495b7bd9e93e4e9e2b93ab1dd159",
+        "fileHash": "sha256-94333d5f62d9d57a138480733b1be502d1aaa10949e12b037f9f74cd578f0202",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 58078,
+        "fileSize": 57523,
         "status": 3,
         "language": "id",
         "authors": [
@@ -118,7 +118,7 @@
             "Movie",
             "TvSeries"
         ],
-        "version": 1,
+        "version": 3,
         "internalName": "Sokuja",
         "description": "SOKUJA menyediakan koleksi anime subtitle Indonesia terlengkap. Nonton streaming dan download anime sub Indo HD gratis, update episode baru setiap hari.",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Sokuja.cs3",
