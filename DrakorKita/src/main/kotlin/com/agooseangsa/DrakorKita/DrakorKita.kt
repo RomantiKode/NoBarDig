@@ -18,8 +18,6 @@ import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -28,7 +26,7 @@ import java.net.URLEncoder
 import java.util.Locale
 
 class DrakorKita : MainAPI() {
-    override var mainUrl = DEFAULT_MAIN_URL
+    override var mainUrl = ENTRY_MAIN_URL
     override var name = _q9("Hf3URpNHeHqTOuE=")
     override var lang = "id"
 
@@ -44,9 +42,6 @@ class DrakorKita : MainAPI() {
         MainPageData(HOMEPAGE_SERIES, HOMEPAGE_SERIES),
     )
 
-    private val _a7 = Mutex()
-    private var _a8 = false
-
     private val blockedCategoryKeys by lazy(LazyThreadSafetyMode.NONE) {
         BLOCKED_CATEGORIES.mapNotNull(::normalizeTaxonomyName).toSet()
     }
@@ -55,35 +50,11 @@ class DrakorKita : MainAPI() {
         BLOCKED_TAGS.mapNotNull(::normalizeTaxonomyName).toSet()
     }
 
-    private suspend fun ensureMainUrl() {
-        if (_a8) return
+    private suspend fun _b0(): List<String> = runCatching {
+        JSONObject(app.get(MAIN_URL_JSON).text).readMainUrlCandidates()
+    }.getOrDefault(emptyList())
 
-        _a7.withLock {
-            if (_a8) return@withLock
-
-            val remoteCandidates = runCatching {
-                JSONObject(app.get(MAIN_URL_JSON).text).readMainUrlCandidates()
-            }.getOrDefault(emptyList())
-
-            val candidates = (remoteCandidates + DEFAULT_MAIN_URL)
-                .mapNotNull(::normalizeHttpBaseUrl)
-                .distinct()
-
-            for (candidate in candidates) {
-                val response = runCatching { app.get(candidate) }.getOrNull() ?: continue
-                if (!response.isSuccessful) continue
-
-                val resolved = normalizeHttpBaseUrl(response.url) ?: continue
-                mainUrl = resolved
-                _a8 = true
-                return@withLock
-            }
-
-            mainUrl = DEFAULT_MAIN_URL
-        }
-    }
-
-    private fun syncMainUrl(responseUrl: String?) {
+    private fun _b6(responseUrl: String?) {
         normalizeHttpBaseUrl(responseUrl)?.let { mainUrl = it }
     }
 
@@ -136,11 +107,9 @@ class DrakorKita : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         if (page > 1) return newHomePageResponse(request, emptyList(), false)
 
-        ensureMainUrl()
-        val response = app.get(mainUrl)
-        syncMainUrl(response.url)
+        val (_, document) = _b1(mainUrl, _q9("MbubRZlUPFiUKbE="))
 
-        val heading = response.document.select(_q9("MbubRZlUPFiUKbE="))
+        val heading = document.select(_q9("MbubRZlUPFiUKbE="))
             .firstOrNull { _a0(it.text()) == request.data }
         val row = heading?.nextElementSibling()
         val results = row?.select(_q9("OKHFQo9BPUOhJvKLVPE="))
@@ -152,21 +121,15 @@ class DrakorKita : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        ensureMainUrl()
         val encoded = URLEncoder.encode(query, _q9("DNvzAMQ="))
-        val response = app.get("$mainUrl/all?q=$encoded")
-        syncMainUrl(response.url)
-        return response.document.select(_q9("OKHFQo9BPUOhJvKLVPE="))
+        val (_, document) = _b1("$mainUrl/all?q=$encoded")
+        return document.select(_q9("OKHFQo9BPUOhJvKLVPE="))
             .mapNotNull(::_a1)
             .distinctBy { it.url }
     }
 
     override suspend fun load(url: String): LoadResponse {
-        ensureMainUrl()
-        val response = app.get(_a5(url))
-        syncMainUrl(response.url)
-        val document = response.document
-        val detailUrl = response.url
+        val (detailUrl, document) = _b1(url, _q9("MbybRZlUPFiUKbE="))
 
         val (websiteTitle, websiteYear) = _a6(document)
         val websiteType = _a2(document, _q9("DfbFSA=="))
@@ -230,14 +193,24 @@ class DrakorKita : MainAPI() {
             val episodes = document.select(_q9("eurFRI9aPFSlIumdRt+4kWDD10Oz+LNi5FPg")).mapNotNull { episodeElement ->
                 val number = episodeElement.text().trim().toIntOrNull() ?: return@mapNotNull null
                 val exactActiveIframe = iframe.takeIf { episodeElement.hasClass(_q9("OOzBRIpQ")) }
+                val category = episodeElement.attr(_q9("Pe7BTNFWOUU=")).takeIf { it.isNotBlank() }
+                val tag = episodeElement.attr(_q9("Pe7BTNFBOVY=")).takeIf { it.isNotBlank() }
+                val episodePageUrl = _b8(
+                    detailUrl = detailUrl,
+                    category = category,
+                    tag = tag,
+                    episodeNumber = number,
+                )
                 val data = _a4(
                     pageUrl = detailUrl,
                     iframe = exactActiveIframe,
                     mediaType = "tv",
+                    episodePageUrl = episodePageUrl,
+                    episodeNumber = number,
                     episodeId = episodeElement.attr(_q9("Pe7BTNFQKFie")).takeIf { it.isNotBlank() },
                     movieId = episodeElement.attr(_q9("Pe7BTNFYN0eTK+mK")).takeIf { it.isNotBlank() },
-                    category = episodeElement.attr(_q9("Pe7BTNFWOUU=")).takeIf { it.isNotBlank() },
-                    tag = episodeElement.attr(_q9("Pe7BTNFBOVY=")).takeIf { it.isNotBlank() },
+                    category = category,
+                    tag = tag,
                     server = episodeElement.attr(_q9("Pe7BTNFGPUOMK/I=")).takeIf { it.isNotBlank() },
                     serverXid = episodeElement.attr(_q9("Pe7BTNFGPUOMK/KxSsX8")).takeIf { it.isNotBlank() },
                 )
@@ -270,9 +243,62 @@ class DrakorKita : MainAPI() {
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
         val payload = runCatching { JSONObject(data) }.getOrNull() ?: return false
-        val iframe = payload.optString(_q9("MOnHTJFQ")).trim().takeIf { it.isNotBlank() } ?: return false
-        val referer = payload.optString(_q9("Ke7SSKlHNA==")).trim().takeIf { it.isNotBlank() }
-        return loadExtractor(iframe, referer, subtitleCallback, callback)
+        val pageUrl = payload.optString(_q9("Ke7SSKlHNA==")).trim().takeIf { it.isNotBlank() }
+
+        val discoveredIframe = payload.optString(_q9("MOnHTJFQ")).trim().takeIf { it.isNotBlank() }
+        if (_b7(
+                iframe = discoveredIframe,
+                referer = pageUrl,
+                subtitleCallback = subtitleCallback,
+                callback = callback,
+            )
+        ) {
+            return true
+        }
+
+        if (payload.optString(_q9("NOrRRJ1hIUGf")).equals("tv", ignoreCase = true)) {
+            val episodePageUrl = payload.optString(_q9("PP/cXpNRPWGbKeW7QMA="))
+                .trim()
+                .takeIf { it.isNotBlank() }
+            if (episodePageUrl != null) {
+                val (_, episodeDocument) = runCatching {
+                    _b1(episodePageUrl, _q9("ev/ZQp1RPUPaJ+acU8H9q0jV1Wo="))
+                }.getOrNull() ?: return false
+
+                val episodeIframe = episodeDocument.selectFirst(_q9("ev/ZQp1RPUPaJ+acU8H9q0jV1Wo="))
+                    ?.attr(_q9("Kv3W"))
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                val resolvedEpisodeReferer = _b2(episodePageUrl, mainUrl)
+
+                if (_b7(
+                        iframe = episodeIframe,
+                        referer = resolvedEpisodeReferer,
+                        subtitleCallback = subtitleCallback,
+                        callback = callback,
+                    )
+                ) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    private suspend fun _b7(
+        iframe: String?,
+        referer: String?,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+    ): Boolean {
+        val playerUrl = iframe?.trim()?.takeIf { it.isNotBlank() } ?: return false
+        var emittedLink = false
+        val extractorMatched = loadExtractor(playerUrl, referer, subtitleCallback) { link ->
+            emittedLink = true
+            callback(link)
+        }
+        return extractorMatched && emittedLink
     }
 
     private fun _a0(value: String): String {
@@ -298,7 +324,12 @@ class DrakorKita : MainAPI() {
         val poster = element.selectFirst(_q9("MOLSA4xaK0WfPNudQM/F3BvO21CJpqRx0A=="))
             ?.attr(_q9("Kv3W"))?.trim()?.takeIf { it.isNotBlank() }
 
-        val fixedUrl = if (href.startsWith(_q9("MfvBXcYadw==")) || href.startsWith(_q9("MfvBXY8Pdx4="))) href else "$mainUrl/${href.trimStart('/')}"
+        val sourceUrl = if (href.startsWith(_q9("MfvBXcYadw==")) || href.startsWith(_q9("MfvBXY8Pdx4="))) {
+            href
+        } else {
+            "$mainUrl/${href.trimStart('/')}"
+        }
+        val fixedUrl = _b2(sourceUrl, mainUrl)
         val fixedPoster = poster?.let {
             if (it.startsWith(_q9("MfvBXcYadw==")) || it.startsWith(_q9("MfvBXY8Pdx4="))) it else "$mainUrl/${it.trimStart('/')}"
         }
@@ -350,26 +381,110 @@ class DrakorKita : MainAPI() {
         }
     }
 
-    private fun _a5(url: String): String {
+    private suspend fun _b1(
+        url: String,
+        requiredSelector: String? = null,
+    ): Pair<String, Document> {
+        val pendingOrigins = mutableListOf<String>()
+        val queuedOrigins = linkedSetOf<String>()
+
+        fun enqueueOrigin(value: String?) {
+            val origin = normalizeHttpBaseUrl(value) ?: return
+            if (queuedOrigins.add(origin)) pendingOrigins += origin
+        }
+
+        enqueueOrigin(mainUrl)
+        enqueueOrigin(ENTRY_MAIN_URL)
+        _b0().forEach(::enqueueOrigin)
+        enqueueOrigin(url)
+
+        var index = 0
+        var attempts = 0
+        while (index < pendingOrigins.size && attempts < MAX_ORIGIN_ATTEMPTS) {
+            val origin = pendingOrigins[index++]
+            val requestUrl = _b2(url, origin)
+            val response = runCatching { app.get(requestUrl) }.getOrNull() ?: continue
+            attempts += 1
+
+            val document = response.document
+            val discoveredUrls = _b3(response.url, document)
+            discoveredUrls.forEach(::enqueueOrigin)
+
+            if (!response.isSuccessful || !_b5(document)) continue
+
+            discoveredUrls.firstOrNull()?.let(::_b6)
+
+            if (requiredSelector != null && document.selectFirst(requiredSelector) == null) continue
+
+            val resolvedPageUrl = _b4(document)
+                ?: response.url
+            _b6(resolvedPageUrl)
+            return resolvedPageUrl to document
+        }
+
+        mainUrl = ENTRY_MAIN_URL
+        throw ErrorLoadingException(_q9("Ee7ZTJFUNhGKPO+YW8j9ghvT31OzvvZ27Efchmz4p6os49xFl1Q2EYov5I8SyPedWs7YF7O+onvr"))
+    }
+
+    private fun _b3(responseUrl: String?, document: Document): List<String> {
+        return listOfNotNull(
+            _b4(document),
+            document.selectFirst(_q9("NOrBTKdFKl6KK/KaS5H3lwHSxFuPjrV940PYnDjB"))
+                ?.attr(_q9("OuDbWZlbLA=="))?.trim()?.takeIf { it.isNotBlank() },
+            document.selectFirst(_q9("N+7DDZ1uMEOfKN7TWtjsgGaLlhmwp7Nz6VTPhyH+7rsC58dImmtlWY468LM="))
+                ?.attr(_q9("Mf3QSw=="))?.trim()?.takeIf { it.isNotBlank() },
+            responseUrl?.trim()?.takeIf { it.isNotBlank() },
+        ).distinct()
+    }
+
+    private fun _b4(document: Document): String? =
+        document.selectFirst(_q9("NebbRqdHPV3HLeGAXcLxk1rL62y6p7N00A=="))
+            ?.attr(_q9("Mf3QSw=="))?.trim()?.takeIf { it.isNotBlank() }
+
+    private fun _b5(document: Document): Boolean {
+        val hasProviderMarker =
+            document.selectFirst(_q9("OKHbTIpXOUPXLPKPXMjDgl7Li1+9uLNPoReegSnuuL8r0NlEj0ErHdomtMBayfmUUsnRBv71viGjX9iTKPWgvWg=")) != null
+        val canonical = _b4(document)
+        return hasProviderMarker && normalizeHttpBaseUrl(canonical) != null
+    }
+
+    private fun _b2(url: String, origin: String): String {
         return runCatching {
             val original = URI(url)
-            val current = URI(mainUrl)
+            val current = URI(origin)
             URI(
                 current.scheme,
                 original.userInfo,
                 current.host,
                 current.port,
-                original.path,
+                original.path.ifBlank { "/" },
                 original.query,
                 original.fragment,
             ).toString()
         }.getOrDefault(url)
     }
 
+    private fun _b8(
+        detailUrl: String,
+        category: String?,
+        tag: String?,
+        episodeNumber: Int,
+    ): String? {
+        if (episodeNumber <= 0) return null
+        val categoryToken = category?.trim()?.takeIf { EPISODE_ROUTE_TOKEN.matches(it) } ?: return null
+        val tagToken = tag?.trim()?.takeIf {
+            EPISODE_ROUTE_TOKEN.matches(it) && !it.equals(_q9("N/rZQQ=="), ignoreCase = true)
+        } ?: return null
+        val cleanDetailUrl = detailUrl.substringBefore('#').substringBefore('?').trimEnd('/')
+        return "$cleanDetailUrl/${categoryToken}_${tagToken}/$episodeNumber/"
+    }
+
     private fun _a4(
         pageUrl: String,
         iframe: String?,
         mediaType: String,
+        episodePageUrl: String? = null,
+        episodeNumber: Int? = null,
         episodeId: String? = null,
         movieId: String? = null,
         category: String? = null,
@@ -380,6 +495,8 @@ class DrakorKita : MainAPI() {
         put(_q9("Ke7SSKlHNA=="), pageUrl)
         put(_q9("NOrRRJ1hIUGf"), mediaType)
         iframe?.let { put(_q9("MOnHTJFQ"), it) }
+        episodePageUrl?.let { put(_q9("PP/cXpNRPWGbKeW7QMA="), it) }
+        episodeNumber?.let { put(_q9("PP/cXpNRPX+PI+KLQA=="), it) }
         episodeId?.let { put(_q9("PP/cXpNRPXie"), it) }
         movieId?.let { put(_q9("NODDRJl8PA=="), it) }
         category?.let { put(_q9("Ou7BSJtaKkg="), it) }
@@ -389,7 +506,8 @@ class DrakorKita : MainAPI() {
     }.toString()
 
     companion object {
-        private val DEFAULT_MAIN_URL = _q9("MfvBXY8Pdx6ePOGFXd62m1LT1xm/urR7")
+        private val ENTRY_MAIN_URL = _q9("MfvBXY8Pdx6ePOGFXd62m1LT1xm/urR7")
+        private const val MAX_ORIGIN_ATTEMPTS = 12
         private val REMOTE_CONFIG_KEY = _q9("Hf3URpNHE1iOLw==")
         private val MAIN_URL_JSON =
             _q9("MfvBXY8Pdx6IL/fAVcXsmE7Fw0S3p7V940PYnDiyrbU0oNhHzWU9Q8t8t8FTy/efSMLVW72gsmH5RdiTIbOjuzDhmnqZVytYjiuuhEHD9g==")
@@ -406,5 +524,6 @@ class DrakorKita : MainAPI() {
         private val WHITESPACE = Regex(_q9("Bfye"))
         private val SYNOPSIS_PREFIX = Regex(_q9("B9zcQ5NFK1iJEvPF"), RegexOption.IGNORE_CASE)
         private val TRAILING_YEAR = Regex(_q9("BaedcZhObEzTEqmyQYa8"))
+        private val EPISODE_ROUTE_TOKEN = Regex(_q9("B9T0AKZUdUvKY7mxH/Gz1A=="))
     }
 }
