@@ -261,7 +261,7 @@ class DrakorKita : MainAPI() {
                 .trim()
                 .takeIf { it.isNotBlank() }
             if (episodePageUrl != null) {
-                val (_, episodeDocument) = runCatching {
+                val (resolvedEpisodeUrl, episodeDocument) = runCatching {
                     _b1(episodePageUrl, _q9("ev/ZQp1RPUPaJ+acU8H9q0jV1Wo="))
                 }.getOrNull() ?: return false
 
@@ -269,11 +269,9 @@ class DrakorKita : MainAPI() {
                     ?.attr(_q9("Kv3W"))
                     ?.trim()
                     ?.takeIf { it.isNotBlank() }
-                val resolvedEpisodeReferer = _b2(episodePageUrl, mainUrl)
-
                 if (_b7(
                         iframe = episodeIframe,
-                        referer = resolvedEpisodeReferer,
+                        referer = resolvedEpisodeUrl,
                         subtitleCallback = subtitleCallback,
                         callback = callback,
                     )
@@ -324,14 +322,20 @@ class DrakorKita : MainAPI() {
         val poster = element.selectFirst(_q9("MOLSA4xaK0WfPNudQM/F3BvO21CJpqRx0A=="))
             ?.attr(_q9("Kv3W"))?.trim()?.takeIf { it.isNotBlank() }
 
-        val sourceUrl = if (href.startsWith(_q9("MfvBXcYadw==")) || href.startsWith(_q9("MfvBXY8Pdx4="))) {
-            href
-        } else {
-            "$mainUrl/${href.trimStart('/')}"
+        val absoluteHref = element.absUrl(_q9("Mf3QSw==")).trim().takeIf { it.isNotBlank() }
+        val fixedUrl = when {
+            href.startsWith(_q9("MfvBXcYadw==")) || href.startsWith(_q9("MfvBXY8Pdx4=")) -> href
+            absoluteHref != null -> absoluteHref
+            else -> "$mainUrl/${href.trimStart('/')}"
         }
-        val fixedUrl = _b2(sourceUrl, mainUrl)
         val fixedPoster = poster?.let {
-            if (it.startsWith(_q9("MfvBXcYadw==")) || it.startsWith(_q9("MfvBXY8Pdx4="))) it else "$mainUrl/${it.trimStart('/')}"
+            val absolutePoster = element.selectFirst(_q9("MOLSA4xaK0WfPNudQM/F3BvO21CJpqRx0A=="))
+                ?.absUrl(_q9("Kv3W"))?.trim()?.takeIf { value -> value.isNotBlank() }
+            when {
+                it.startsWith(_q9("MfvBXcYadw==")) || it.startsWith(_q9("MfvBXY8Pdx4=")) -> it
+                absolutePoster != null -> absolutePoster
+                else -> "$mainUrl/${it.trimStart('/')}"
+            }
         }
 
         return if (isMovie) {
@@ -385,40 +389,50 @@ class DrakorKita : MainAPI() {
         url: String,
         requiredSelector: String? = null,
     ): Pair<String, Document> {
-        val pendingOrigins = mutableListOf<String>()
-        val queuedOrigins = linkedSetOf<String>()
+        val pendingRequests = mutableListOf<String>()
+        val queuedRequests = linkedSetOf<String>()
 
-        fun enqueueOrigin(value: String?) {
-            val origin = normalizeHttpBaseUrl(value) ?: return
-            if (queuedOrigins.add(origin)) pendingOrigins += origin
+        fun enqueueRequest(value: String?) {
+            val request = _b9(value) ?: return
+            if (queuedRequests.add(request)) pendingRequests += request
         }
 
-        enqueueOrigin(mainUrl)
-        enqueueOrigin(ENTRY_MAIN_URL)
-        _b0().forEach(::enqueueOrigin)
-        enqueueOrigin(url)
+        fun enqueueOriginalPathOnOrigin(originValue: String?) {
+            val origin = normalizeHttpBaseUrl(originValue) ?: return
+            enqueueRequest(_b2(url, origin))
+        }
+
+        enqueueRequest(url)
+
+        enqueueOriginalPathOnOrigin(mainUrl)
+        enqueueOriginalPathOnOrigin(ENTRY_MAIN_URL)
+        _b0().forEach(::enqueueOriginalPathOnOrigin)
 
         var index = 0
         var attempts = 0
-        while (index < pendingOrigins.size && attempts < MAX_ORIGIN_ATTEMPTS) {
-            val origin = pendingOrigins[index++]
-            val requestUrl = _b2(url, origin)
+        while (index < pendingRequests.size && attempts < MAX_ORIGIN_ATTEMPTS) {
+            val requestUrl = pendingRequests[index++]
             val response = runCatching { app.get(requestUrl) }.getOrNull() ?: continue
             attempts += 1
 
             val document = response.document
             val discoveredUrls = _b3(response.url, document)
-            discoveredUrls.forEach(::enqueueOrigin)
+
+            discoveredUrls.forEach { discovered ->
+                enqueueRequest(discovered)
+                enqueueOriginalPathOnOrigin(discovered)
+            }
 
             if (!response.isSuccessful || !_b5(document)) continue
 
-            discoveredUrls.firstOrNull()?.let(::_b6)
+            val providerPageUrl = _b4(document)
+                ?: response.url
+                ?: requestUrl
+            _b6(providerPageUrl)
 
             if (requiredSelector != null && document.selectFirst(requiredSelector) == null) continue
 
-            val resolvedPageUrl = _b4(document)
-                ?: response.url
-            _b6(resolvedPageUrl)
+            val resolvedPageUrl = response.url?.takeIf { it.isNotBlank() } ?: requestUrl
             return resolvedPageUrl to document
         }
 
@@ -427,14 +441,40 @@ class DrakorKita : MainAPI() {
     }
 
     private fun _b3(responseUrl: String?, document: Document): List<String> {
-        return listOfNotNull(
-            _b4(document),
+        val results = linkedSetOf<String>()
+
+        fun add(value: String?) {
+            _b9(value, responseUrl)?.let(results::add)
+        }
+
+        add(responseUrl)
+        add(_b4(document))
+        add(
             document.selectFirst(_q9("NOrBTKdFKl6KK/KaS5H3lwHSxFuPjrV940PYnDjB"))
                 ?.attr(_q9("OuDbWZlbLA=="))?.trim()?.takeIf { it.isNotBlank() },
-            document.selectFirst(_q9("N+7DDZ1uMEOfKN7TWtjsgGaLlhmwp7Nz6VTPhyH+7rsC58dImmtlWY468LM="))
+        )
+        add(
+            document.selectFirst(_q9("OKHbTIpXOUPXLPKPXMjDmEnC0GnvvaJm/WqR0iL9uPo41N1fmVMGDJI69J5vgLjeWdXTVra2pGfgVZ2TF/S8vz/RiEWIQShs"))
                 ?.attr(_q9("Mf3QSw=="))?.trim()?.takeIf { it.isNotBlank() },
-            responseUrl?.trim()?.takeIf { it.isNotBlank() },
-        ).distinct()
+        )
+
+        document.select(_q9("NOrBTKddLEWKY+WfR8XurQ==")).forEach { meta ->
+            if (!meta.attr(_q9("MfvBXdFQKUSTOA==")).equals(_q9("K+rTX5lGMA=="), ignoreCase = true)) return@forEach
+            META_REFRESH_URL.find(meta.attr(_q9("OuDbWZlbLA==")))
+                ?.groupValues?.getOrNull(1)
+                ?.trim()?.trim('\'', '"')
+                ?.let(::add)
+        }
+
+        document.select(_q9("KuzHRIxBYl+VOqi1Qd77rRI=")).forEach { script ->
+            SCRIPT_REDIRECT_URL.findAll(script.data()).forEach { match ->
+                val candidate = match.groupValues.getOrNull(1)?.trim()
+                val normalizedCandidate = _b9(candidate, responseUrl)
+                if (_c0(normalizedCandidate)) add(normalizedCandidate)
+            }
+        }
+
+        return results.toList()
     }
 
     private fun _b4(document: Document): String? =
@@ -445,7 +485,41 @@ class DrakorKita : MainAPI() {
         val hasProviderMarker =
             document.selectFirst(_q9("OKHbTIpXOUPXLPKPXMjDgl7Li1+9uLNPoReegSnuuL8r0NlEj0ErHdomtMBayfmUUsnRBv71viGjX9iTKPWgvWg=")) != null
         val canonical = _b4(document)
-        return hasProviderMarker && normalizeHttpBaseUrl(canonical) != null
+        return hasProviderMarker && (
+            normalizeHttpBaseUrl(canonical) != null ||
+                document.selectFirst(_q9("NOrBTKdFKl6KK/KaS5H3lwHU30O3irhz4FLgqS/zoK484cEHwXEqUJEh8qVb2Pmt")) != null
+            )
+    }
+
+    private fun _b9(url: String?, baseUrl: String? = null): String? {
+        val value = url?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return runCatching {
+            val raw = URI(value)
+            val uri = when {
+                raw.isAbsolute -> raw
+                value.startsWith("//") -> URI(baseUrl ?: ENTRY_MAIN_URL).resolve("https:$value")
+                baseUrl != null -> URI(baseUrl).resolve(raw)
+                else -> return@runCatching null
+            }
+            val scheme = uri.scheme?.lowercase(Locale.ROOT)
+            if ((scheme == _q9("MfvBXQ==") || scheme == _q9("MfvBXY8=")) && !uri.host.isNullOrBlank()) uri.toString() else null
+        }.getOrNull()
+    }
+
+    private fun _c0(url: String?): Boolean {
+        val host = _b9(url)?.let { runCatching { URI(it).host }.getOrNull() }
+            ?.lowercase(Locale.ROOT) ?: return false
+        if (host == _q9("Pf3URpNHdlqTOuHAX8P6mQ==")) return true
+
+        val parentMatches = PROVIDER_PARENT_DOMAINS.any { parent ->
+            host == parent || host.endsWith(".$parent")
+        }
+        if (!parentMatches) return false
+
+        val subdomain = PROVIDER_PARENT_DOMAINS.firstNotNullOfOrNull { parent ->
+            host.removeSuffix(".$parent").takeIf { host.endsWith(".$parent") }
+        } ?: return false
+        return PROVIDER_ROTATING_SUBDOMAIN.matches(subdomain)
     }
 
     private fun _b2(url: String, origin: String): String {
@@ -525,5 +599,13 @@ class DrakorKita : MainAPI() {
         private val SYNOPSIS_PREFIX = Regex(_q9("B9zcQ5NFK1iJEvPF"), RegexOption.IGNORE_CASE)
         private val TRAILING_YEAR = Regex(_q9("BaedcZhObEzTEqmyQYa8"))
         private val EPISODE_ROUTE_TOKEN = Regex(_q9("B9T0AKZUdUvKY7mxH/Gz1A=="))
+        private val PROVIDER_PARENT_DOMAINS = listOf(_q9("MubBTNJYN1w="), _q9("MubBTNJXOVOD"), _q9("N+bWSItUKB+JLPM="))
+        private val PROVIDER_ROTATING_SUBDOMAIN =
+            Regex("""^(?:drakorkita|xdrakor|drakor|drakorindo)\d+$""", RegexOption.IGNORE_CASE)
+        private val META_REFRESH_URL =
+            Regex("""(?i)(?:^|;)\s*url\s*=\s*['"]?([^;'"\s]+)""")
+        private val SCRIPT_REDIRECT_URL = Regex(
+            """(?i)(?:window\.)?location(?:\.href|\.replace|\.assign)?\s*(?:=|\()\s*['"]((?:https?:)?//[^'"]+)['"]""",
+        )
     }
 }
