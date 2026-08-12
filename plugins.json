@@ -102,5 +102,26 @@
         "description": "MIDASXXI Tempat seru buat nonton film dan drama Korea! Mulai dari LK21, IDLIX, hingga Bioskopkeren, Rebahin Sub Indo. dan Nonton Film semi bikin mager makin asyik!",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/MidasXXI.cs3",
         "name": "MidasXXI"
+    },
+    {
+        "iconUrl": "https://x6.sokuja.uk/favicon.png",
+        "fileHash": "sha256-cdd71921dab7b6406d63e40e43c9bc7b0e0e495b7bd9e93e4e9e2b93ab1dd159",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 58078,
+        "status": 3,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries"
+        ],
+        "version": 1,
+        "internalName": "Sokuja",
+        "description": "SOKUJA menyediakan koleksi anime subtitle Indonesia terlengkap. Nonton streaming dan download anime sub Indo HD gratis, update episode baru setiap hari.",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Sokuja.cs3",
+        "name": "Sokuja"
     }
 ]
