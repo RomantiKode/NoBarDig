@@ -42,10 +42,10 @@
         "name": "Donghub"
     },
     {
-        "fileHash": "sha256-2b9f2949155625e96f3842b3435b2212612b1c8d3c87e7f5ea32dccd966240ed",
+        "fileHash": "sha256-fc2b8227f8a7d2c4da0ec818722d88c3e7a65438b9dde4c77c5e2b10c7e25c6f",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 36990,
+        "fileSize": 40779,
         "status": 3,
         "language": "id",
         "authors": [
@@ -55,7 +55,7 @@
             "Movie",
             "TvSeries"
         ],
-        "version": 1,
+        "version": 4,
         "internalName": "DrakorKita",
         "description": "DrakorKita, DrakorIndo, DramaQu, Streaming online drama korea terbaru, Gratis download film drakor subtitle indonesia, kumpulan film serial drama korea terbaik",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/DrakorKita.cs3",
