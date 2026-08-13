@@ -62,6 +62,27 @@
         "name": "DrakorKita"
     },
     {
+        "iconUrl": "https://tv1.filmlokal.me/wp-content/uploads/2022/01/cropped-02B03F76-64AE-4D9C-8DE7-C4EE4DC115B2.jpeg",
+        "fileHash": "sha256-8466ae25abd3f72e890d2f6c536c2eaa2d7f27f5ad790c976c1323318928242f",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
+        "fileSize": 48361,
+        "status": 3,
+        "language": "id",
+        "authors": [
+            "Agoose"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries"
+        ],
+        "version": 3,
+        "internalName": "Filmlokal",
+        "description": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekomendasi sekali karena selalu update film setiap hari dan Anda dapat mendownload film dari situs tersebut layaknya situs penyedia bioskop lainnya.",
+        "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Filmlokal.cs3",
+        "name": "Filmlokal"
+    },
+    {
         "iconUrl": "https://assets.showcdnx.com/favicon.ico",
         "fileHash": "sha256-ef8574ab488020353a8b37b19a6c6f7b1edc5d8a13c61eec7862f60c62e9bd0f",
         "apiVersion": 1,
