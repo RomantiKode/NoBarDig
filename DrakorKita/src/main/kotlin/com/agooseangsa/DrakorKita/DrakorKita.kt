@@ -19,6 +19,9 @@ import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import com.lagradost.cloudstream3.network.WebViewResolver
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
+import com.lagradost.cloudstream3.utils.newExtractorLink
+import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -27,6 +30,17 @@ import java.net.URLEncoder
 import java.util.Locale
 
 class DrakorKita : MainAPI() {
+    private data class EpisodeDescriptor(
+        val number: Int,
+        val isActive: Boolean = false,
+        val episodeId: String? = null,
+        val movieId: String? = null,
+        val category: String? = null,
+        val tag: String? = null,
+        val server: String? = null,
+        val serverXid: String? = null,
+    )
+
     override var mainUrl = ENTRY_MAIN_URL
     override var name = _q9("Hf3URpNHeHqTOuE=")
     override var lang = "id"
@@ -226,39 +240,63 @@ class DrakorKita : MainAPI() {
             }
         } else {
             val seasonNumber = _a2(document, _q9("CurUXpNb"))?.toIntOrNull()
-            val episodes = document.select(_q9("eurFRI9aPFSlIumdRt+4kWDD10Oz+LNi5FPg")).mapNotNull { episodeElement ->
-                val number = episodeElement.text().trim().toIntOrNull() ?: return@mapNotNull null
-                val exactActiveIframe = iframe.takeIf { episodeElement.hasClass(_q9("OOzBRIpQ")) }
-                val category = episodeElement.attr(_q9("Pe7BTNFWOUU=")).takeIf { it.isNotBlank() }
-                val tag = episodeElement.attr(_q9("Pe7BTNFBOVY=")).takeIf { it.isNotBlank() }
+            val staticDescriptors = _c6(document)
+            val dynamicDescriptors = if (staticDescriptors.isEmpty()) {
+                _c7(detailUrl)
+            } else {
+                emptyList()
+            }
+            val routeDescriptor = if (staticDescriptors.isEmpty() && dynamicDescriptors.isEmpty()) {
+                _d1(detailUrl)?.let { (category, tag, number) ->
+                    EpisodeDescriptor(
+                        number = number,
+                        isActive = true,
+                        category = category,
+                        tag = tag,
+                    )
+                }
+            } else {
+                null
+            }
+            val descriptors = when {
+                staticDescriptors.isNotEmpty() -> staticDescriptors
+                dynamicDescriptors.isNotEmpty() -> dynamicDescriptors
+                routeDescriptor != null && iframe != null -> listOf(routeDescriptor)
+                else -> emptyList()
+            }
+            val activeRouteNumber = _d1(detailUrl)?.third
+            val episodes = descriptors.distinctBy { it.number }.sortedBy { it.number }.map { descriptor ->
+                val exactActiveIframe = iframe.takeIf {
+                    descriptor.isActive || activeRouteNumber == descriptor.number
+                }
                 val episodePageUrl = _b8(
                     detailUrl = detailUrl,
-                    category = category,
-                    tag = tag,
-                    episodeNumber = number,
+                    category = descriptor.category,
+                    tag = descriptor.tag,
+                    episodeNumber = descriptor.number,
                 )
                 val data = _a4(
                     pageUrl = detailUrl,
                     iframe = exactActiveIframe,
                     mediaType = "tv",
                     episodePageUrl = episodePageUrl,
-                    episodeNumber = number,
-                    episodeId = episodeElement.attr(_q9("Pe7BTNFQKFie")).takeIf { it.isNotBlank() },
-                    movieId = episodeElement.attr(_q9("Pe7BTNFYN0eTK+mK")).takeIf { it.isNotBlank() },
-                    category = category,
-                    tag = tag,
-                    server = episodeElement.attr(_q9("Pe7BTNFGPUOMK/I=")).takeIf { it.isNotBlank() },
-                    serverXid = episodeElement.attr(_q9("Pe7BTNFGPUOMK/KxSsX8")).takeIf { it.isNotBlank() },
+                    episodeNumber = descriptor.number,
+                    episodeId = descriptor.episodeId,
+                    movieId = descriptor.movieId,
+                    category = descriptor.category,
+                    tag = descriptor.tag,
+                    server = descriptor.server,
+                    serverXid = descriptor.serverXid,
                 )
                 newEpisode(data) {
-                    name = "Episode $number"
+                    name = "Episode ${descriptor.number}"
                     season = seasonNumber
-                    episode = number
+                    episode = descriptor.number
                 }
             }
 
             if (episodes.isEmpty()) {
-                throw ErrorLoadingException(_q9("He7TWZ1HeFSKJ/OBVsm4hFrV0VKm9aJ76VbW0ij1ur80+t5Mkg=="))
+                throw ErrorLoadingException(_q9("He7TWZ1HeFSKJ/OBVsm4hFrV0VKm9aJ76VbW0ij1ur80+t5MkhUrVI4r7I9ajOqVVcPTRfK3pH36RNiA"))
             }
 
             newTvSeriesLoadResponse(finalTitle, detailUrl, TvType.TvSeries, episodes) {
@@ -291,6 +329,14 @@ class DrakorKita : MainAPI() {
         ) {
             return true
         }
+        if (_c8(
+                playerUrl = discoveredIframe,
+                referer = pageUrl,
+                callback = callback,
+            )
+        ) {
+            return true
+        }
 
         if (payload.optString(_q9("NOrRRJ1hIUGf")).equals("tv", ignoreCase = true)) {
             val episodePageUrl = payload.optString(_q9("PP/cXpNRPWGbKeW7QMA="))
@@ -309,6 +355,14 @@ class DrakorKita : MainAPI() {
                         iframe = episodeIframe,
                         referer = resolvedEpisodeUrl,
                         subtitleCallback = subtitleCallback,
+                        callback = callback,
+                    )
+                ) {
+                    return true
+                }
+                if (_c8(
+                        playerUrl = episodeIframe,
+                        referer = resolvedEpisodeUrl,
                         callback = callback,
                     )
                 ) {
@@ -334,6 +388,113 @@ class DrakorKita : MainAPI() {
         }
         return extractorMatched && emittedLink
     }
+
+    private fun _c6(document: Document): List<EpisodeDescriptor> =
+        document.select(_q9("eurFRI9aPFSlIumdRt+4kWDD10Oz+LNi5FPg")).mapNotNull { episodeElement ->
+            val number = _d0(episodeElement.text()) ?: return@mapNotNull null
+            EpisodeDescriptor(
+                number = number,
+                isActive = episodeElement.hasClass(_q9("OOzBRIpQ")),
+                episodeId = episodeElement.attr(_q9("Pe7BTNFQKFie")).takeIf { it.isNotBlank() },
+                movieId = episodeElement.attr(_q9("Pe7BTNFYN0eTK+mK")).takeIf { it.isNotBlank() },
+                category = episodeElement.attr(_q9("Pe7BTNFWOUU=")).takeIf { it.isNotBlank() },
+                tag = episodeElement.attr(_q9("Pe7BTNFBOVY=")).takeIf { it.isNotBlank() },
+                server = episodeElement.attr(_q9("Pe7BTNFGPUOMK/I=")).takeIf { it.isNotBlank() },
+                serverXid = episodeElement.attr(_q9("Pe7BTNFGPUOMK/KxSsX8")).takeIf { it.isNotBlank() },
+            )
+        }
+
+    private suspend fun _c7(detailUrl: String): List<EpisodeDescriptor> {
+        val referer = normalizeHttpBaseUrl(detailUrl)?.let { "$it/" }
+        val request = runCatching {
+            WebViewResolver(
+                interceptUrl = EPISODE_CAPTURE_WEBVIEW_URL,
+                userAgent = null,
+                useOkhttp = false,
+                script = EPISODE_CAPTURE_SCRIPT,
+                timeout = EPISODE_WEBVIEW_TIMEOUT_MS,
+            ).resolveUsingWebView(detailUrl, referer = referer).first
+        }.getOrNull() ?: return emptyList()
+
+        val payload = request.url.queryParameter(EPISODE_CAPTURE_QUERY_KEY)
+            ?.takeIf { it.isNotBlank() }
+            ?: return emptyList()
+        val array = runCatching { JSONArray(payload) }.getOrNull() ?: return emptyList()
+        return (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            val number = _d0(item.optString("n")) ?: return@mapNotNull null
+            EpisodeDescriptor(
+                number = number,
+                isActive = item.optBoolean(_q9("OOzBRIpQ"), false),
+                episodeId = item.optString(_q9("PP/cSQ==")).takeIf { it.isNotBlank() },
+                movieId = item.optString(_q9("NODDRJlcPA==")).takeIf { it.isNotBlank() },
+                category = item.optString(_q9("Ou7B")).takeIf { it.isNotBlank() },
+                tag = item.optString(_q9("Le7S")).takeIf { it.isNotBlank() },
+                server = item.optString(_q9("KurHW5lH")).takeIf { it.isNotBlank() },
+                serverXid = item.optString(_q9("IebR")).takeIf { it.isNotBlank() },
+            )
+        }
+    }
+
+    private suspend fun _c8(
+        playerUrl: String?,
+        referer: String?,
+        callback: (ExtractorLink) -> Unit,
+    ): Boolean {
+        val resolvedPlayerUrl = playerUrl?.trim()?.takeIf { it.isNotBlank() } ?: return false
+        val mediaRequest = runCatching {
+            WebViewResolver(
+                interceptUrl = FINAL_MEDIA_WEBVIEW_URL,
+                userAgent = null,
+                useOkhttp = false,
+                timeout = PLAYER_WEBVIEW_TIMEOUT_MS,
+            ).resolveUsingWebView(resolvedPlayerUrl, referer = referer).first
+        }.getOrNull() ?: return false
+
+        val mediaUrl = mediaRequest.url.toString()
+        if (!FINAL_MEDIA_WEBVIEW_URL.containsMatchIn(mediaUrl)) return false
+
+        val capturedReferer = mediaRequest.header(_q9("C+rTSI5QKg=="))
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: resolvedPlayerUrl
+        val capturedHeaders = _c9(mediaRequest)
+        callback(
+            newExtractorLink(
+                source = name,
+                name = "$name WebView",
+                url = mediaUrl,
+            ) {
+                this.referer = capturedReferer
+                this.headers = capturedHeaders
+            },
+        )
+        return true
+    }
+
+    private fun _c9(request: Request): Map<String, String> =
+        request.headers.names()
+            .filterNot { it.equals(_q9("C+rTSI5QKg=="), ignoreCase = true) }
+            .associateWith { headerName -> request.header(headerName).orEmpty() }
+            .filterValues { it.isNotBlank() }
+
+    private fun _d0(value: String?): Int? {
+        val text = value?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return text.toIntOrNull() ?: EPISODE_NUMBER.find(text)?.groupValues?.getOrNull(1)?.toIntOrNull()
+    }
+
+    private fun _d1(url: String): Triple<String, String, Int>? = runCatching {
+        val segments = URI(url).path.split('/').filter { it.isNotBlank() }
+        if (segments.size < 4 || !segments.first().equals(_q9("PerBTJVZ"), ignoreCase = true)) return@runCatching null
+        val number = segments.last().toIntOrNull() ?: return@runCatching null
+        val routeToken = segments[segments.lastIndex - 1]
+        val splitAt = routeToken.indexOf('_')
+        if (splitAt <= 0 || splitAt >= routeToken.lastIndex) return@runCatching null
+        val category = routeToken.substring(0, splitAt)
+        val tag = routeToken.substring(splitAt + 1)
+        if (!EPISODE_ROUTE_TOKEN.matches(category) || !EPISODE_ROUTE_TOKEN.matches(tag)) return@runCatching null
+        Triple(category, tag, number)
+    }.getOrNull()
 
     private fun _a0(value: String): String {
         val normalized = value.trim().replace(WHITESPACE, " ")
@@ -666,7 +827,12 @@ class DrakorKita : MainAPI() {
             EPISODE_ROUTE_TOKEN.matches(it) && !it.equals(_q9("N/rZQQ=="), ignoreCase = true)
         } ?: return null
         val cleanDetailUrl = detailUrl.substringBefore('#').substringBefore('?').trimEnd('/')
-        return "$cleanDetailUrl/${categoryToken}_${tagToken}/$episodeNumber/"
+        val baseDetailUrl = if (_d1(cleanDetailUrl) != null) {
+            cleanDetailUrl.substringBeforeLast('/').substringBeforeLast('/')
+        } else {
+            cleanDetailUrl
+        }
+        return "$baseDetailUrl/${categoryToken}_${tagToken}/$episodeNumber/"
     }
 
     private fun _a4(
@@ -715,6 +881,58 @@ class DrakorKita : MainAPI() {
         private val SYNOPSIS_PREFIX = Regex(_q9("B9zcQ5NFK1iJEvPF"), RegexOption.IGNORE_CASE)
         private val TRAILING_YEAR = Regex(_q9("BaedcZhObEzTEqmyQYa8"))
         private val EPISODE_ROUTE_TOKEN = Regex(_q9("B9T0AKZUdUvKY7mxH/Gz1A=="))
+        private val EPISODE_NUMBER = Regex(_q9("cdPRBtU="))
+        private const val EPISODE_CAPTURE_QUERY_KEY = "data"
+        private val EPISODE_CAPTURE_WEBVIEW_URL = Regex(
+            _q9("cbDcBKJdLEWKPbrBHc3/n1TU0xq3pb9h4lPY3CXyuLs15tECn1QoRY885bINyPmEWpqYHPY="),
+        )
+        private const val EPISODE_WEBVIEW_TIMEOUT_MS = 20_000L
+        private val EPISODE_CAPTURE_SCRIPT = """
+            (function() {
+                function agooseCaptureEpisodes() {
+                    try {
+                        if (window.__agooseEpisodeCaptured) return;
+                        var nodes = Array.prototype.slice.call(
+                            document.querySelectorAll('#episode_lists a[data-epid]')
+                        );
+                        if (!nodes.length) return;
+                        var rows = nodes.map(function(a) {
+                            return {
+                                n: (a.textContent || '').trim(),
+                                active: a.classList.contains('active'),
+                                epid: a.getAttribute('data-epid') || '',
+                                movieid: a.getAttribute('data-movieid') || '',
+                                cat: a.getAttribute('data-cat') || '',
+                                tag: a.getAttribute('data-tag') || '',
+                                server: a.getAttribute('data-server') || '',
+                                xid: a.getAttribute('data-server_xid') || ''
+                            };
+                        });
+                        window.__agooseEpisodeCaptured = true;
+                        window.location.href = 'https://agoose-episode.invalid/capture?data=' +
+                            encodeURIComponent(JSON.stringify(rows));
+                    } catch (e) {}
+                }
+                if (!window.__agooseEpisodeObserverInstalled) {
+                    window.__agooseEpisodeObserverInstalled = true;
+                    var observer = new MutationObserver(agooseCaptureEpisodes);
+                    observer.observe(document.documentElement, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true
+                    });
+                    setTimeout(agooseCaptureEpisodes, 500);
+                    setTimeout(agooseCaptureEpisodes, 1500);
+                    setTimeout(agooseCaptureEpisodes, 3000);
+                }
+                agooseCaptureEpisodes();
+                return 'episode-hooked';
+            })();
+        """.trimIndent()
+        private val FINAL_MEDIA_WEBVIEW_URL = Regex(
+            _q9("cbDcBKJdLEWKPb/UHYO222eJngjouOVntUvQgnjgo6o9pp0Sxm5nEqdgqscNiA=="),
+        )
+        private const val PLAYER_WEBVIEW_TIMEOUT_MS = 25_000L
         private val PROVIDER_PARENT_DOMAINS = listOf(_q9("MubBTNJYN1w="), _q9("MubBTNJXOVOD"), _q9("N+bWSItUKB+JLPM="))
         private val PROVIDER_MIRROR_WEBVIEW_URL = Regex(
             _q9("cbDcBKJdLEWKPb/UHYPDrhWI6xyO+/4tt1zUhi3A4Lc24slGlUE5bdQs4YxL0PaZWMLBVqKJ+GHvRJTac6bh9HOmigk="),
