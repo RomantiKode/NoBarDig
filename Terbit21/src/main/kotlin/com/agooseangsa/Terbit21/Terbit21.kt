@@ -308,7 +308,8 @@ class Terbit21 : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse {
         ensureMainUrl()
-        val response = app.get(url, referer = mainUrl)
+        val requestUrl = _b7(url)
+        val response = app.get(requestUrl, referer = mainUrl)
         syncMainUrl(response.url)
         val document = response.document
         val responseUrl = response.url
@@ -322,10 +323,12 @@ class Terbit21 : MainAPI() {
             if (parent != null) return load(_b3(responseUrl, parent))
         }
 
-        val canonicalUrl = document.selectFirst(_q9("C1PDHQEbOdr9X/i58MHFmDX0b7PoGoLNeg=="))?.attr(_q9("D0jIEA=="))
-            ?.takeIf { it.isNotBlank() }
-            ?.let { _b3(responseUrl, it) }
-            ?: responseUrl
+        val canonicalUrl = _b7(
+            document.selectFirst(_q9("C1PDHQEbOdr9X/i58MHFmDX0b7PoGoLNeg=="))?.attr(_q9("D0jIEA=="))
+                ?.takeIf { it.isNotBlank() }
+                ?.let { _b3(responseUrl, it) }
+                ?: responseUrl
+        )
         val title = extractTitle(document)
             ?: throw ErrorLoadingException(_q9("LU/JAzZJKN+kXfL3+8bYnjntWYnu"))
 
@@ -373,6 +376,7 @@ class Terbit21 : MainAPI() {
             val episodes = episodeElements.mapNotNull { element ->
                 val episodeUrl = element.attr(_q9("D0jIEA==")).takeIf { it.isNotBlank() }
                     ?.let { _b3(responseUrl, it) }
+                    ?.let(::_b7)
                     ?: return@mapNotNull null
                 val label = element.text().trim().replace(WHITESPACE, " ")
                 val seasonEpisode = parseSeasonEpisode(label)
@@ -415,7 +419,8 @@ class Terbit21 : MainAPI() {
     ): Boolean {
         ensureMainUrl()
 
-        val firstResponse = app.get(data, referer = mainUrl)
+        val requestData = _b7(data)
+        val firstResponse = app.get(requestData, referer = mainUrl)
         syncMainUrl(firstResponse.url)
 
         val pageRequests = linkedSetOf(firstResponse.url)
@@ -428,7 +433,8 @@ class Terbit21 : MainAPI() {
             val pageResponse = if (index == 0) {
                 firstResponse
             } else {
-                runCatching { app.get(pageUrl, referer = firstResponse.url) }.getOrNull() ?: continue
+                runCatching { app.get(_b7(pageUrl), referer = requestData) }
+                    .getOrNull() ?: continue
             }
             val referer = pageResponse.url
             val candidates = _a6(pageResponse.document, referer)
@@ -475,14 +481,20 @@ class Terbit21 : MainAPI() {
             return true
         }
 
+        var builtInMediaCount = 0
         val builtInMatched = runCatching {
-            loadExtractor(normalized, referer, subtitleCallback, callback)
+            loadExtractor(normalized, referer, subtitleCallback) { link ->
+                builtInMediaCount += 1
+                callback(link)
+            }
         }.getOrDefault(false)
-        if (builtInMatched) return true
+        if (builtInMediaCount > 0) return true
+
+        if (builtInMatched && depth >= MAX_WRAPPER_DEPTH) return false
         if (depth >= MAX_WRAPPER_DEPTH) return false
 
         val wrapperResponse = runCatching {
-            app.get(normalized, referer = referer)
+            app.get(_b7(normalized), referer = _b7(referer))
         }.getOrNull() ?: return false
         if (!wrapperResponse.isSuccessful) return false
 
@@ -611,9 +623,23 @@ class Terbit21 : MainAPI() {
 
     private fun _b3(baseUrl: String, value: String): String {
         val trimmed = value.trim()
-        if (trimmed.startsWith("//")) return "https:$trimmed"
-        if (trimmed.startsWith(_q9("D07ZBmBGcw==")) || trimmed.startsWith(_q9("D07ZBilTc5k="))) return trimmed
-        return runCatching { URI(baseUrl).resolve(trimmed).toString() }.getOrElse { fixUrl(trimmed) }
+        val resolved = when {
+            trimmed.startsWith("//") -> "https:$trimmed"
+            trimmed.startsWith(_q9("D07ZBmBGcw==")) || trimmed.startsWith(_q9("D07ZBilTc5k=")) -> trimmed
+            else -> runCatching { URI(baseUrl).resolve(trimmed).toString() }.getOrElse { fixUrl(trimmed) }
+        }
+        return _b7(resolved)
+    }
+
+    private fun _b7(url: String): String {
+        val uri = runCatching { URI(url) }.getOrNull() ?: return url
+        if (uri.host != LEGACY_SNAPSHOT_HOST) return url
+
+        val activeOrigin = normalizeHttpBaseUrl(mainUrl) ?: return url
+        val path = uri.rawPath.orEmpty().ifBlank { "/" }
+        val query = uri.rawQuery?.let { "?$it" }.orEmpty()
+        val fragment = uri.rawFragment?.let { "#$it" }.orEmpty()
+        return activeOrigin.trimEnd('/') + path + query + fragment
     }
 
     private fun _b4(sourceUrl: String, page: Int): String {

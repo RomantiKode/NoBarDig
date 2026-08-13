@@ -9,5 +9,6 @@ class Terbit21Plugin : Plugin() {
     override fun load(context: Context) {
         registerMainAPI(Terbit21())
 
+        registerExtractorAPI(Terbit21VidPlayerLiveExtractor())
     }
 }

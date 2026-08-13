@@ -2,7 +2,7 @@
 // Protection Standard ACTIVE: publish generated Protected Public, bukan canonical Kotlin.
 import java.util.Properties
 
-version = 4
+version = 5
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
