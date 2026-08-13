@@ -125,11 +125,10 @@
         "name": "Sokuja"
     },
     {
-        "iconUrl": "https://162.244.95.227/wp-content/uploads/2025/12/cropped-images.jpg",
-        "fileHash": "sha256-d10b3fc3434f84c7f6a9118ff40ebdf8d9d760c7a67be5e7cf932b0e2658651e",
+        "fileHash": "sha256-eed073433576630d02ca93e0a167d8b1d8cad1e453ba53539431b710fb565d59",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 41182,
+        "fileSize": 41775,
         "status": 3,
         "language": "id",
         "authors": [
@@ -139,7 +138,7 @@
             "Movie",
             "TvSeries"
         ],
-        "version": 2,
+        "version": 3,
         "internalName": "Terbit21",
         "description": "Terbit21 Nonton Movie 21 Bioskop Online Keren XX1 INDOXXI Ganool Dunia21 Layarkaca21 iLk21 Dunia21 Bioskop IDLIX CGVINDO INDOFILM BIOSKOPKEREN",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Terbit21.cs3",
