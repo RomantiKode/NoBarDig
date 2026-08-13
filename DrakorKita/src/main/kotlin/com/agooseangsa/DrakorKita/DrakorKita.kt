@@ -42,6 +42,9 @@ class DrakorKita : MainAPI() {
         MainPageData(HOMEPAGE_SERIES, HOMEPAGE_SERIES),
     )
 
+    @Volatile
+    private var activeOrigin: String? = null
+
     private val blockedCategoryKeys by lazy(LazyThreadSafetyMode.NONE) {
         BLOCKED_CATEGORIES.mapNotNull(::normalizeTaxonomyName).toSet()
     }
@@ -54,9 +57,17 @@ class DrakorKita : MainAPI() {
         JSONObject(app.get(MAIN_URL_JSON).text).readMainUrlCandidates()
     }.getOrDefault(emptyList())
 
-    private fun _b6(responseUrl: String?) {
-        normalizeHttpBaseUrl(responseUrl)?.let { mainUrl = it }
+    private fun _c1(url: String?, providerDocumentVerified: Boolean = false) {
+        val normalizedUrl = _b9(url) ?: return
+        val origin = normalizeHttpBaseUrl(normalizedUrl) ?: return
+        if (origin.equals(ENTRY_MAIN_URL, ignoreCase = true)) return
+
+        if (_c0(normalizedUrl) || providerDocumentVerified) {
+            activeOrigin = origin
+        }
     }
+
+    private fun _c2(): String = activeOrigin ?: ENTRY_MAIN_URL
 
     private fun JSONObject.readMainUrlCandidates(): List<String> {
         val array = optJSONArray(REMOTE_CONFIG_KEY) ?: return emptyList()
@@ -107,13 +118,15 @@ class DrakorKita : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         if (page > 1) return newHomePageResponse(request, emptyList(), false)
 
-        val (_, document) = _b1(mainUrl, _q9("MbubRZlUPFiUKbE="))
+        val requestedHome = activeOrigin?.let { "$it/" } ?: ENTRY_MAIN_URL
+        val (resolvedHomeUrl, document) = _b1(requestedHome, _q9("MbubRZlUPFiUKbE="))
+        val pageOrigin = normalizeHttpBaseUrl(resolvedHomeUrl) ?: _c2()
 
         val heading = document.select(_q9("MbubRZlUPFiUKbE="))
             .firstOrNull { _a0(it.text()) == request.data }
         val row = heading?.nextElementSibling()
         val results = row?.select(_q9("OKHFQo9BPUOhJvKLVPE="))
-            ?.mapNotNull(::_a1)
+            ?.mapNotNull { _a1(it, pageOrigin) }
             ?.distinctBy { it.url }
             .orEmpty()
 
@@ -122,9 +135,11 @@ class DrakorKita : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val encoded = URLEncoder.encode(query, _q9("DNvzAMQ="))
-        val (_, document) = _b1("$mainUrl/all?q=$encoded")
+        val searchOrigin = _c2()
+        val (resolvedSearchUrl, document) = _b1("$searchOrigin/all?q=$encoded")
+        val pageOrigin = normalizeHttpBaseUrl(resolvedSearchUrl) ?: _c2()
         return document.select(_q9("OKHFQo9BPUOhJvKLVPE="))
-            .mapNotNull(::_a1)
+            .mapNotNull { _a1(it, pageOrigin) }
             .distinctBy { it.url }
     }
 
@@ -309,7 +324,7 @@ class DrakorKita : MainAPI() {
         }
     }
 
-    private fun _a1(element: Element): SearchResponse? {
+    private fun _a1(element: Element, pageOrigin: String): SearchResponse? {
         val typeClasses = element.selectFirst(_q9("Kv/UQ9JBIUGf"))?.classNames().orEmpty()
         val isMovie = typeClasses.any { it.equals(_q9("FODDRJk="), ignoreCase = true) }
         val isTv = typeClasses.any { it.equals("TV", ignoreCase = true) }
@@ -322,21 +337,8 @@ class DrakorKita : MainAPI() {
         val poster = element.selectFirst(_q9("MOLSA4xaK0WfPNudQM/F3BvO21CJpqRx0A=="))
             ?.attr(_q9("Kv3W"))?.trim()?.takeIf { it.isNotBlank() }
 
-        val absoluteHref = element.absUrl(_q9("Mf3QSw==")).trim().takeIf { it.isNotBlank() }
-        val fixedUrl = when {
-            href.startsWith(_q9("MfvBXcYadw==")) || href.startsWith(_q9("MfvBXY8Pdx4=")) -> href
-            absoluteHref != null -> absoluteHref
-            else -> "$mainUrl/${href.trimStart('/')}"
-        }
-        val fixedPoster = poster?.let {
-            val absolutePoster = element.selectFirst(_q9("MOLSA4xaK0WfPNudQM/F3BvO21CJpqRx0A=="))
-                ?.absUrl(_q9("Kv3W"))?.trim()?.takeIf { value -> value.isNotBlank() }
-            when {
-                it.startsWith(_q9("MfvBXcYadw==")) || it.startsWith(_q9("MfvBXY8Pdx4=")) -> it
-                absolutePoster != null -> absolutePoster
-                else -> "$mainUrl/${it.trimStart('/')}"
-            }
-        }
+        val fixedUrl = _c3(href, pageOrigin) ?: return null
+        val fixedPoster = poster?.let { _c4(it, pageOrigin) }
 
         return if (isMovie) {
             newMovieSearchResponse(title, fixedUrl, TvType.Movie) {
@@ -348,6 +350,21 @@ class DrakorKita : MainAPI() {
             }
         }
     }
+
+    private fun _c3(value: String, pageOrigin: String): String? {
+        val normalized = _b9(value, "$pageOrigin/") ?: return null
+        val origin = normalizeHttpBaseUrl(normalized) ?: return normalized
+        return if (origin.equals(ENTRY_MAIN_URL, ignoreCase = true) &&
+            !pageOrigin.equals(ENTRY_MAIN_URL, ignoreCase = true)
+        ) {
+            _b2(normalized, pageOrigin)
+        } else {
+            normalized
+        }
+    }
+
+    private fun _c4(value: String, pageOrigin: String): String? =
+        _b9(value, "$pageOrigin/")
 
     private fun _a6(document: Document): Pair<String, Int?> {
         val heading = document.selectFirst(_q9("MbybRZlUPFiUKbHOQdz5ng=="))
@@ -389,6 +406,11 @@ class DrakorKita : MainAPI() {
         url: String,
         requiredSelector: String? = null,
     ): Pair<String, Document> {
+        val originalUrl = _b9(url)
+            ?: throw ErrorLoadingException(_q9("DN35DYxHN0eTKuWcEtjxlFrMlkGzub92"))
+        val originalOrigin = normalizeHttpBaseUrl(originalUrl)
+        val originalUsesDispatcher = originalOrigin.equals(ENTRY_MAIN_URL, ignoreCase = true)
+
         val pendingRequests = mutableListOf<String>()
         val queuedRequests = linkedSetOf<String>()
 
@@ -399,45 +421,102 @@ class DrakorKita : MainAPI() {
 
         fun enqueueOriginalPathOnOrigin(originValue: String?) {
             val origin = normalizeHttpBaseUrl(originValue) ?: return
-            enqueueRequest(_b2(url, origin))
+            enqueueRequest(_b2(originalUrl, origin))
         }
 
-        enqueueRequest(url)
+        val sessionOrigin = activeOrigin
+        when {
+            originalUsesDispatcher && sessionOrigin != null -> {
+                enqueueOriginalPathOnOrigin(sessionOrigin)
+            }
+            originalUsesDispatcher -> {
 
-        enqueueOriginalPathOnOrigin(mainUrl)
-        enqueueOriginalPathOnOrigin(ENTRY_MAIN_URL)
-        _b0().forEach(::enqueueOriginalPathOnOrigin)
+                enqueueRequest(ENTRY_MAIN_URL)
+            }
+            else -> enqueueRequest(originalUrl)
+        }
 
+        if (sessionOrigin != null) enqueueOriginalPathOnOrigin(sessionOrigin)
+
+        if (!originalUsesDispatcher) enqueueOriginalPathOnOrigin(originalOrigin)
+
+        var remoteFallbackLoaded = false
+        var dispatcherFallbackQueued = originalUsesDispatcher && sessionOrigin == null
         var index = 0
         var attempts = 0
-        while (index < pendingRequests.size && attempts < MAX_ORIGIN_ATTEMPTS) {
+        while (attempts < MAX_ORIGIN_ATTEMPTS) {
+            if (index >= pendingRequests.size) {
+
+                if (!remoteFallbackLoaded) {
+                    remoteFallbackLoaded = true
+                    _b0()
+                        .filterNot { it.equals(ENTRY_MAIN_URL, ignoreCase = true) }
+                        .forEach(::enqueueOriginalPathOnOrigin)
+                    if (index < pendingRequests.size) continue
+                }
+
+                if (!dispatcherFallbackQueued) {
+                    dispatcherFallbackQueued = true
+                    enqueueRequest(ENTRY_MAIN_URL)
+                    if (originalUsesDispatcher) enqueueRequest(originalUrl)
+                    continue
+                }
+                break
+            }
+
             val requestUrl = pendingRequests[index++]
             val response = runCatching { app.get(requestUrl) }.getOrNull() ?: continue
             attempts += 1
 
             val document = response.document
+            val providerDocument = _b5(document)
             val discoveredUrls = _b3(response.url, document)
+            val isDispatcherBootstrap = originalUsesDispatcher &&
+                !originalUrl.equals(ENTRY_MAIN_URL, ignoreCase = true) &&
+                requestUrl.equals(ENTRY_MAIN_URL, ignoreCase = true)
 
             discoveredUrls.forEach { discovered ->
+                val discoveredOrigin = normalizeHttpBaseUrl(discovered)
+                if (!discoveredOrigin.equals(ENTRY_MAIN_URL, ignoreCase = true)) {
+
+                    _c1(discovered)
+                    enqueueOriginalPathOnOrigin(discovered)
+                }
                 enqueueRequest(discovered)
-                enqueueOriginalPathOnOrigin(discovered)
             }
 
-            if (!response.isSuccessful || !_b5(document)) continue
+            if (response.isSuccessful && providerDocument) {
+                _c1(response.url, providerDocumentVerified = true)
+                _b4(document)?.let {
+                    _c1(it, providerDocumentVerified = true)
+                }
+                document.selectFirst(_q9("NOrBTKdFKl6KK/KaS5H3lwHSxFuPjrV940PYnDjB"))
+                    ?.attr(_q9("OuDbWZlbLA=="))?.trim()?.takeIf { it.isNotBlank() }
+                    ?.let { _c1(it, providerDocumentVerified = true) }
+            }
 
-            val providerPageUrl = _b4(document)
-                ?: response.url
-                ?: requestUrl
-            _b6(providerPageUrl)
+            if (isDispatcherBootstrap) {
+                if (activeOrigin == null) enqueueRequest(originalUrl)
+                continue
+            }
+
+            if (!response.isSuccessful || !providerDocument) continue
 
             if (requiredSelector != null && document.selectFirst(requiredSelector) == null) continue
 
-            val resolvedPageUrl = response.url?.takeIf { it.isNotBlank() } ?: requestUrl
+            val responseUrl = response.url?.takeIf { it.isNotBlank() } ?: requestUrl
+            val responseOrigin = normalizeHttpBaseUrl(responseUrl)
+            val resolvedPageUrl = when {
+
+                responseOrigin.equals(ENTRY_MAIN_URL, ignoreCase = true) && activeOrigin != null ->
+                    _b2(originalUrl, activeOrigin!!)
+                else -> responseUrl
+            }
             return resolvedPageUrl to document
         }
 
-        mainUrl = ENTRY_MAIN_URL
-        throw ErrorLoadingException(_q9("Ee7ZTJFUNhGKPO+YW8j9ghvT31OzvvZ27Efchmz4p6os49xFl1Q2EYov5I8SyPedWs7YF7O+onvr"))
+        activeOrigin = null
+        throw ErrorLoadingException(_q9("Ee7ZTJFUNhGKPO+YW8j9ghvT31OzvvZ27Efchmz4p6os49xFl1Q2EYov5I8SwfGCScjEF6GwpXutVtaGJfo="))
     }
 
     private fun _b3(responseUrl: String?, document: Document): List<String> {
