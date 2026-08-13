@@ -2,7 +2,7 @@
 // Protection Standard ACTIVE: publish generated Protected Public, bukan canonical Kotlin.
 import java.util.Properties
 
-version = 2
+version = 3
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
@@ -36,7 +36,6 @@ cloudstream {
     language = "id"
     description = "Terbit21 Nonton Movie 21 Bioskop Online Keren XX1 INDOXXI Ganool Dunia21 Layarkaca21 iLk21 Dunia21 Bioskop IDLIX CGVINDO INDOFILM BIOSKOPKEREN"
     authors = listOf("Agoose")
-    iconUrl = "https://162.244.95.227/wp-content/uploads/2025/12/cropped-images.jpg"
     status = 3
     tvTypes = listOf(
         "Movie",

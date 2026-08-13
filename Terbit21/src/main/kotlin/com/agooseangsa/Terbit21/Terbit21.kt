@@ -13,7 +13,7 @@ import java.net.URI
 import java.util.Locale
 
 class Terbit21 : MainAPI() {
-    override var mainUrl = DEFAULT_MAIN_URL
+    override var mainUrl = CURRENT_PUBLIC_MAIN_URL
     override var name = "Terbit21"
     override var lang = "id"
 
@@ -49,21 +49,49 @@ class Terbit21 : MainAPI() {
                 JSONObject(app.get(MAIN_URL_JSON).text).readMainUrlCandidates()
             }.getOrDefault(emptyList())
 
-            val candidates = (remoteCandidates + DEFAULT_MAIN_URL)
+            val candidates = (remoteCandidates + CURRENT_PUBLIC_MAIN_URL)
                 .mapNotNull(::normalizeHttpBaseUrl)
                 .distinct()
+
+            var reachableButIncompatible: String? = null
 
             for (candidate in candidates) {
                 val response = runCatching { app.get(candidate) }.getOrNull() ?: continue
                 if (!response.isSuccessful) continue
                 val resolved = normalizeHttpBaseUrl(response.url) ?: continue
+
+                if (!response.document._a9()) {
+                    if (reachableButIncompatible == null) reachableButIncompatible = resolved
+                    continue
+                }
+
                 mainUrl = resolved
                 mainUrlResolved = true
                 return@withLock
             }
 
-            mainUrl = DEFAULT_MAIN_URL
+            val incompatibleHint = reachableButIncompatible?.let {
+                " Domain yang dapat dijangkau ($it) memakai layout berbeda dari Target Terbit21 yang diaudit."
+            }.orEmpty()
+            throw ErrorLoadingException(
+                _q9("I1XAFzMHfP6UaMmEv/vJiTbxRtqxSJ7KSW7HTyZ/FqYTU88TNkk+06xJ9Pfryt6IMfxbia5I") +
+                    _q9("M1vAFDsBN9euHPal9sjFlXTMU5rnDZOLXmiJQ2lkB6sOXo0GOw09lqtZ4PfLyt6ZPewA2aAMjotwbIVXIGYD6Q1Jwhh0SQ==") +
+                    "Fallback snapshot $LEGACY_SNAPSHOT_MAIN_URL dinonaktifkan karena bukti runtime TLS Android." +
+                    incompatibleHint
+            )
         }
+    }
+
+    private fun Document._a9(): Boolean {
+        val hasMuviAssets = select(
+            _q9("C1PDHQEBLtOmFqTwsNjc1jf3XJzlBpOEU2GCSSxhSaoSTMQGKAZzkZ0QuQ==") +
+                _q9("C1PDHQEBLtOmFqTwsNjc1jf3XJzlBpOEV2WSQyB8FegOXsADLABx1a9O/Pi48g==")
+        ).isNotEmpty()
+        val hasTargetLayout = select(
+            _q9("RF3ABHcEPd+uEfW4/suA23r/X5qtBYbCSWSCSjw+RukAV99bKQwuwKVOtKDtztzXdA==") +
+                _q9("SV3ABHcFNcW0T/yl9srf")
+        ).isNotEmpty()
+        return hasMuviAssets && hasTargetLayout
     }
 
     protected fun syncMainUrl(responseUrl: String?) {
@@ -374,7 +402,9 @@ class Terbit21 : MainAPI() {
         ?.lowercase(Locale.ROOT)
 
     companion object {
-        private const val DEFAULT_MAIN_URL = "https://162.244.95.227"
+
+        private const val CURRENT_PUBLIC_MAIN_URL = "https://terbit21.media"
+        private const val LEGACY_SNAPSHOT_MAIN_URL = "https://162.244.95.227"
         private const val REMOTE_CONFIG_KEY = "Terbit21"
         private const val MAIN_URL_JSON =
             "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
