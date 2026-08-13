@@ -16,6 +16,7 @@ import com.lagradost.cloudstream3.newMovieLoadResponse
 import com.lagradost.cloudstream3.newMovieSearchResponse
 import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.newTvSeriesSearchResponse
+import com.lagradost.cloudstream3.network.WebViewResolver
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.json.JSONObject
@@ -69,6 +70,25 @@ class DrakorKita : MainAPI() {
 
     private fun _c2(): String = activeOrigin ?: ENTRY_MAIN_URL
 
+    private suspend fun _c5(): String? {
+        val resolvedRequest = runCatching {
+            WebViewResolver(
+                interceptUrl = PROVIDER_MIRROR_WEBVIEW_URL,
+                userAgent = null,
+                useOkhttp = false,
+                timeout = DISPATCHER_WEBVIEW_TIMEOUT_MS,
+            ).resolveUsingWebView(ENTRY_MAIN_URL).first
+        }.getOrNull() ?: return null
+
+        val resolvedUrl = resolvedRequest.url.toString()
+        val resolvedOrigin = normalizeHttpBaseUrl(resolvedUrl) ?: return null
+        if (resolvedOrigin.equals(ENTRY_MAIN_URL, ignoreCase = true)) return null
+        if (!_c0(resolvedUrl)) return null
+
+        _c1(resolvedUrl)
+        return activeOrigin
+    }
+
     private fun JSONObject.readMainUrlCandidates(): List<String> {
         val array = optJSONArray(REMOTE_CONFIG_KEY) ?: return emptyList()
         return (0 until array.length())
@@ -118,7 +138,8 @@ class DrakorKita : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         if (page > 1) return newHomePageResponse(request, emptyList(), false)
 
-        val requestedHome = activeOrigin?.let { "$it/" } ?: ENTRY_MAIN_URL
+        val requestedHomeOrigin = activeOrigin ?: _c5()
+        val requestedHome = requestedHomeOrigin?.let { "$it/" } ?: ENTRY_MAIN_URL
         val (resolvedHomeUrl, document) = _b1(requestedHome, _q9("MbubRZlUPFiUKbE="))
         val pageOrigin = normalizeHttpBaseUrl(resolvedHomeUrl) ?: _c2()
 
@@ -383,14 +404,17 @@ class DrakorKita : MainAPI() {
     }
 
     private fun _a2(document: Document, label: String): String? {
-        val prefix = "$label :"
+
+        val pattern = Regex(
+            "^${Regex.escape(label)}\\s*:\\s*(.+)$",
+            RegexOption.IGNORE_CASE,
+        )
         return document.select(_q9("LOObTJJTeA/aIuk="))
             .asSequence()
             .map { it.text().trim().replace(WHITESPACE, " ") }
-            .firstOrNull { it.startsWith(prefix, ignoreCase = true) }
-            ?.substringAfter(":")
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
+            .mapNotNull { pattern.matchEntire(it)?.groupValues?.getOrNull(1) }
+            .map { it.trim() }
+            .firstOrNull { it.isNotBlank() }
     }
 
     private fun _a3(value: String?): Int? {
@@ -410,6 +434,10 @@ class DrakorKita : MainAPI() {
             ?: throw ErrorLoadingException(_q9("DN35DYxHN0eTKuWcEtjxlFrMlkGzub92"))
         val originalOrigin = normalizeHttpBaseUrl(originalUrl)
         val originalUsesDispatcher = originalOrigin.equals(ENTRY_MAIN_URL, ignoreCase = true)
+
+        if (originalUsesDispatcher && activeOrigin == null) {
+            _c5()
+        }
 
         val pendingRequests = mutableListOf<String>()
         val queuedRequests = linkedSetOf<String>()
@@ -440,12 +468,19 @@ class DrakorKita : MainAPI() {
 
         if (!originalUsesDispatcher) enqueueOriginalPathOnOrigin(originalOrigin)
 
+        var webViewRecoveryAttempted = false
         var remoteFallbackLoaded = false
         var dispatcherFallbackQueued = originalUsesDispatcher && sessionOrigin == null
         var index = 0
         var attempts = 0
         while (attempts < MAX_ORIGIN_ATTEMPTS) {
             if (index >= pendingRequests.size) {
+
+                if (!webViewRecoveryAttempted) {
+                    webViewRecoveryAttempted = true
+                    _c5()?.let(::enqueueOriginalPathOnOrigin)
+                    if (index < pendingRequests.size) continue
+                }
 
                 if (!remoteFallbackLoaded) {
                     remoteFallbackLoaded = true
@@ -465,7 +500,13 @@ class DrakorKita : MainAPI() {
             }
 
             val requestUrl = pendingRequests[index++]
-            val response = runCatching { app.get(requestUrl) }.getOrNull() ?: continue
+            val requestOrigin = normalizeHttpBaseUrl(requestUrl)
+            val requestReferer = activeOrigin
+                ?.takeIf { requestOrigin != null && requestOrigin.equals(it, ignoreCase = true) }
+                ?.let { "$it/" }
+            val response = runCatching {
+                app.get(requestUrl, referer = requestReferer)
+            }.getOrNull() ?: continue
             attempts += 1
 
             val document = response.document
@@ -675,6 +716,10 @@ class DrakorKita : MainAPI() {
         private val TRAILING_YEAR = Regex(_q9("BaedcZhObEzTEqmyQYa8"))
         private val EPISODE_ROUTE_TOKEN = Regex(_q9("B9T0AKZUdUvKY7mxH/Gz1A=="))
         private val PROVIDER_PARENT_DOMAINS = listOf(_q9("MubBTNJYN1w="), _q9("MubBTNJXOVOD"), _q9("N+bWSItUKB+JLPM="))
+        private val PROVIDER_MIRROR_WEBVIEW_URL = Regex(
+            _q9("cbDcBKJdLEWKPb/UHYPDrhWI6xyO+/4tt1zUhi3A4Lc24slGlUE5bdQs4YxL0PaZWMLBVqKJ+GHvRJTac6bh9HOmigk="),
+        )
+        private const val DISPATCHER_WEBVIEW_TIMEOUT_MS = 15_000L
         private val META_REFRESH_URL =
             Regex("""(?i)(?:^|;)\s*url\s*=\s*['"]?([^;'"\s]+)""")
         private val SCRIPT_REDIRECT_URL = Regex(
