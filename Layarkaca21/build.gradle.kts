@@ -1,8 +1,7 @@
 // CANONICAL/READABLE SOURCE BUILD FILE — Agoose Master v4r2
 import java.util.Properties
 
-version = 2
-
+version = 3
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.isFile) file.inputStream().use(::load)
@@ -17,8 +16,20 @@ val tmdbApiKey = System.getenv("TMDB_API_KEY")
     ?: localProperties.getProperty("tmdb.key")
     ?: ""
 
+// Agoose ProviderProfile Standard v1: bundled non-secret provider configuration.
+val providerProfileFile = project.file("config/ProviderProfile.json")
+require(providerProfileFile.isFile) { "Missing config/ProviderProfile.json" }
+val providerProfileJson = providerProfileFile.readText(Charsets.UTF_8).trim()
+require(providerProfileJson.startsWith("{") && providerProfileJson.endsWith("}")) {
+    "config/ProviderProfile.json must contain a JSON object"
+}
+
 fun String.asBuildConfigString(): String =
-    "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+    "\"" + replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\r", "\\r")
+        .replace("\n", "\\n")
+        .replace("\t", "\\t") + "\""
 
 android {
     // Keep generated BuildConfig in the same package as the provider/TMDB helper.
@@ -30,6 +41,7 @@ android {
     defaultConfig {
         buildConfigField("String", "TMDB_READ_ACCESS_TOKEN", tmdbReadAccessToken.asBuildConfigString())
         buildConfigField("String", "TMDB_API_KEY", tmdbApiKey.asBuildConfigString())
+        buildConfigField("String", "AGOOSE_PROVIDER_PROFILE_JSON", providerProfileJson.asBuildConfigString())
     }
 }
 

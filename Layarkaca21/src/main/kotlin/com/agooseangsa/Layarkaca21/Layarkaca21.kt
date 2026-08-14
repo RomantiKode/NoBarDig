@@ -36,7 +36,9 @@ import java.net.URI
 import java.util.Locale
 
 class Layarkaca21 : MainAPI() {
-    override var mainUrl = DEFAULT_SERIES_URL
+    private val _j2 = _j0
+
+    override var mainUrl = _j2._j4
     override var name = _q9("ZK54W4dUbU2bofzDJg==")
     override var lang = "id"
 
@@ -47,31 +49,27 @@ class Layarkaca21 : MainAPI() {
 
     override val hasMainPage = true
     override val mainPage = mainPageOf(
-        _q9("RaB3U5AISk2Mpa+FOv/5j+Jv3g==") to _q9("bqZtV9UgQ16aoa6E"),
-        _q9("W6pzU5AHWkCZtLmCY7/lnPljyMs=") to _q9("e6pzU5AHBnidsr6QZec="),
-        _q9("RaB3U5AIUkOI7a+UZfvziqZ+wtzLjQ==") to _q9("e6pzU5AHBnmWp7uEe/P4"),
-        _q9("RaB3U5AISk2Mpa+FOvP1jeJlww==") to _q9("aax1U5oaBnidsr6QZec="),
-        _q9("RaB3U5AISk2Mpa+FOvr5i/ll3w==") to _q9("YKBzSJoGBnidsr6QZec="),
-        _q9("RaB3U5AISk2Mpa+FOuD5lOpkzt0=") to _q9("eqBsW5sXQwyspa6TduDj"),
-        _q9("RaB3U5AISk2Mpa+FOvH5lO5u1A==") to _q9("a6BsX5ENBnidsr6QZec="),
-        _q9("RaB3U5AISk2Mpa+FOvn5i+5r") to _q9("Y6BzX5RUckmKor2DYg=="),
-        _q9("W6pzU5AHWkCZtLmCY7/1keJkzA==") to _q9("a6doVJRUckmKor2DYg=="),
-        _q9("RaB3U5AISk2Mpa+FOub+mOJmzNbO") to _q9("fKdgU5kVSEjYlLmDdfPkjA=="),
-        _q9("RaB3U5AISk2Mpa+FOvv4neJr") to _q9("YaFlU5RUckmKor2DYg=="),
+        *_j2.homepage
+            .map { item -> "${item.source}|${item.key}" to item.title }
+            .toTypedArray(),
     )
 
     private val _a0 = Mutex()
-    private var _a1 = DEFAULT_SERIES_URL
-    private var _a2 = DEFAULT_MOVIE_URL
+    private var _a1 = _j2._j4
+    private var _a2 = _j2._j5
     private var _a3 = false
     private var _a4 = false
 
     private val _a5 by lazy(LazyThreadSafetyMode.NONE) {
-        BLOCKED_CATEGORIES.mapNotNull(::_c1).toSet()
+        _j2._j18.mapNotNull(::_c1).toSet()
     }
     private val _a6 by lazy(LazyThreadSafetyMode.NONE) {
-        BLOCKED_TAGS.mapNotNull(::_c1).toSet()
+        _j2._j19.mapNotNull(::_c1).toSet()
     }
+
+    private val modularPlaybackTrace = AgoosePlaybackTrace(
+        enabled = _j2._j17,
+    )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         _a7()
@@ -86,7 +84,7 @@ class Layarkaca21 : MainAPI() {
         }
         _a8(response.url, response.document)
 
-        val widget = response.document.selectFirst(".widget[data-type=\"$widgetType\"]")
+        val widget = response.document.selectFirst(_j2._j3(widgetType))
             ?: return newHomePageResponse(request, emptyList(), false)
         val resolvedBase = _c2(response.url) ?: base
         val items = _b0(widget, resolvedBase)
@@ -100,7 +98,7 @@ class Layarkaca21 : MainAPI() {
         val results = mutableListOf<SearchResponse>()
         for (base in listOf(_a2, _a1).distinct()) {
             val response = runCatching {
-                app.get("$base/search", params = mapOf("s" to query.trim()))
+                app.get(base + _j2._j8, params = mapOf(_j2._j9 to query.trim()))
             }.getOrNull() ?: continue
             if (!response.isSuccessful) continue
             _a8(response.url, response.document)
@@ -123,8 +121,8 @@ class Layarkaca21 : MainAPI() {
         val isSeries = when {
             webType == _q9("W6pzU5AH") -> true
             webType == _q9("RaB3U5A=") -> false
-            document.selectFirst(_q9("C7xkW4YbSAGcoaiQ")) != null -> true
-            document.selectFirst(_q9("C79tW4wRVAGUqa+F")) != null -> false
+            document.selectFirst(_j2.selector(_q9("W6pzU5AHa02Kq7mD"))) != null -> true
+            document.selectFirst(_j2.selector(_q9("WKNgQ5AGa02Kq7mD"))) != null -> false
             else -> throw ErrorLoadingException(_q9("YqpvU4ZUTUOWtLmfN+b3i+xv2ZjenVGkqqA/k+u7LM5Mpndfhx1ARZOhr5g="))
         }
 
@@ -179,7 +177,7 @@ class Layarkaca21 : MainAPI() {
         var playerUrls = emptyList<String>()
         val visitedPages = linkedSetOf<Pair<String, String>>()
 
-        for (hop in 0 until MAX_EPISODE_PAGE_HOPS) {
+        for (hop in 0 until _j2._j15) {
             if (!visitedPages.add(pageUrl to requestReferer)) break
             val response = runCatching {
                 app.get(pageUrl, referer = requestReferer, allowRedirects = true)
@@ -196,7 +194,7 @@ class Layarkaca21 : MainAPI() {
 
             val candidates = _g9(document, resolvedUrl)
             val requestedPath = _h1(initialUrl)
-            val activeEpisode = document.selectFirst(_q9("XaMvX4UdVUOcpfGdfuHi2eokzNvenUOgmugpl/2H"))
+            val activeEpisode = document.selectFirst(_j2.selector(_q9("Sax1U4MRY1yRs7OVcg==")))
                 ?.attr(_q9("QL1kXA=="))
                 ?.let { _c3(resolvedUrl, it) }
             val matchingEpisode = candidates.firstOrNull { _h1(it) == requestedPath }
@@ -206,9 +204,29 @@ class Layarkaca21 : MainAPI() {
             pageUrl = nextEpisode
         }
 
+        tracePlayback(
+            stage = AgoosePlaybackStage.PLAYER_DISCOVERED,
+            result = if (playerUrls.isNotEmpty()) AgooseTraceResult.PASS else AgooseTraceResult.FAIL,
+            requestUrl = pageUrl,
+            referer = requestReferer,
+            resolver = _q9("WL1uTJwQQ17YsLCQbvfk2fhvwd3JgFq3sg=="),
+            next = "mirrors=${playerUrls.size}",
+            reason = if (playerUrls.isEmpty()) _q9("ZqAhSpkVX0mK4ImjW7Lwlv5kyZjLkkGgs6A5ne60PItM72RKnAdJSJ3vrJBw97aL5H/Z0cST") else null,
+        )
+
         val emitted = linkedSetOf<String>()
         val safeCallback: (ExtractorLink) -> Unit = { link ->
-            if (emitted.add(link.url)) callback(link)
+            if (emitted.add(link.url)) {
+                tracePlayback(
+                    stage = AgoosePlaybackStage.MEDIA_RESOLVED,
+                    result = AgooseTraceResult.PASS,
+                    requestUrl = pageUrl,
+                    referer = requestReferer,
+                    resolver = _q9("bbd1SJQXUkOKjLWffLL1mOdmz9nJnw=="),
+                    next = agooseHostPathSummary(link.url),
+                )
+                callback(link)
+            }
         }
 
         for (playerUrl in playerUrls.sortedBy(::_h3)) {
@@ -217,6 +235,16 @@ class Layarkaca21 : MainAPI() {
                 referer = pageUrl,
                 subtitleCallback = subtitleCallback,
                 callback = safeCallback,
+            )
+        }
+        if (emitted.isEmpty()) {
+            tracePlayback(
+                stage = AgoosePlaybackStage.MEDIA_RESOLVED,
+                result = AgooseTraceResult.FAIL,
+                requestUrl = pageUrl,
+                referer = requestReferer,
+                resolver = _q9("SaNtGpEdVU+XtrmDcva2iedr1N3Y1Fakr+QylvquPZ0="),
+                reason = _q9("ZqAhf40AVE2btLODW/v4kqtvwNHegFCh"),
             )
         }
         return emitted.isNotEmpty()
@@ -242,14 +270,41 @@ class Layarkaca21 : MainAPI() {
                 callback = trackedCallback,
             )
         }
-        if (emitted) return true
+        if (emitted) {
+            tracePlayback(
+                stage = AgoosePlaybackStage.EXTRACTOR_MATCHED,
+                result = AgooseTraceResult.PASS,
+                requestUrl = playerUrl,
+                referer = referer,
+                resolver = _q9("a6NuT5EHUl6dobHRe/33nc5y2crLl0Gqs6B00um/P4dbu2RIkBAGXIqvqphz9+TZ7nLZysuXQaqz"),
+            )
+            return true
+        }
 
-        if (!_f1(playerUrl)) return false
+        if (!_f1(playerUrl)) {
+            tracePlayback(
+                stage = AgoosePlaybackStage.EXTRACTOR_MATCHED,
+                result = AgooseTraceResult.FAIL,
+                requestUrl = playerUrl,
+                referer = referer,
+                resolver = _q9("a6NuT5EHUl6dobHRe/33nc5y2crLl0Gqs6B00um/P4dbu2RIkBAGXIqvqphz9+TZ7nLZysuXQaqz"),
+                reason = _q9("ZqAhVpwaTQydrbWFY/fy2epkyZjEmxWTqOQ+ndW1PIsIqWBWmRZHT5PgvYFn/v+c+A=="),
+            )
+            return false
+        }
+        tracePlayback(
+            stage = AgoosePlaybackStage.EXTRACTOR_MATCHED,
+            result = AgooseTraceResult.PASS,
+            requestUrl = playerUrl,
+            referer = referer,
+            resolver = _q9("WL1uTJwQQ17VrLOSdv62r+JuyNfkm1Gg4eY6nve4OY1D73JfmRFFWJ2k"),
+            reason = _q9("RKBgXrAMUl6Zo6ieZbLzlOJ+2d3O1Fuq4ewynPA="),
+        )
         return _f2(playerUrl, referer, trackedCallback)
     }
 
     private fun _f1(url: String): Boolean = runCatching {
-        URI(url).host?.equals(_f3, ignoreCase = true) == true
+        URI(url).host?.equals(_j2._j13, ignoreCase = true) == true
     }.getOrDefault(false)
 
     private suspend fun _f2(
@@ -262,16 +317,44 @@ class Layarkaca21 : MainAPI() {
                 playerUrl,
                 referer = referer,
                 interceptor = WebViewResolver(
-                    interceptUrl = _f5,
-                    additionalUrls = listOf(_f5),
+                    interceptUrl = _j2._j16,
+                    additionalUrls = listOf(_j2._j16),
                     useOkhttp = false,
-                    timeout = _f4,
+                    timeout = _j2._j14,
                 ),
             )
-        }.getOrNull() ?: return false
+        }.getOrNull() ?: run {
+            tracePlayback(
+                stage = AgoosePlaybackStage.WRAPPER_RESOLVED,
+                result = AgooseTraceResult.FAIL,
+                requestUrl = playerUrl,
+                referer = referer,
+                resolver = _q9("fqZlX5o6SUid4IuUdcT/nPwqydHYkVax7O0+lvK7eIhJo21YlBdN"),
+                reason = _q9("f6pjbJwRUQyRrqiUZfHzif9jwtaKklSsreU/"),
+            )
+            return false
+        }
 
-        val mediaUrl = intercepted.url.takeIf { _f5.containsMatchIn(it) }
-            ?: return false
+        val mediaUrl = intercepted.url.takeIf { _j2._j16.containsMatchIn(it) }
+            ?: run {
+                tracePlayback(
+                    stage = AgoosePlaybackStage.WRAPPER_RESOLVED,
+                    result = AgooseTraceResult.FAIL,
+                    requestUrl = playerUrl,
+                    referer = referer,
+                    resolver = _q9("fqZlX5o6SUid4IuUdcT/nPwqydHYkVax7O0+lvK7eIhJo21YlBdN"),
+                    reason = _q9("ZqAhXpwGQ0+M4LGUc/v32d5Y4ZjDmkGgs+M+gu+/PA=="),
+                )
+                return false
+            }
+        tracePlayback(
+            stage = AgoosePlaybackStage.WRAPPER_RESOLVED,
+            result = AgooseTraceResult.PASS,
+            requestUrl = playerUrl,
+            referer = referer,
+            resolver = _q9("fqZlX5o6SUid4IuUdcT/nPwqydHYkVax7O0+lvK7eIhJo21YlBdN"),
+            next = agooseHostPathSummary(mediaUrl),
+        )
         val mediaHeaders = intercepted.headers.toMap()
 
         if (mediaUrl.contains(_q9("BqIyT80="), ignoreCase = true)) {
@@ -307,10 +390,10 @@ class Layarkaca21 : MainAPI() {
             if (_a3 && _a4) return@withLock
 
             val remoteCandidates = runCatching {
-                JSONObject(app.get(MAIN_URL_JSON).text)._a9()
+                JSONObject(app.get(_j2._j6).text)._a9()
             }.getOrDefault(emptyList())
 
-            val candidates = (remoteCandidates + listOf(DEFAULT_SERIES_URL, DEFAULT_MOVIE_URL))
+            val candidates = (remoteCandidates + listOf(_j2._j4, _j2._j5))
                 .mapNotNull(::_c2)
                 .distinct()
 
@@ -340,7 +423,7 @@ class Layarkaca21 : MainAPI() {
     }
 
     private fun JSONObject._a9(): List<String> {
-        val array = optJSONArray(REMOTE_CONFIG_KEY) ?: return emptyList()
+        val array = optJSONArray(_j2._j7) ?: return emptyList()
         return (0 until array.length())
             .map { index -> array.optString(index) }
             .mapNotNull(::_c2)
@@ -348,28 +431,28 @@ class Layarkaca21 : MainAPI() {
     }
 
     private fun _b0(container: Element, base: String): List<SearchResponse> {
-        return container.select("a")
+        return container.select(_j2.selector(_q9("S65zXqcbSVg=")))
             .asSequence()
-            .filter { it.selectFirst(_q9("Br9uSYERVA==")) != null && it.selectFirst(_q9("Br9uSYERVAGMqaidcg==")) != null }
+            .filter { it.selectFirst(_j2.selector(_q9("S65zXqUbVVidsg=="))) != null && it.selectFirst(_j2.selector(_q9("S65zXqEdUkCd"))) != null }
             .mapNotNull { card ->
-                val title = card.selectFirst(_q9("Br9uSYERVAGMqaidcg=="))?.text()?.trim()?.takeIf { it.isNotBlank() }
+                val title = card.selectFirst(_j2.selector(_q9("S65zXqEdUkCd")))?.text()?.trim()?.takeIf { it.isNotBlank() }
                     ?: return@mapNotNull null
                 val href = card.attr(_q9("QL1kXA==")).trim().takeIf { it.isNotBlank() && it != "#" }
                     ?: return@mapNotNull null
                 val itemUrl = _c3(base, href) ?: return@mapNotNull null
-                val posterNode = card.selectFirst(_q9("Br9uSYERVA=="))
-                val rawCategories = card.selectFirst(_q9("BqhkVIcR"))?.text()
+                val posterNode = card.selectFirst(_j2.selector(_q9("S65zXqUbVVidsg==")))
+                val rawCategories = card.selectFirst(_j2.selector(_q9("S65zXrIRSF6d")))?.text()
                     ?.split(',')
                     ?.map { it.trim() }
                     ?.filter { it.isNotBlank() }
                     .orEmpty()
                 if (_b9(rawCategories, emptyList())) return@mapNotNull null
 
-                val year = posterNode?.selectFirst(_q9("BrZkW4c="))?.text()?.trim()?.toIntOrNull()
-                val image = posterNode?.selectFirst(_q9("QaJm"))
+                val year = posterNode?.selectFirst(_j2.selector(_q9("S65zXqwRR14=")))?.text()?.trim()?.toIntOrNull()
+                val image = posterNode?.selectFirst(_j2.selector(_q9("S65zXrwZR0ud")))
                 val poster = image?.attr(_q9("TK51W9gHVE8="))?.trim()?.takeIf { it.startsWith(_q9("QLt1Sg==")) }
                     ?: image?.attr(_q9("W71i"))?.trim()?.takeIf { it.startsWith(_q9("QLt1Sg==")) }
-                val isSeries = posterNode?.selectFirst(_q9("BqpxU4YbQkk=")) != null
+                val isSeries = posterNode?.selectFirst(_j2.selector(_q9("S65zXrAET1+XpLk="))) != null
 
                 if (isSeries) {
                     newTvSeriesSearchResponse(title, itemUrl, TvType.TvSeries, fix = false) {
@@ -388,13 +471,13 @@ class Layarkaca21 : MainAPI() {
     }
 
     private fun _b1(document: Document, finalUrl: String): _c7 {
-        val watch = document.selectFirst(_q9("C7hgTpYcC0SRs6ieZeu7nep+zA=="))
+        val watch = document.selectFirst(_j2.selector(_q9("X651WZ08T1+Mr66I")))
             ?.let { node -> node.data().ifBlank { node.html() } }
             ?.trim()
             ?.takeIf { it.startsWith("{") }
             ?.let { runCatching { JSONObject(it) }.getOrNull() }
 
-        val heading = document.selectFirst(_q9("BqJuTJwRC0WWprPRf6M="))?.text()?.trim()
+        val heading = document.selectFirst(_j2.selector(_q9("TKp1W5wYbkmZpLWfcA==")))?.text()?.trim()
         val watchTitle = watch?.optStringOrNull(_q9("XKZ1VpA="))
         val watchYear = watch?.optInt(_q9("UapgSA=="))?.takeIf { it > 0 }
         val headingYear = heading?.let { Regex(_q9("dOcpZpEPElHRnPWtZLiy")).find(it)?.groupValues?.getOrNull(1)?.toIntOrNull() }
@@ -403,9 +486,9 @@ class Layarkaca21 : MainAPI() {
             ?: throw ErrorLoadingException(_q9("YrplT5lUQkmMobWdN+b/nephjdzDgFCotOs6nA=="))
 
         val poster = watch?.optStringOrNull(_q9("WKByTpAG"))
-            ?: document.selectFirst(_q9("BqtkTpQdSgKQqbiVcvy2kOZt"))?.attr(_q9("TK51W9gHVE8="))?.trim()?.takeIf { it.startsWith(_q9("QLt1Sg==")) }
-            ?: document.selectFirst(_q9("Rap1W64EVEOIpa6Fbq/5nrFjwNnNkWg="))?.attr(_q9("S6BvTpAaUg=="))?.trim()?.takeIf { it.startsWith(_q9("QLt1Sg==")) }
-        val plotNode = document.selectFirst(_q9("Brx4VJoEVUWL"))
+            ?: document.selectFirst(_j2.selector(_q9("TKp1W5wYdkOLtLmD")))?.attr(_q9("TK51W9gHVE8="))?.trim()?.takeIf { it.startsWith(_q9("QLt1Sg==")) }
+            ?: document.selectFirst(_j2.selector(_q9("R6hIV5QTQw==")))?.attr(_q9("S6BvTpAaUg=="))?.trim()?.takeIf { it.startsWith(_q9("QLt1Sg==")) }
+        val plotNode = document.selectFirst(_j2.selector(_q9("W7ZvVYUHT18=")))
         val plot = plotNode?.attr(_q9("TK51W9gSU0CU"))?.trim()?.takeIf { it.isNotBlank() }
             ?: plotNode?.text()?.trim()?.takeIf { it.isNotBlank() }
 
@@ -414,9 +497,9 @@ class Layarkaca21 : MainAPI() {
         val trailerUrls = _b4(document)
         val score = watch?.optStringOrNull(_q9("Wq51U5sT"))
         val runtime = watch?.optStringOrNull(_q9("WrpvTpwZQw=="))?.let(::_c4)
-            ?: document.select(_q9("BqZvXJpZUk2f4K+Bdvw=")).map { it.text().trim() }
+            ?: document.select(_j2.selector(_q9("QaFnVaEVQV8="))).map { it.text().trim() }
                 .firstNotNullOfOrNull(::_c5)
-        val contentRating = document.select(_q9("BqZvXJpZUk2f4K+Bdvw="))
+        val contentRating = document.select(_j2.selector(_q9("QaFnVaEVQV8=")))
             .map { it.text().trim() }
             .firstOrNull { Regex(_q9("dpNlQcRYFFGk6/g=")).matches(it) }
 
@@ -436,11 +519,11 @@ class Layarkaca21 : MainAPI() {
     }
 
     private fun _b2(document: Document): _c6 {
-        val categories = document.select(_q9("BrtgXdgYT1+M4L2qf+Dzn9U3ipfNkVu3pK98rw=="))
+        val categories = document.select(_j2.selector(_q9("T6pvSJA4T0KTsw==")))
             .map { it.text().trim() }
             .filter { it.isNotBlank() }
             .distinct()
-        val tags = document.select(_q9("BrtgXdgYT1+M4L2qf+Dzn9U3ipfelVLq5t0="))
+        val tags = document.select(_j2.selector(_q9("XK5mdpwaTV8=")))
             .map { it.text().trim() }
             .filter { it.isNotBlank() }
             .distinct()
@@ -448,8 +531,8 @@ class Layarkaca21 : MainAPI() {
     }
 
     private fun _b3(document: Document): List<String> {
-        val detailActors = document.select(_q9("BqtkTpQdSgKQqbiVcvy2iQ==")).firstOrNull { p ->
-            p.selectFirst(_q9("W79gVA=="))?.text()?.trim()?.startsWith(_q9("aqZvTpQaQQy+qbCc"), ignoreCase = true) == true
+        val detailActors = document.select(_j2.selector(_q9("TKp1W5wYdk2KobuDduL+ig=="))).firstOrNull { p ->
+            p.selectFirst(_q9("W79gVA=="))?.text()?.trim()?.startsWith(_j2._j12, ignoreCase = true) == true
         }?.select("a")
             ?.map { it.text().trim() }
             ?.filter { it.isNotBlank() }
@@ -461,7 +544,7 @@ class Layarkaca21 : MainAPI() {
     }
 
     private fun _b31(document: Document): List<String> {
-        for (script in document.select(_q9("W6xzU4UAfViBsLnMMPPmiedjztnenVqr7uw/2fGpN4APkg=="))) {
+        for (script in document.select(_j2.selector(_q9("QrxuVLkQ")))) {
             val raw = script.data().ifBlank { script.html() }.trim()
             if (!raw.startsWith("{")) continue
             val json = runCatching { JSONObject(raw) }.getOrNull() ?: continue
@@ -476,8 +559,8 @@ class Layarkaca21 : MainAPI() {
 
     private fun _b4(document: Document): List<String> {
         val urls = mutableListOf<String>()
-        urls += document.select(_q9("SeF4TtgYT0uQtL6eb8n+i+5s8A==")).map { it.attr(_q9("QL1kXA==")).trim() }
-        urls += document.select(_q9("QalzW5gRfV+Ko/bMMOv5jP9/z92El1qo7uU2kP6+f7ME72hchxVLSaOzrpI9r7GA5H/ZzciRGKuu4zSd8LM9wEugbBWQGURJnOeB"))
+        urls += document.select(_j2.selector(_q9("XL1gU5kRVG2Wo7SeZeE="))).map { it.attr(_q9("QL1kXA==")).trim() }
+        urls += document.select(_j2.selector(_q9("XL1gU5kRVGWesr2ccuE=")))
             .mapNotNull { iframe -> _b5(iframe.attr(_q9("W71i"))) }
         return urls.filter { it.startsWith(_q9("QLt1Sg==")) }.distinct()
     }
@@ -495,7 +578,7 @@ class Layarkaca21 : MainAPI() {
     }
 
     private fun _b6(document: Document, base: String): List<com.lagradost.cloudstream3.Episode> {
-        val script = document.selectFirst(_q9("C7xkW4YbSAGcoaiQ")) ?: return emptyList()
+        val script = document.selectFirst(_j2.selector(_q9("W6pzU5AHa02Kq7mD"))) ?: return emptyList()
         val raw = script.data().ifBlank { script.html() }.trim()
         val json = runCatching { JSONObject(raw) }.getOrNull() ?: return emptyList()
         val episodes = mutableListOf<com.lagradost.cloudstream3.Episode>()
@@ -527,11 +610,11 @@ class Layarkaca21 : MainAPI() {
 
     private fun _b7(document: Document, pageUrl: String): List<String> {
         val raw = mutableListOf<String>()
-        document.select(_q9("C79tW4wRVAGUqa+FN/PNnep+zJXfhlmY7aB4gve7IYta4m1ThgAGTaOorpRxzw==")).forEach { node ->
+        document.select(_j2.selector(_q9("WKNgQ5AGZ0KbqLODZA=="))).forEach { node ->
             raw += node.attr(_q9("TK51W9gBVEA=")).ifBlank { node.attr(_q9("QL1kXA==")) }
         }
-        document.select(_q9("C79tW4wRVAGLpbCUdOa2lvt+xNfEr0OkrfU+rw==")).forEach { raw += it.attr(_q9("Xq5tT5A=")) }
-        document.select(_q9("QalzW5gRBUGZqbLcZ/73gO549svYl2g=")).forEach { raw += it.attr(_q9("W71i")) }
+        document.select(_j2.selector(_q9("WKNgQ5AGaVyMqbOfZA=="))).forEach { raw += it.attr(_q9("Xq5tT5A=")) }
+        document.select(_j2.selector(_q9("Ra5oVKUYR1WdspWXZfP7nA=="))).forEach { raw += it.attr(_q9("W71i")) }
         return raw.mapNotNull { _c3(pageUrl, it) }.distinct()
     }
 
@@ -539,7 +622,7 @@ class Layarkaca21 : MainAPI() {
         val base = _c2(pageUrl) ?: _a1
         val urls = mutableListOf<String>()
         urls += _b6(document, base).map { it.data }
-        urls += document.select(_q9("XaMvX4UdVUOcpfGdfuHi2epRxcrPkmg="))
+        urls += document.select(_j2.selector(_q9("Tb9oSZoQQ2CRrreC")))
             .mapNotNull { node -> _c3(pageUrl, node.attr(_q9("QL1kXA=="))) }
         return urls.distinct()
     }
@@ -547,9 +630,9 @@ class Layarkaca21 : MainAPI() {
     private fun _h0(document: Document, url: String): Boolean {
         val webType = document.body()?.attr(_q9("TK51W9gDQ06ntKWBcg=="))?.trim()?.lowercase(Locale.ROOT)
         if (webType == _q9("W6pzU5AH") || webType == _q9("Tb9oSZoQQw==")) return true
-        if (document.selectFirst(_q9("C7xkW4YbSAGcoaiQO7LjlaVv3dHZm1Gg7Owyge/6ObVAvWRcqA==")) != null) return true
+        if (document.selectFirst(_j2.selector(_q9("W6pzU5AHdkCZub6QdPnbmPlhyMrZ"))) != null) return true
         val host = runCatching { URI(url).host }.getOrNull()
-        val seriesHosts = listOf(_a1, DEFAULT_SERIES_URL)
+        val seriesHosts = listOf(_a1, _j2._j4)
             .mapNotNull { base -> runCatching { URI(base).host }.getOrNull() }
         return host != null && seriesHosts.any { host.equals(it, ignoreCase = true) }
     }
@@ -636,14 +719,14 @@ class Layarkaca21 : MainAPI() {
     private fun _f6(url: String): String {
         val value = url.trim()
         val uri = runCatching { URI(value) }.getOrNull() ?: return value
-        val isMovieHost = listOf(_a2, DEFAULT_MOVIE_URL)
+        val isMovieHost = listOf(_a2, _j2._j5)
             .mapNotNull { base -> runCatching { URI(base).host }.getOrNull() }
             .any { host -> uri.host.equals(host, ignoreCase = true) }
-        if (!isMovieHost || uri.path?.trimEnd('/') != _q9("B6FuVIEbSEiKobGQ")) return value
+        if (!isMovieHost || uri.path?.trimEnd('/') != _j2._j10) return value
 
         val slug = uri.rawQuery
             ?.split('&')
-            ?.firstOrNull { part -> part.substringBefore('=', "").equals(_q9("WK5mXw=="), ignoreCase = true) }
+            ?.firstOrNull { part -> part.substringBefore('=', "").equals(_j2._j11, ignoreCase = true) }
             ?.substringAfter('=', "")
             ?.trim()
             ?.trimStart('/')
@@ -679,6 +762,29 @@ class Layarkaca21 : MainAPI() {
     private fun JSONObject.optStringOrNull(key: String): String? =
         optString(key).trim().takeIf { it.isNotBlank() && it != _q9("RrptVg==") }
 
+    private fun tracePlayback(
+        stage: AgoosePlaybackStage,
+        result: AgooseTraceResult,
+        requestUrl: String,
+        referer: String? = null,
+        resolver: String? = null,
+        next: String? = null,
+        reason: String? = null,
+    ) {
+        modularPlaybackTrace.record(
+            AgoosePlaybackEvent(
+                provider = name,
+                stage = stage,
+                result = result,
+                requestSummary = agooseHostPathSummary(requestUrl),
+                refererSummary = referer?.let(::agooseHostPathSummary),
+                resolver = resolver,
+                next = next,
+                reason = reason,
+            ),
+        )
+    }
+
     private data class _c6(
         val categories: List<String>,
         val tags: List<String>,
@@ -699,16 +805,7 @@ class Layarkaca21 : MainAPI() {
     )
 
     companion object {
-        private const val DEFAULT_SERIES_URL = "https://tv6.nontondrama.my"
-        private const val DEFAULT_MOVIE_URL = "https://tv12.lk21official.cc"
-        private const val MAIN_URL_JSON = "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
-        private const val REMOTE_CONFIG_KEY = "Layarkaca21"
-        private const val _f3 = "videonode.de"
-        private const val _f4 = 20_000L
-        private const val MAX_EPISODE_PAGE_HOPS = 3
-        private val _f5 = Regex(_q9("APBoE91LHHDWre+EL+7K1+Z6mZGCyw+e/qMGjr/z"))
-        private val BLOCKED_CATEGORIES = emptySet<String>()
-        private val BLOCKED_TAGS = emptySet<String>()
+
         private val WHITESPACE = Regex(_q9("dLwq"))
     }
 }
