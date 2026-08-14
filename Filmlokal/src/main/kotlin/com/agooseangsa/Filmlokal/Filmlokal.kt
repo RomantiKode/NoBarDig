@@ -216,8 +216,11 @@ class Filmlokal : MainAPI() {
         document.select(_q9("uflBOmuAtw==")).forEach { anchor ->
             val label = anchor.text().trim()
             if (!label.startsWith(_q9("nM1eJmKJi2lBoErA"), ignoreCase = true)) return@forEach
-            _b1(anchor._a9(_q9("sNBMLg==")), canonicalUrl)
-                ?.let(candidates::add)
+            val downloadUrl = _b1(anchor._a9(_q9("sNBMLg==")), canonicalUrl)
+                ?: return@forEach
+
+            _b8(label, downloadUrl).forEach(candidates::add)
+            candidates.add(downloadUrl)
         }
 
         var emitted = false
@@ -402,6 +405,39 @@ class Filmlokal : MainAPI() {
     private fun resolveSiteUrl(pathOrUrl: String): String {
         if (pathOrUrl.startsWith(_q9("sNZdODTJxQ==")) || pathOrUrl.startsWith(_q9("sNZdOH3cxSI="))) return pathOrUrl
         return "${mainUrl.trimEnd('/')}/${pathOrUrl.trimStart('/')}"
+    }
+
+    private fun _b8(label: String, downloadUrl: String): List<String> {
+        val uri = runCatching { URI(downloadUrl) }.getOrNull() ?: return emptyList()
+        val scheme = uri.scheme?.lowercase(Locale.ROOT) ?: return emptyList()
+        val authority = uri.rawAuthority?.takeIf { it.isNotBlank() } ?: return emptyList()
+        val host = uri.host?.lowercase(Locale.ROOT).orEmpty()
+        val path = uri.rawPath.orEmpty()
+        val query = uri.rawQuery?.let { "?$it" }.orEmpty()
+        val origin = "$scheme://$authority"
+
+        return buildList {
+            when {
+                label.contains(_q9("nsdEKmuC"), ignoreCase = true) &&
+                    host == _q9("ucZaLmeKh2EOnULN/uockf0=") &&
+                    path.startsWith(_q9("98QG")) -> {
+                    add(origin + path.replaceFirst(_q9("98QG"), _q9("99QG")) + query)
+                }
+
+                label.contains(_q9("mcFMLmeKjw=="), ignoreCase = true) &&
+                    (host == _q9("ucFMLmeKjyMCmQ==") || host.endsWith(_q9("9sNKLWiPhmhPlUw="))) &&
+                    path.startsWith(_q9("98QG")) -> {
+                    add(origin + path.replaceFirst(_q9("98QG"), _q9("99JFKXeDmCI=")) + query)
+                }
+
+                (label.contains(_q9("n49tOmeQjw=="), ignoreCase = true) ||
+                    label.contains(_q9("n+ZbIXiD"), ignoreCase = true)) &&
+                    host.contains(_q9("v8ZbIXiDmmEAj0bT")) &&
+                    path.equals(_q9("98ZGP2CKhWwF2FPJoA=="), ignoreCase = true) -> {
+                    add(origin + _q9("98dEKmuC2CMRnlM=") + query)
+                }
+            }
+        }
     }
 
     private fun _b1(value: String, baseUrl: String): String? {
