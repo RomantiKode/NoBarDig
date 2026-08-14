@@ -141,10 +141,129 @@ jobs:
             echo "Anoboy/update-constants.js tidak ditemukan; dilewati."
           fi
 
+      - name: Verify TMDB credentials
+        if: steps.detect_modules.outputs.module_count != '0'
+        working-directory: src
+        shell: bash
+        env:
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${TMDB_READ_ACCESS_TOKEN:-}" ]; then
+            echo "TMDB_READ_ACCESS_TOKEN: PRESENT"
+          else
+            echo "TMDB_READ_ACCESS_TOKEN: MISSING"
+          fi
+
+          if [ -n "${TMDB_API_KEY:-}" ]; then
+            echo "TMDB_API_KEY: PRESENT"
+          else
+            echo "TMDB_API_KEY: MISSING"
+          fi
+
+          if [ -d "Layarkaca21" ] && \
+             [ -z "${TMDB_READ_ACCESS_TOKEN:-}" ] && \
+             [ -z "${TMDB_API_KEY:-}" ]; then
+            echo "WARNING: Credential TMDB tidak tersedia."
+            echo "Build tetap dilanjutkan; metadata akan memakai fallback provider/website."
+          else
+            echo "Credential TMDB tersedia atau tidak diperlukan oleh modul yang terdeteksi."
+          fi
+
+      - name: Validate ProviderProfile JSON
+        if: steps.detect_modules.outputs.module_count != '0'
+        working-directory: src
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYPROFILE'
+          import json
+          from pathlib import Path
+
+          required = {
+              "schema",
+              "provider",
+              "websiteKey",
+              "remote",
+              "defaults",
+              "endpoints",
+              "selectors",
+              "playback",
+              "contentFilter",
+          }
+          object_fields = {
+              "remote",
+              "defaults",
+              "endpoints",
+              "selectors",
+              "playback",
+              "contentFilter",
+          }
+          validated = 0
+
+          for module in sorted(path for path in Path(".").iterdir() if path.is_dir()):
+              build = module / "build.gradle.kts"
+              if not build.is_file():
+                  build = module / "build.gradle"
+              if not build.is_file():
+                  continue
+
+              profile = module / "config" / "ProviderProfile.json"
+              build_text = build.read_text(encoding="utf-8", errors="ignore")
+              expects_profile = "AGOOSE_PROVIDER_PROFILE_JSON" in build_text
+
+              if expects_profile and not profile.is_file():
+                  raise SystemExit(f"ProviderProfile required but missing: {profile}")
+
+              if not profile.is_file():
+                  continue
+
+              try:
+                  data = json.loads(profile.read_text(encoding="utf-8"))
+              except json.JSONDecodeError as exc:
+                  raise SystemExit(f"Invalid JSON: {profile}: {exc}") from exc
+
+              if not isinstance(data, dict):
+                  raise SystemExit(f"ProviderProfile root must be an object: {profile}")
+
+              missing = sorted(required - set(data))
+              if missing:
+                  raise SystemExit(f"Invalid ProviderProfile: {profile}; missing={missing}")
+
+              if data.get("schema") != "agoose-provider-profile-v1":
+                  raise SystemExit(
+                      f"Invalid ProviderProfile schema: {profile}; "
+                      f"got={data.get('schema')!r}"
+                  )
+
+              for field in sorted(object_fields):
+                  if not isinstance(data.get(field), dict):
+                      raise SystemExit(
+                          f"ProviderProfile field must be an object: "
+                          f"{profile} -> {field}"
+                      )
+
+              if not isinstance(data.get("provider"), str) or not data["provider"].strip():
+                  raise SystemExit(f"ProviderProfile provider must be non-empty: {profile}")
+
+              if not isinstance(data.get("websiteKey"), str) or not data["websiteKey"].strip():
+                  raise SystemExit(f"ProviderProfile websiteKey must be non-empty: {profile}")
+
+              print(f"ProviderProfile PASS: {profile}")
+              validated += 1
+
+          print(f"ProviderProfile files validated: {validated}")
+          PYPROFILE
+
       - name: Build every detected module
         if: steps.detect_modules.outputs.module_count != '0'
         working-directory: src
         shell: bash
+        env:
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           set -euo pipefail
 
