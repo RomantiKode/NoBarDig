@@ -14,8 +14,10 @@ import java.net.URLEncoder
 import java.util.Locale
 
 class Donghub : MainAPI() {
-    override var mainUrl = DEFAULT_MAIN_URL
-    override var name = "Donghub"
+    private val providerProfile = _b3.current
+
+    override var mainUrl = providerProfile.defaultMainUrl
+    override var name = _qD9("MS0yn1BFTA==")
     override var lang = "id"
 
     override val supportedTypes = setOf(
@@ -25,25 +27,34 @@ class Donghub : MainAPI() {
 
     override val hasMainPage = true
     override val mainPage = mainPageOf(
-        LATEST_RELEASE_SOURCE to _qD9("OSMonUtEDqlfkR+vC2g="),
+        *providerProfile.homepage.map { it.key to it.title }.toTypedArray(),
     )
 
     private val mainUrlMutex = Mutex()
     private var mainUrlResolved = false
 
+    private val blockedCategoryKeys by lazy(LazyThreadSafetyMode.NONE) {
+        providerProfile.blockedCategories().mapNotNull(::normalizeTaxonomyName).toSet()
+    }
+
+    private val blockedTagKeys by lazy(LazyThreadSafetyMode.NONE) {
+        providerProfile.blockedTags().mapNotNull(::normalizeTaxonomyName).toSet()
+    }
+
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         ensureMainUrl()
-        val targetUrl = if (page <= 1) mainUrl else "$mainUrl/page/$page/"
+        val pagePath = providerProfile.endpoint(_qD9("BSM7nWhRWpM=")).replace(_qD9("DjI9n11N"), page.toString())
+        val targetUrl = if (page <= 1) mainUrl else mainUrl + pagePath
         val response = app.get(targetUrl)
         syncMainUrl(response.url)
         val document = response.document
 
-        val latestSection = document.selectFirst(_qD9("WzA5lF1RXZ5J0xavDGhr/yakYFw="))?.parent()
+        val latestSection = document.selectFirst(providerProfile.selector(_qD9("HS0xnUhRSZ5pmBm6EWJ2")))?.parent()
             ?: throw ErrorLoadingException(_qD9("NyM7kVleDrdbiR+9DC1K7iKubErPM4HBqV8xdwE+VUwRIzfYXFlanleIEa8W"))
-        val items = latestSection.select(_qD9("Wy41i0xFXp8a0xi9AA=="))
+        val items = latestSection.select(providerProfile.selector(_qD9("GSsvjFFeSbhbjx69")))
             .mapNotNull(::_a0)
 
-        val hasNext = document.select(_qD9("FGwuo1BCS51n0VqvVmN98zrlfVjNdujAslU7ZxFtek0HJzql")).any { anchor ->
+        val hasNext = document.select(providerProfile.selector(_qD9("BSM7kVZRWpJVkzanFmZr"))).any { anchor ->
             val href = anchor.attr(_qD9("HTA5ng=="))
             href.contains("/page/${page + 1}/") || anchor.text().trim().equals(_qD9("OyckjA=="), ignoreCase = true)
         }
@@ -54,12 +65,14 @@ class Donghub : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         ensureMainUrl()
         val encoded = URLEncoder.encode(query.trim(), _qD9("IBYa1QA="))
-        val response = app.get("$mainUrl/?s=$encoded")
+        val searchPath = providerProfile.endpoint(_qD9("Bic9iltYfppOlQ=="))
+        val searchParam = providerProfile.endpoint(_qD9("Bic9iltYfppInBc="))
+        val response = app.get(mainUrl + searchPath + "?" + searchParam + "=" + encoded)
         syncMainUrl(response.url)
         val document = response.document
 
-        val scoped = document.select(_qD9("WzIzi0xSQZ9D3VSiEX5s/j6vLRfIYL0="))
-        val cards = if (scoped.isNotEmpty()) scoped else document.select(_qD9("Wy41i0xFXp8a0xi9AA=="))
+        val scoped = document.select(providerProfile.selector(_qD9("Bic9iltYfZhVjR+qO2xq7z0=")))
+        val cards = if (scoped.isNotEmpty()) scoped else document.select(providerProfile.selector(_qD9("GSsvjFFeSbhbjx69")))
         return cards.mapNotNull(::_a0).distinctBy { it.url }
     }
 
@@ -72,7 +85,7 @@ class Donghub : MainAPI() {
         var canonicalUrl = canonicalUrl(document) ?: response.url
 
         if (isEpisodePage(document)) {
-            val detailUrl = document.selectFirst(_qD9("FBk9ilFRA5dbnx+iRUx0526OfVDZfKHLtGUCahF7R3g="))
+            val detailUrl = document.selectFirst(providerProfile.selector(_qD9("FC4wvUhZXZRemAmCEWNz")))
                 ?.attr(_qD9("HTA5ng=="))
                 ?.trim()
                 ?.takeIf { it.isNotBlank() }
@@ -85,7 +98,7 @@ class Donghub : MainAPI() {
         }
 
         val website = _a1(document, canonicalUrl)
-        enforceContentAllowed(website.categories, website.rawTags)
+        _b7(website.categories, website.rawTags)
 
         val tmdb = _a8(
             AgooseTmdbIdentity(
@@ -159,11 +172,11 @@ class Donghub : MainAPI() {
         val referer = canonicalUrl(document) ?: response.url
 
         val embeds = linkedSetOf<String>()
-        document.select(_qD9("Vicxml1UcZNVkR6rCi1x7TyqYFzxYLfNmg==")).forEach { iframe ->
+        document.select(providerProfile.selector(_qD9("BTA1lVlCV75Xnx+qCw=="))).forEach { iframe ->
             _a4(iframe.attr(_qD9("BjA/")))?.let(embeds::add)
         }
 
-        document.select(_qD9("BicwnVtEAJZTjwihCi13+zqiYlfxZaTCsl0E")).forEach { option ->
+        document.select(providerProfile.selector(_qD9("GCsuildCYYtOlBWgCw=="))).forEach { option ->
             _a3(option.attr(_qD9("AyMwjV0=")))?.let(embeds::add)
         }
 
@@ -178,16 +191,16 @@ class Donghub : MainAPI() {
     }
 
     private fun _a0(card: Element): SearchResponse? {
-        val anchor = card.selectFirst(_qD9("FGwokUhrRolfmyc=")) ?: card.selectFirst(_qD9("FBk0il1Wcw==")) ?: return null
+        val anchor = card.selectFirst(providerProfile.selector(_qD9("FiMunGhCS51fjwirHEFx5SU="))) ?: card.selectFirst(providerProfile.selector(_qD9("FiMunH5RQpdYnBmlNGR24A=="))) ?: return null
         val href = anchor.attr(_qD9("HTA5ng==")).trim().takeIf { it.isNotBlank() } ?: return null
         val url = normalizeProviderUrl(href)
-        val title = card.selectFirst(_qD9("WzYo2FAC"))?.text()?.trim()
+        val title = card.selectFirst(providerProfile.selector(_qD9("FiMunGxZWpdf")))?.text()?.trim()
             ?.takeIf { it.isNotBlank() }
             ?: anchor.attr(_qD9("ASsolF0=")).trim().takeIf { it.isNotBlank() }
-            ?: card.selectFirst(_qD9("WzYo"))?.ownText()?.trim()?.takeIf { it.isNotBlank() }
+            ?: card.selectFirst(providerProfile.selector(_qD9("FiMunGxZWpdfuxuiFG956CU=")))?.ownText()?.trim()?.takeIf { it.isNotBlank() }
             ?: return null
-        val typeLabel = card.selectFirst(_qD9("WzYliF1K"))?.text()?.trim().orEmpty()
-        val poster = card.selectFirst(_qD9("HC87"))?.let(::imageUrl)
+        val typeLabel = card.selectFirst(providerProfile.selector(_qD9("FiMunGxJXp4=")))?.text()?.trim().orEmpty()
+        val poster = card.selectFirst(providerProfile.selector(_qD9("FiMunHFdT5xf")))?.let(::imageUrl)
         val isMovie = typeLabel.equals(_qD9("OC0qkV0="), ignoreCase = true)
 
         return if (isMovie) {
@@ -202,11 +215,11 @@ class Donghub : MainAPI() {
     }
 
     private fun _a1(document: Document, canonicalUrl: String): _a7 {
-        val title = document.selectFirst(_qD9("WyA1n1tfQI9fkw7uEDw27iC/f0CHZ6zaq10="))?.text()?.trim()
+        val title = document.selectFirst(providerProfile.selector(_qD9("EScomVFcepJOkR8=")))?.text()?.trim()
             ?.takeIf { it.isNotBlank() }
-            ?: document.selectFirst(_qD9("HXNynVZEXIIXiRO6FGg="))?.text()?.trim()?.takeIf { it.isNotBlank() }
+            ?: document.selectFirst(providerProfile.selector(_qD9("EScomVFcepJOkR+IGWF06S+oZg==")))?.text()?.trim()?.takeIf { it.isNotBlank() }
             ?: throw ErrorLoadingException(_qD9("Pzc4jVQQSp5OnBOiWEl35SmjeFuKZ6zKplN5ZgpqREgAKT2W"))
-        val originalTitle = document.selectFirst(_qD9("WyA1n1tfQI9fkw7uVmx0/yu5"))?.text()?.trim()?.takeIf { it.isNotBlank() }
+        val originalTitle = document.selectFirst(providerProfile.selector(_qD9("EScomVFcYYlTmhOgGWFM4jqnaA==")))?.text()?.trim()?.takeIf { it.isNotBlank() }
         val type = _a5(document, _qD9("ITssnQ=="))
         val isMovie = type?.equals(_qD9("OC0qkV0="), ignoreCase = true) == true
         val status = when (_a5(document, _qD9("JjY9jE1D"))?.lowercase(Locale.ROOT)) {
@@ -216,25 +229,25 @@ class Donghub : MainAPI() {
         }
         val released = _a5(document, _qD9("JycwnVlDS58="))
         val year = released?.let { YEAR_REGEX.find(it)?.value?.toIntOrNull() }
-            ?: document.selectFirst(_qD9("ASsxnWNZWp5XjQihCDB86jquXUzIf6zdr109Xw=="))?.attr(_qD9("ESMonUxZQ54="))
+            ?: document.selectFirst(providerProfile.selector(_qD9("BTc+lFFDRp5eqROjHQ==")))?.attr(_qD9("ESMonUxZQ54="))
                 ?.let { YEAR_REGEX.find(it)?.value?.toIntOrNull() }
         val durationMinutes = parseDurationMinutes(_a5(document, _qD9("MTcumUxZQZU=")))
-        val poster = document.selectFirst(_qD9("WyA1n1tfQI9fkw7uVnlw/iOpLVDHdA=="))?.let(::imageUrl)
-        val plot = document.selectFirst(_qD9("WyA1gFpfVtVJhBS+WCN95Tq5dBTJfKvaolYtWQpqREgFMDOIBVRLiFmPE74MZHflEw=="))
+        val poster = document.selectFirst(providerProfile.selector(_qD9("EScomVFcfpRJiR+8")))?.let(::imageUrl)
+        val plot = document.selectFirst(providerProfile.selector(_qD9("EScomVFcfpdViQ==")))
             ?.text()?.trim()?.takeIf { it.isNotBlank() }
-        val categories = document.select(_qD9("WyU5lkBVSttbpgirFDBs6imW"))
+        val categories = document.select(providerProfile.selector(_qD9("FiMonV9fXJJfjg==")))
             .map { it.text().trim() }
             .filter { it.isNotBlank() }
             .distinct()
-        val rawTags = document.select(_qD9("WyAzjExfQ9VOnB29WGxD+SunME3LdJiC5xY7bRdqTkhbNj2fSxBPoFKPH6gl"))
+        val rawTags = document.select(providerProfile.selector(_qD9("ByMrrFlXXQ==")))
             .map { it.text().trim() }
             .filter { it.isNotBlank() }
             .distinct()
-        val episodes = document.select(_qD9("WycslFFDWp5I3Q+iWGFxqy+QZUvPdZg="))
+        val episodes = document.select(providerProfile.selector(_qD9("EDI1i1dUS7dTkxG9")))
             .mapNotNull { anchor ->
                 val href = anchor.attr(_qD9("HTA5ng==")).trim().takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                val number = anchor.selectFirst(_qD9("WycslBVeW5Y="))?.text()?.trim()?.toIntOrNull()
-                val episodeTitle = anchor.selectFirst(_qD9("WycslBVER49WmA=="))?.text()?.trim()
+                val number = anchor.selectFirst(providerProfile.selector(_qD9("EDI1i1dUS7VPkBirCg==")))?.text()?.trim()?.toIntOrNull()
+                val episodeTitle = anchor.selectFirst(providerProfile.selector(_qD9("EDI1i1dUS69TiRar")))?.text()?.trim()
                     ?.takeIf { it.isNotBlank() }
                     ?: "Episode ${number ?: ""}".trim()
                 _a6(normalizeProviderUrl(href), episodeTitle, number)
@@ -259,26 +272,26 @@ class Donghub : MainAPI() {
     }
 
     private fun _a2(document: Document): List<SearchResponse> {
-        val section = document.select(_qD9("WyA1gFpfVg==")).firstOrNull { box ->
-            box.select(_qD9("WzA5lF1RXZ5J3RL8VC02+SunaFjZdraOrws=")).any { heading ->
+        val section = document.select(providerProfile.selector(_qD9("Fi0yjF1eWrlVhQ=="))).firstOrNull { box ->
+            box.select(providerProfile.selector(_qD9("Fy0ksF1RSpJUmgk="))).any { heading ->
                 heading.text().contains(_qD9("Jyc/l1VdS5VemB7uK2hq4iu4"), ignoreCase = true) ||
                     heading.text().contains(_qD9("Jyc/l1VdS5VenA6nF2M="), ignoreCase = true)
             }
         } ?: return emptyList()
 
-        return section.select(_qD9("Wy41i0xFXp8a0xi9AA=="))
+        return section.select(providerProfile.selector(_qD9("Byc/l1VdS5VenA6nF2Nb6jyvfg==")))
             .mapNotNull(::_a0)
             .distinctBy { it.url }
     }
 
     private fun parseWebsiteTrailerUrls(document: Document): List<String> {
-        val trailerSection = document.select(_qD9("WyA1gFpfVg==")).firstOrNull { box ->
-            box.select(_qD9("WzA5lF1RXZ5J3RL8VC02+SunaFjZdraOrws=")).any { heading ->
+        val trailerSection = document.select(providerProfile.selector(_qD9("Fi0yjF1eWrlVhQ=="))).firstOrNull { box ->
+            box.select(providerProfile.selector(_qD9("Fy0ksF1RSpJUmgk="))).any { heading ->
                 heading.text().contains(_qD9("ITA9kVRVXA=="), ignoreCase = true)
             }
         } ?: return emptyList()
 
-        return trailerSection.select(_qD9("HCQumVVVdYhInifiWGxD4zyua2Q="))
+        return trailerSection.select(providerProfile.selector(_qD9("ATA9kVRVXLdTkxG9")))
             .mapNotNull { element ->
                 val raw = element.attr(_qD9("BjA/")).ifBlank { element.attr(_qD9("HTA5ng==")) }
                 _a4(raw)?.takeIf { url ->
@@ -300,8 +313,8 @@ class Donghub : MainAPI() {
         .map { TrailerData(it, referer, false) }
 
     private fun _a5(document: Document, label: String): String? {
-        for (span in document.select(_qD9("WzEsnRhDXppU"))) {
-            val key = span.selectFirst("b")?.text()?.trim()?.removeSuffix(":") ?: continue
+        for (span in document.select(providerProfile.selector(_qD9("BjI5m2tAT5VJ")))) {
+            val key = span.selectFirst(providerProfile.selector(_qD9("BjI5m3RRTJ5W")))?.text()?.trim()?.removeSuffix(":") ?: continue
             if (!key.equals(label, ignoreCase = true)) continue
             return span.text().substringAfter(":", "").trim().takeIf { it.isNotBlank() }
         }
@@ -321,7 +334,7 @@ class Donghub : MainAPI() {
     private fun _a3(encoded: String): String? {
         if (encoded.isBlank()) return null
         val decoded = runCatching { base64Decode(encoded) }.getOrNull() ?: return null
-        val iframeSrc = Jsoup.parse(decoded).selectFirst(_qD9("HCQumVVVdYhInic="))?.attr(_qD9("BjA/")) ?: return null
+        val iframeSrc = Jsoup.parse(decoded).selectFirst(providerProfile.selector(_qD9("GCsuildCZ51InBer")))?.attr(_qD9("BjA/")) ?: return null
         return _a4(iframeSrc)
     }
 
@@ -343,12 +356,12 @@ class Donghub : MainAPI() {
     }
 
     private fun canonicalUrl(document: Document): String? =
-        document.selectFirst(_qD9("GSsyk2NCS5cHnhugF2Nx6C+nUGLCYaDImg=="))?.attr(_qD9("HTA5ng=="))?.trim()?.takeIf { it.isNotBlank() }
+        document.selectFirst(providerProfile.selector(_qD9("FiMyl1ZZTZpWsROgEw==")))?.attr(_qD9("HTA5ng=="))?.trim()?.takeIf { it.isNotBlank() }
             ?.let(::normalizeProviderUrl)
 
     private fun isEpisodePage(document: Document): Boolean =
-        document.selectFirst(_qD9("Vicxml1UcZNVkR6rCg==")) != null ||
-            document.selectFirst(_qD9("FDAokVtcS6BTiR+jDHRo7mT2SEnDYKrKomU=")) != null
+        document.selectFirst(providerProfile.selector(_qD9("EDI1i1dUS6tIlBevCnRV6jygaEs="))) != null ||
+            document.selectFirst(providerProfile.selector(_qD9("EDI1i1dUS7pIiROtFGhV6jygaEs="))) != null
 
     private fun normalizeProviderUrl(raw: String): String {
         val value = raw.trim()
@@ -367,40 +380,40 @@ class Donghub : MainAPI() {
             if (mainUrlResolved) return@withLock
 
             val remoteCandidates = runCatching {
-                JSONObject(app.get(MAIN_URL_JSON).text).readMainUrlCandidates()
+                JSONObject(app.get(providerProfile.websiteJsonUrl).text)._b4()
             }.getOrDefault(emptyList())
 
-            val candidates = (remoteCandidates + DEFAULT_MAIN_URL)
-                .mapNotNull(::normalizeHttpBaseUrl)
+            val candidates = (remoteCandidates + providerProfile.defaultMainUrl)
+                .mapNotNull(::_b5)
                 .distinct()
 
             for (candidate in candidates) {
                 val response = runCatching { app.get(candidate) }.getOrNull() ?: continue
                 if (!response.isSuccessful) continue
 
-                val resolved = normalizeHttpBaseUrl(response.url) ?: continue
+                val resolved = _b5(response.url) ?: continue
                 mainUrl = resolved
                 mainUrlResolved = true
                 return@withLock
             }
 
-            mainUrl = DEFAULT_MAIN_URL
+            mainUrl = providerProfile.defaultMainUrl
         }
     }
 
     private fun syncMainUrl(responseUrl: String?) {
-        normalizeHttpBaseUrl(responseUrl)?.let { mainUrl = it }
+        _b5(responseUrl)?.let { mainUrl = it }
     }
 
-    private fun JSONObject.readMainUrlCandidates(): List<String> {
-        val array = optJSONArray(REMOTE_CONFIG_KEY) ?: return emptyList()
+    private fun JSONObject._b4(): List<String> {
+        val array = optJSONArray(providerProfile.websiteKey) ?: return emptyList()
         return (0 until array.length())
             .map { index -> array.optString(index) }
-            .mapNotNull(::normalizeHttpBaseUrl)
+            .mapNotNull(::_b5)
             .distinct()
     }
 
-    private fun normalizeHttpBaseUrl(url: String?): String? {
+    private fun _b5(url: String?): String? {
         val value = url?.trim()?.removeSuffix("/")?.takeIf { it.isNotBlank() } ?: return null
         return runCatching {
             val uri = URI(value)
@@ -413,27 +426,27 @@ class Donghub : MainAPI() {
         }.getOrNull()
     }
 
-    private fun shouldBlockContent(
+    private fun _b6(
         categories: Iterable<String> = emptyList(),
         tags: Iterable<String> = emptyList(),
     ): Boolean {
         val categoryBlocked = categories
             .asSequence()
             .mapNotNull(::normalizeTaxonomyName)
-            .any { it in BLOCKED_CATEGORY_KEYS }
+            .any { it in blockedCategoryKeys }
         if (categoryBlocked) return true
 
         return tags
             .asSequence()
             .mapNotNull(::normalizeTaxonomyName)
-            .any { it in BLOCKED_TAG_KEYS }
+            .any { it in blockedTagKeys }
     }
 
-    private fun enforceContentAllowed(
+    private fun _b7(
         categories: Iterable<String> = emptyList(),
         tags: Iterable<String> = emptyList(),
     ) {
-        if (shouldBlockContent(categories, tags)) {
+        if (_b6(categories, tags)) {
             throw ErrorLoadingException(_qD9("Pi0yjF1eDp9TnxahE2RqqyGnaFGKeKrAoVE+dxF/UkxVMi6XTllKnkg="))
         }
     }
@@ -467,17 +480,6 @@ class Donghub : MainAPI() {
     )
 
     companion object {
-        private const val DEFAULT_MAIN_URL = "https://donghub.vip"
-        private const val REMOTE_CONFIG_KEY = "Donghub"
-        private const val MAIN_URL_JSON =
-            "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
-        private const val LATEST_RELEASE_SOURCE = "latest-release"
-
-        private val BLOCKED_CATEGORIES = emptySet<String>()
-        private val BLOCKED_TAGS = emptySet<String>()
-        private val BLOCKED_CATEGORY_KEYS = BLOCKED_CATEGORIES.map { it.lowercase(Locale.ROOT) }.toSet()
-        private val BLOCKED_TAG_KEYS = BLOCKED_TAGS.map { it.lowercase(Locale.ROOT) }.toSet()
-
         private val YEAR_REGEX = Regex(_qD9("XX1myQFMHMsToR61SnA="))
         private val DURATION_HM_REGEX = Regex(_qD9("XR440xFsXdEAoQnkUFF8oGc="))
         private val DURATION_MIN_REGEX = Regex(_qD9("XR440xFsXdESwkCjEWNk5iulZE2D"), RegexOption.IGNORE_CASE)

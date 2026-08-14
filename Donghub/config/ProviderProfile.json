@@ -1,0 +1,64 @@
+{
+  "schema": "agoose-provider-profile-v1",
+  "provider": "Donghub",
+  "websiteKey": "Donghub",
+  "remote": {
+    "websiteJsonUrl": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
+  },
+  "defaults": {
+    "mainUrl": "https://donghub.vip"
+  },
+  "homepage": [
+    {
+      "source": "homepage",
+      "key": "latest-release",
+      "title": "Latest Release"
+    }
+  ],
+  "endpoints": {
+    "pagePath": "/page/{page}/",
+    "searchPath": "/",
+    "searchParam": "s"
+  },
+  "selectors": {
+    "homepageSection": ".releases.latesthome",
+    "listingCards": ".listupd .bsx",
+    "paginationLinks": "a.r[href], a.next.page-numbers[href]",
+    "searchScopedCards": ".postbody .listupd .bsx",
+    "allEpisodesLink": "a[aria-label=All Episodes][href]",
+    "primaryEmbeds": "#embed_holder iframe[src]",
+    "mirrorOptions": "select.mirror option[value]",
+    "cardPreferredLink": "a.tip[href]",
+    "cardFallbackLink": "a[href]",
+    "cardTitle": ".tt h2",
+    "cardTitleFallback": ".tt",
+    "cardType": ".typez",
+    "cardImage": "img",
+    "detailTitle": ".bigcontent h1.entry-title",
+    "detailTitleFallback": "h1.entry-title",
+    "detailOriginalTitle": ".bigcontent .alter",
+    "publishedTime": "time[itemprop=datePublished]",
+    "detailPoster": ".bigcontent .thumb img",
+    "detailPlot": ".bixbox.synp .entry-content[itemprop=description]",
+    "categories": ".genxed a[rel=tag]",
+    "rawTags": ".bottom.tags a[rel=tag], .bottom.tags a[href]",
+    "episodeLinks": ".eplister ul li a[href]",
+    "episodeNumber": ".epl-num",
+    "episodeTitle": ".epl-title",
+    "contentBox": ".bixbox",
+    "boxHeadings": ".releases h2, .releases h3",
+    "recommendationCards": ".listupd .bsx",
+    "trailerLinks": "iframe[src], a[href]",
+    "specSpans": ".spe span",
+    "specLabel": "b",
+    "mirrorIframe": "iframe[src]",
+    "canonicalLink": "link[rel=canonical][href]",
+    "episodePrimaryMarker": "#embed_holder",
+    "episodeArticleMarker": "article[itemtype*=Episode]"
+  },
+  "playback": {},
+  "contentFilter": {
+    "blockedCategories": [],
+    "blockedTags": []
+  }
+}
