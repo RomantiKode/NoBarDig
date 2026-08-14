@@ -105,10 +105,10 @@
     },
     {
         "iconUrl": "https://unairi.ac.id/wp-content/uploads/2024/01/cropped-favicon.png",
-        "fileHash": "sha256-d8ce2691db93a04308ff052d90c41ade5f2380ca50fbba7cc184f60b1621ad9c",
+        "fileHash": "sha256-e65ceac50df9a64a8b676100fa417b78dc61ed0fd36bb273e052e4065db9f996",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 49417,
+        "fileSize": 53389,
         "status": 1,
         "language": "id",
         "authors": [
@@ -118,7 +118,7 @@
             "Movie",
             "TvSeries"
         ],
-        "version": 2,
+        "version": 3,
         "internalName": "MidasXXI",
         "description": "MIDASXXI Tempat seru buat nonton film dan drama Korea! Mulai dari LK21, IDLIX, hingga Bioskopkeren, Rebahin Sub Indo. dan Nonton Film semi bikin mager makin asyik!",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/MidasXXI.cs3",
