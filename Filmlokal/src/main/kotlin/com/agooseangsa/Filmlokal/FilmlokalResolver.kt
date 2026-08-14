@@ -7,7 +7,9 @@ import com.lagradost.cloudstream3.utils.loadExtractor
 import com.lagradost.cloudstream3.utils.newExtractorLink
 import java.net.URI
 
-internal class _a0 {
+internal class _a0(
+    private val maxDepth: Int = 5,
+) {
     suspend fun resolve(
         url: String,
         referer: String,
@@ -33,7 +35,7 @@ internal class _a0 {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
-        if (depth > MAX_DEPTH) return false
+        if (depth > maxDepth) return false
         val absoluteUrl = normalizeHttpUrl(url, referer) ?: return false
         val stateKey = "$absoluteUrl\u0000$referer"
         if (!visited.add(stateKey)) return false
@@ -138,7 +140,6 @@ internal class _a0 {
     }.getOrDefault(_q9("nMtbLW2S"))
 
     companion object {
-        private const val MAX_DEPTH = 5
         private val DIRECT_MEDIA = Regex(_q9("hIwBdzSL2XhZik7R5OUCgPqkTT7c469G"), RegexOption.IGNORE_CASE)
         private val META_REFRESH = Regex(_q9("8J1AYXuUhlES3B79o7MuwrqUDnv32aFACaEW2w=="))
         private val JS_LOCATION = Regex(_q9("8J1AYSbZ0HoImEfOp8VbzKelXjDN8+8NXNQCyK29eI+9xAB3UpXAMD2FCfr3uyjNw5cWcfGsrzkV3mA="))

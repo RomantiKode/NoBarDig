@@ -35,8 +35,10 @@ import java.nio.charset.StandardCharsets
 import java.util.Locale
 
 class Filmlokal : MainAPI() {
-    override var mainUrl = DEFAULT_MAIN_URL
-    override var name = "Filmlokal"
+    private val providerProfile = AgooseProviderProfile.current
+
+    override var mainUrl = providerProfile.defaultMainUrl
+    override var name = providerProfile.provider
     override var lang = "id"
 
     override val supportedTypes = setOf(
@@ -45,19 +47,20 @@ class Filmlokal : MainAPI() {
     )
 
     override val hasMainPage = true
-    override val mainPage = listOf(
-        MainPageData(_q9("nstFJS6yj38RmVPUvPwH"), _q9("vsdIPHuUj2lO")),
-        MainPageData(_q9("nstFJS6yi2UUmAOT4KtA"), _q9("ocdIOiHU2j9U2Q==")),
-        MainPageData(_q9("nstFJS6uhX8TmVE="), _q9("sM1bOmGUxQ==")),
-        MainPageData(_q9("nstFJS61j38Ik1A="), _q9("vstFJSOVj38Ik1CO")),
-    )
+    override val mainPage = providerProfile.homepage.map { item ->
+        MainPageData(item.title, item.source)
+    }
 
     private val mainUrlMutex = Mutex()
     private var mainUrlResolved = false
-    private val _a2 = _a0()
+    private val _a2 = _a0(
+        maxDepth = providerProfile.playbackInt(_q9("tcNRGG+Bj0UOhlA="), 5),
+    )
 
     private val _a3 by lazy(LazyThreadSafetyMode.NONE) {
-        BLOCKED_TAXONOMY_SLUGS.map(::normalizeTaxonomyName).toSet()
+        (providerProfile.blockedCategories() + providerProfile.blockedTags())
+            .map(::normalizeTaxonomyName)
+            .toSet()
     }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
@@ -67,7 +70,7 @@ class Filmlokal : MainAPI() {
         val response = app.get(pageUrl)
         syncMainUrl(response.url)
 
-        val items = response.document.select(LISTING_SELECTOR)
+        val items = response.document.select(providerProfile.selector(_q9("tMtaPGeIjQ=="), LISTING_SELECTOR_FALLBACK))
             .mapNotNull(::_a4)
 
         return newHomePageResponse(
@@ -83,10 +86,13 @@ class Filmlokal : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         ensureMainUrl()
         val encoded = URLEncoder.encode(query, StandardCharsets.UTF_8.toString())
-        val searchUrl = "$mainUrl/?s=$encoded&post_type%5B%5D=post&post_type%5B%5D=tv"
+        val searchPath = providerProfile.endpoint(_q9("q8dIOm2OumwVng=="), "/")
+        val searchParam = providerProfile.endpoint(_q9("q8dIOm2OumwTl04="), "s")
+        val searchBase = resolveSiteUrl(searchPath)
+        val searchUrl = "$searchBase?$searchParam=$encoded&post_type%5B%5D=post&post_type%5B%5D=tv"
         val response = app.get(searchUrl)
         syncMainUrl(response.url)
-        return response.document.select(LISTING_SELECTOR).mapNotNull(::_a4)
+        return response.document.select(providerProfile.selector(_q9("tMtaPGeIjQ=="), LISTING_SELECTOR_FALLBACK)).mapNotNull(::_a4)
     }
 
     override suspend fun load(url: String): LoadResponse {
@@ -107,7 +113,7 @@ class Filmlokal : MainAPI() {
         enforceContentAllowed(categories, nativeTags, taxonomySlugs)
 
         val isSeries = canonicalUrl.contains(_q9("99ZfZw==")) ||
-            document.select(_q9("9sVEOiOKg34VhUbTufwGxfmSWSHJ4axfFdNYgoK8N6A=")).isNotEmpty()
+            document.select(providerProfile.selector(_q9("q8dbIWuVr30IhUzFteo="), SERIES_EPISODE_SELECTOR_FALLBACK)).isNotEmpty()
         val websiteYear = detailField(document, _q9("gcdIOg=="))?.toIntOrNull()
             ?: TITLE_YEAR.find(title)?.groupValues?.getOrNull(1)?.toIntOrNull()
         val poster = bestImageUrl(document.selectFirst(_q9("9sVEOiOLhXsIkw7Fse0Uxf6gVibe4qYLX5sR0t/wf5Osx0c8I5KCeAyUTcC59VWM9a4=")))
@@ -135,7 +141,7 @@ class Filmlokal : MainAPI() {
         val displayDuration = tmdb?.runtimeMinutes ?: durationMinutes(websiteDuration)
 
         return if (isSeries) {
-            val episodes = document.select(_q9("9sVEOiOKg34VhUbTufwGxfmSWSHJ4axfFdNYgoK8N6A="))
+            val episodes = document.select(providerProfile.selector(_q9("q8dbIWuVr30IhUzFteo="), SERIES_EPISODE_SELECTOR_FALLBACK))
                 .mapNotNull { anchor ->
                     val episodeUrl = anchor.absUrl(_q9("sNBMLg==")).ifBlank { anchor._a9(_q9("sNBMLg==")) }
                     val label = anchor.text().trim()
@@ -202,7 +208,7 @@ class Filmlokal : MainAPI() {
         enforceContentAllowed(categories, nativeTags, taxonomySlugs)
 
         val candidates = linkedSetOf<String>()
-        document.select(_q9("9sVEOiOVj38Xk1GMp+sUlbigVyHN6uM5QY5er92zPpCt1EA4fIm1fQ2XWsSixhaK9r1UPdin7wRAnVCXquBinoU=")).forEach { iframe ->
+        document.select(providerProfile.selector(_q9("qM5IMWyHiWYokFHAvfwG"), PLAYBACK_IFRAME_SELECTOR_FALLBACK)).forEach { iframe ->
             iframe.absUrl(_q9("q9BK")).ifBlank { iframe._a9(_q9("q9BK")) }
                 .takeIf(::isPlaybackCandidate)
                 ?.let(candidates::add)
@@ -410,10 +416,10 @@ class Filmlokal : MainAPI() {
             if (mainUrlResolved) return@withLock
 
             val remoteCandidates = runCatching {
-                JSONObject(app.get(MAIN_URL_JSON).text).readMainUrlCandidates()
+                JSONObject(app.get(providerProfile.websiteJsonUrl).text).readMainUrlCandidates()
             }.getOrDefault(emptyList())
 
-            val candidates = (remoteCandidates + DEFAULT_MAIN_URL)
+            val candidates = (remoteCandidates + providerProfile.defaultMainUrl)
                 .mapNotNull(::normalizeHttpBaseUrl)
                 .distinct()
 
@@ -427,7 +433,7 @@ class Filmlokal : MainAPI() {
                 return@withLock
             }
 
-            mainUrl = DEFAULT_MAIN_URL
+            mainUrl = providerProfile.defaultMainUrl
         }
     }
 
@@ -436,7 +442,7 @@ class Filmlokal : MainAPI() {
     }
 
     private fun JSONObject.readMainUrlCandidates(): List<String> {
-        val array = optJSONArray(REMOTE_CONFIG_KEY) ?: return emptyList()
+        val array = optJSONArray(providerProfile.websiteKey) ?: return emptyList()
         return (0 until array.length())
             .map { index -> array.optString(index) }
             .mapNotNull(::normalizeHttpBaseUrl)
@@ -460,27 +466,11 @@ class Filmlokal : MainAPI() {
     private fun tmdbBackdropUrl(path: String): String = "https://image.tmdb.org/t/p/w1280$path"
 
     companion object {
-        private const val DEFAULT_MAIN_URL = "https://tv1.filmlokal.me"
-        private const val REMOTE_CONFIG_KEY = "Filmlokal"
-        private const val MAIN_URL_JSON =
-            "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
-
-        private const val LISTING_SELECTOR =
+        private const val LISTING_SELECTOR_FALLBACK =
             "article.item-infinite, article.item.has-post-thumbnail, article.item"
-
-        private val BLOCKED_TAXONOMY_SLUGS = setOf(
-            _q9("q9daOGuIjn4E"),
-            _q9("6pMEJX6O"),
-            _q9("q9dLZWeIjmI="),
-            _q9("q9dLZWuIjWEIhUs="),
-            _q9("u8dHO2GUj2k="),
-            _q9("vstFJSOVj2AI"),
-            _q9("rcxKLWCVhX8Ekg=="),
-            _q9("tMtfLSOVnn8El07Ivv5YjP+m"),
-            _q9("ssdbPWXLiGwTl1c="),
-            _q9("udFAKWDLi2AAgkbUog=="),
-            _q9("ssNf"),
-        )
+        private const val SERIES_EPISODE_SELECTOR_FALLBACK = ".gmr-listseries a[href*='/eps/']"
+        private const val PLAYBACK_IFRAME_SELECTOR_FALLBACK =
+            ".gmr-server-wrap iframe[src], .muvipro_player_content iframe[src]"
 
         private val TITLE_YEAR = Regex(_q9("hIoBFGqd3nBIqgo="))
         private val TITLE_YEAR_WITH_SPACE = Regex(_q9("hNEDFCa6jnZVi3+IjOpf"))
