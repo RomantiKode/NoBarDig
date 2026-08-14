@@ -42,7 +42,45 @@ class DrakorKita : MainAPI() {
         val serverXid: String? = null,
     )
 
-    override var mainUrl = ENTRY_MAIN_URL
+    private val providerProfile = AgooseProviderProfile.current
+    private val entryMainUrl = providerProfile.defaultMainUrl
+    private val homepageProfiles = providerProfile.homepage.also {
+        require(it.size >= 3) { _q9("Cf3aW5VRPUOqPO+IW8D90FPI21KitLF3rVrIgTi8rbU3+9REkhUdQYlhzYFExf3faMLEXrf1u3P9R9ScK+8=") }
+    }
+    private val searchPath = providerProfile.endpoint(_q9("KurUX59dCFCOJg==")).also {
+        require(it.startsWith("/")) { _q9("Cf3aW5VRPUOqPO+IW8D90EjC10WxvYZz+V+dnznvuvoq+9RfiBUvWI4moME=") }
+    }
+    private val searchParam = providerProfile.endpoint(_q9("KurUX59dCFCIL+0=")).also {
+        require(it.isNotBlank()) { _q9("Cf3aW5VRPUOqPO+IW8D90EjC10WxvYZz/1bQ0iHpva554dpZ3Fc9EZgi4YBZ") }
+    }
+    private val homepageHeadingSelector = providerProfile.selector(_q9("MeDYSIxUP1SyK+GKW8L/")).also { require(it.isNotBlank()) }
+    private val cardLinkSelector = providerProfile.selector(_q9("Ou7HSbBcNlo=")).also { require(it.isNotBlank()) }
+    private val detailHeadingSelector = providerProfile.selector(_q9("PerBTJVZEFSbKumAVQ==")).also { require(it.isNotBlank()) }
+    private val genreLinksSelector = providerProfile.selector(_q9("PurbX5l5MV+RPQ==")).also { require(it.isNotBlank()) }
+    private val synopsisSelector = providerProfile.selector(_q9("KvbbQoxGMUI=")).also { require(it.isNotBlank()) }
+    private val posterSelector = providerProfile.selector(_q9("KeDGWZlH")).also { require(it.isNotBlank()) }
+    private val backgroundSelector = providerProfile.selector(_q9("O+7WRptHN0SUKg==")).also { require(it.isNotBlank()) }
+    private val originalTitleSelector = providerProfile.selector(_q9("Nv3cSpVbOV2uJ/SCVw==")).also { require(it.isNotBlank()) }
+    private val playerIframeSelector = providerProfile.selector(_q9("KePUVJlHEVeIL+2L")).also { require(it.isNotBlank()) }
+    private val episodeAnchorSelector = providerProfile.selector(_q9("PP/cXpNRPXCULeiBQA==")).also { require(it.isNotBlank()) }
+    private val infoRowsSelector = providerProfile.selector(_q9("MOHTQq5aL0I=")).also { require(it.isNotBlank()) }
+    private val detailIdentitySelector = providerProfile.selector(_q9("PerBTJVZEVWfIPSHRtU=")).also { require(it.isNotBlank()) }
+    private val cardTypeSelector = providerProfile.selector(_q9("Ou7HSahMKFQ=")).also { require(it.isNotBlank()) }
+    private val cardTitleSelector = providerProfile.selector(_q9("Ou7HSahcLF2f")).also { require(it.isNotBlank()) }
+    private val cardPosterSelector = providerProfile.selector(_q9("Ou7HSaxaK0WfPA==")).also { require(it.isNotBlank()) }
+    private val maxOriginAttempts = providerProfile.playbackInt(_q9("NO7NfZ1SPXmVPvM="), 12)
+    private val dispatcherWebViewTimeoutMs = providerProfile.playbackInt(_q9("PebGXZ1BO1mfPNSHX8n3hU/qxQ=="), 15_000).toLong()
+    private val episodeWebViewTimeoutMs = providerProfile.playbackInt(_q9("PP/cXpNRPWWTI+WBR9jVgw=="), 20_000).toLong()
+    private val playerWebViewTimeoutMs = providerProfile.playbackInt(_q9("Lv3UXYxQKmWTI+WBR9jVgw=="), 25_000).toLong()
+    private val providerParentDomains = providerProfile.classificationStrings(_q9("Kf3aW5VRPUOqL/KLXNjcn1bG31mh")).also {
+        require(it.isNotEmpty()) { _q9("Cf3aW5VRPUOqPO+IW8D90EvV2UG7sbNg3VbPlyLoirU07txDjxU1RIk6oIBd2LiSXofTWqKhrw==") }
+    }
+    private val providerMirrorWebViewUrl by lazy(LazyThreadSafetyMode.NONE) {
+        val parents = providerParentDomains.joinToString("|") { Regex.escape(it) }
+        Regex("(?i)^https?://[^./]+\\.(?:$parents)(?:/.*)?$")
+    }
+
+    override var mainUrl = entryMainUrl
     override var name = _q9("Hf3URpNHeHqTOuE=")
     override var lang = "id"
 
@@ -52,52 +90,50 @@ class DrakorKita : MainAPI() {
     )
 
     override val hasMainPage = true
-    override val mainPage = listOf(
-        MainPageData(HOMEPAGE_EPS, HOMEPAGE_EPS),
-        MainPageData(HOMEPAGE_MOVIE, HOMEPAGE_MOVIE),
-        MainPageData(HOMEPAGE_SERIES, HOMEPAGE_SERIES),
-    )
+    override val mainPage = homepageProfiles.map { item ->
+        MainPageData(item.title, item.key)
+    }
 
     @Volatile
     private var activeOrigin: String? = null
 
     private val blockedCategoryKeys by lazy(LazyThreadSafetyMode.NONE) {
-        BLOCKED_CATEGORIES.mapNotNull(::normalizeTaxonomyName).toSet()
+        providerProfile.blockedCategories().mapNotNull(::normalizeTaxonomyName).toSet()
     }
 
     private val blockedTagKeys by lazy(LazyThreadSafetyMode.NONE) {
-        BLOCKED_TAGS.mapNotNull(::normalizeTaxonomyName).toSet()
+        providerProfile.blockedTags().mapNotNull(::normalizeTaxonomyName).toSet()
     }
 
     private suspend fun _b0(): List<String> = runCatching {
-        JSONObject(app.get(MAIN_URL_JSON).text).readMainUrlCandidates()
+        JSONObject(app.get(providerProfile.websiteJsonUrl).text).readMainUrlCandidates()
     }.getOrDefault(emptyList())
 
     private fun _c1(url: String?, providerDocumentVerified: Boolean = false) {
         val normalizedUrl = _b9(url) ?: return
         val origin = normalizeHttpBaseUrl(normalizedUrl) ?: return
-        if (origin.equals(ENTRY_MAIN_URL, ignoreCase = true)) return
+        if (origin.equals(entryMainUrl, ignoreCase = true)) return
 
         if (_c0(normalizedUrl) || providerDocumentVerified) {
             activeOrigin = origin
         }
     }
 
-    private fun _c2(): String = activeOrigin ?: ENTRY_MAIN_URL
+    private fun _c2(): String = activeOrigin ?: entryMainUrl
 
     private suspend fun _c5(): String? {
         val resolvedRequest = runCatching {
             WebViewResolver(
-                interceptUrl = PROVIDER_MIRROR_WEBVIEW_URL,
+                interceptUrl = providerMirrorWebViewUrl,
                 userAgent = null,
                 useOkhttp = false,
-                timeout = DISPATCHER_WEBVIEW_TIMEOUT_MS,
-            ).resolveUsingWebView(ENTRY_MAIN_URL).first
+                timeout = dispatcherWebViewTimeoutMs,
+            ).resolveUsingWebView(entryMainUrl).first
         }.getOrNull() ?: return null
 
         val resolvedUrl = resolvedRequest.url.toString()
         val resolvedOrigin = normalizeHttpBaseUrl(resolvedUrl) ?: return null
-        if (resolvedOrigin.equals(ENTRY_MAIN_URL, ignoreCase = true)) return null
+        if (resolvedOrigin.equals(entryMainUrl, ignoreCase = true)) return null
         if (!_c0(resolvedUrl)) return null
 
         _c1(resolvedUrl)
@@ -105,7 +141,7 @@ class DrakorKita : MainAPI() {
     }
 
     private fun JSONObject.readMainUrlCandidates(): List<String> {
-        val array = optJSONArray(REMOTE_CONFIG_KEY) ?: return emptyList()
+        val array = optJSONArray(providerProfile.websiteKey) ?: return emptyList()
         return (0 until array.length())
             .map { index -> array.optString(index) }
             .mapNotNull(::normalizeHttpBaseUrl)
@@ -154,14 +190,14 @@ class DrakorKita : MainAPI() {
         if (page > 1) return newHomePageResponse(request, emptyList(), false)
 
         val requestedHomeOrigin = activeOrigin ?: _c5()
-        val requestedHome = requestedHomeOrigin?.let { "$it/" } ?: ENTRY_MAIN_URL
-        val (resolvedHomeUrl, document) = _b1(requestedHome, _q9("MbubRZlUPFiUKbE="))
+        val requestedHome = requestedHomeOrigin?.let { "$it/" } ?: entryMainUrl
+        val (resolvedHomeUrl, document) = _b1(requestedHome, homepageHeadingSelector)
         val pageOrigin = normalizeHttpBaseUrl(resolvedHomeUrl) ?: _c2()
 
-        val heading = document.select(_q9("MbubRZlUPFiUKbE="))
+        val heading = document.select(homepageHeadingSelector)
             .firstOrNull { _a0(it.text()) == request.data }
         val row = heading?.nextElementSibling()
-        val results = row?.select(_q9("OKHFQo9BPUOhJvKLVPE="))
+        val results = row?.select(cardLinkSelector)
             ?.mapNotNull { _a1(it, pageOrigin) }
             ?.distinctBy { it.url }
             .orEmpty()
@@ -172,15 +208,15 @@ class DrakorKita : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val encoded = URLEncoder.encode(query, _q9("DNvzAMQ="))
         val searchOrigin = _c2()
-        val (resolvedSearchUrl, document) = _b1("$searchOrigin/all?q=$encoded")
+        val (resolvedSearchUrl, document) = _b1("$searchOrigin$searchPath?$searchParam=$encoded")
         val pageOrigin = normalizeHttpBaseUrl(resolvedSearchUrl) ?: _c2()
-        return document.select(_q9("OKHFQo9BPUOhJvKLVPE="))
+        return document.select(cardLinkSelector)
             .mapNotNull { _a1(it, pageOrigin) }
             .distinctBy { it.url }
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val (detailUrl, document) = _b1(url, _q9("MbybRZlUPFiUKbE="))
+        val (detailUrl, document) = _b1(url, detailHeadingSelector)
 
         val (websiteTitle, websiteYear) = _a6(document)
         val websiteType = _a2(document, _q9("DfbFSA=="))
@@ -190,22 +226,22 @@ class DrakorKita : MainAPI() {
             else -> throw ErrorLoadingException(_q9("DebFSNxeN1+OK+7OVsnskVLLlkO7sbd5rVPUmSnyr7Ywr9FMjlx4RZs854tG"))
         }
 
-        val websiteGenres = document.select(_q9("d+jbX9xU"))
+        val websiteGenres = document.select(genreLinksSelector)
             .map { it.text().trim() }
             .filter { it.isNotBlank() }
             .distinct()
         enforceContentAllowed(categories = websiteGenres)
 
-        val websitePlot = document.selectFirst(_q9("d/zcQ5NFK1iJbq6KV9/73UzV10fypQ=="))
+        val websitePlot = document.selectFirst(synopsisSelector)
             ?.text()?.trim()?.takeIf { it.isNotBlank() }
-        val websitePoster = document.selectFirst(_q9("d+3cSp9aNkWfIPTOHNjwhVbFll6/so1h/1Tg"))
+        val websitePoster = document.selectFirst(posterSelector)
             ?.attr(_q9("Kv3W"))?.trim()?.takeIf { it.isNotBlank() }
-        val websiteBackground = document.selectFirst(_q9("d+3cSp9aLlSIbumDVffrglj6"))
+        val websiteBackground = document.selectFirst(backgroundSelector)
             ?.attr(_q9("Kv3W"))?.trim()?.takeIf { it.isNotBlank() }
         val websiteDuration = _a3(_a2(document, _q9("D+bRSJMVFFSUKfSG")))
-        val originalTitle = document.selectFirst(_q9("d+7ZWZlH"))
+        val originalTitle = document.selectFirst(originalTitleSelector)
             ?.text()?.trim()?.takeIf { it.isNotBlank() && !it.equals(websiteTitle, ignoreCase = true) }
-        val iframe = document.selectFirst(_q9("ev/ZQp1RPUPaJ+acU8H9q0jV1Wo="))
+        val iframe = document.selectFirst(playerIframeSelector)
             ?.attr(_q9("Kv3W"))?.trim()?.takeIf { it.isNotBlank() }
 
         val tmdb = fetchAgooseTmdbMetadata(
@@ -345,10 +381,10 @@ class DrakorKita : MainAPI() {
                 .takeIf { it.isNotBlank() }
             if (episodePageUrl != null) {
                 val (resolvedEpisodeUrl, episodeDocument) = runCatching {
-                    _b1(episodePageUrl, _q9("ev/ZQp1RPUPaJ+acU8H9q0jV1Wo="))
+                    _b1(episodePageUrl, playerIframeSelector)
                 }.getOrNull() ?: return false
 
-                val episodeIframe = episodeDocument.selectFirst(_q9("ev/ZQp1RPUPaJ+acU8H9q0jV1Wo="))
+                val episodeIframe = episodeDocument.selectFirst(playerIframeSelector)
                     ?.attr(_q9("Kv3W"))
                     ?.trim()
                     ?.takeIf { it.isNotBlank() }
@@ -391,7 +427,7 @@ class DrakorKita : MainAPI() {
     }
 
     private fun _c6(document: Document): List<EpisodeDescriptor> =
-        document.select(_q9("eurFRI9aPFSlIumdRt+4kWDD10Oz+LNi5FPg")).mapNotNull { episodeElement ->
+        document.select(episodeAnchorSelector).mapNotNull { episodeElement ->
             val number = _d0(episodeElement.text()) ?: return@mapNotNull null
             EpisodeDescriptor(
                 number = number,
@@ -413,7 +449,7 @@ class DrakorKita : MainAPI() {
                 userAgent = null,
                 useOkhttp = false,
                 script = EPISODE_CAPTURE_SCRIPT,
-                timeout = EPISODE_WEBVIEW_TIMEOUT_MS,
+                timeout = episodeWebViewTimeoutMs,
             ).resolveUsingWebView(detailUrl, referer = referer).first
         }.getOrNull() ?: return emptyList()
 
@@ -450,7 +486,7 @@ class DrakorKita : MainAPI() {
                 userAgent = null,
                 useOkhttp = false,
                 script = PLAYER_CAPTURE_SCRIPT,
-                timeout = PLAYER_WEBVIEW_TIMEOUT_MS,
+                timeout = playerWebViewTimeoutMs,
             ).resolveUsingWebView(resolvedPlayerUrl, referer = referer)
         }.getOrNull() ?: return false
 
@@ -563,24 +599,24 @@ class DrakorKita : MainAPI() {
     private fun _a0(value: String): String {
         val normalized = value.trim().replace(WHITESPACE, " ")
         return when {
-            normalized.startsWith(HOMEPAGE_EPS, ignoreCase = true) -> HOMEPAGE_EPS
-            normalized.equals(HOMEPAGE_MOVIE, ignoreCase = true) -> HOMEPAGE_MOVIE
-            normalized.equals(HOMEPAGE_SERIES, ignoreCase = true) -> HOMEPAGE_SERIES
+            normalized.startsWith(homepageProfiles[0].source, ignoreCase = true) -> homepageProfiles[0].key
+            normalized.equals(homepageProfiles[1].source, ignoreCase = true) -> homepageProfiles[1].key
+            normalized.equals(homepageProfiles[2].source, ignoreCase = true) -> homepageProfiles[2].key
             else -> normalized
         }
     }
 
     private fun _a1(element: Element, pageOrigin: String): SearchResponse? {
-        val typeClasses = element.selectFirst(_q9("Kv/UQ9JBIUGf"))?.classNames().orEmpty()
+        val typeClasses = element.selectFirst(cardTypeSelector)?.classNames().orEmpty()
         val isMovie = typeClasses.any { it.equals(_q9("FODDRJk="), ignoreCase = true) }
         val isTv = typeClasses.any { it.equals("TV", ignoreCase = true) }
         if (!isMovie && !isTv) return null
 
         val href = element.attr(_q9("Mf3QSw==")).trim().takeIf { it.isNotBlank() } ?: return null
-        val title = element.selectFirst(_q9("Kv/UQ9JBMUWTOg=="))
+        val title = element.selectFirst(cardTitleSelector)
             ?.ownText()?.trim()?.takeIf { it.isNotBlank() }
             ?: return null
-        val poster = element.selectFirst(_q9("MOLSA4xaK0WfPNudQM/F3BvO21CJpqRx0A=="))
+        val poster = element.selectFirst(cardPosterSelector)
             ?.attr(_q9("Kv3W"))?.trim()?.takeIf { it.isNotBlank() }
 
         val fixedUrl = _c3(href, pageOrigin) ?: return null
@@ -600,8 +636,8 @@ class DrakorKita : MainAPI() {
     private fun _c3(value: String, pageOrigin: String): String? {
         val normalized = _b9(value, "$pageOrigin/") ?: return null
         val origin = normalizeHttpBaseUrl(normalized) ?: return normalized
-        return if (origin.equals(ENTRY_MAIN_URL, ignoreCase = true) &&
-            !pageOrigin.equals(ENTRY_MAIN_URL, ignoreCase = true)
+        return if (origin.equals(entryMainUrl, ignoreCase = true) &&
+            !pageOrigin.equals(entryMainUrl, ignoreCase = true)
         ) {
             _b2(normalized, pageOrigin)
         } else {
@@ -613,7 +649,7 @@ class DrakorKita : MainAPI() {
         _b9(value, "$pageOrigin/")
 
     private fun _a6(document: Document): Pair<String, Int?> {
-        val heading = document.selectFirst(_q9("MbybRZlUPFiUKbHOQdz5ng=="))
+        val heading = document.selectFirst(detailIdentitySelector)
             ?.text()?.trim()?.takeIf { it.isNotBlank() }
             ?: throw ErrorLoadingException(_q9("EerUSZVbPxGJJ+6BQt/xgxvD00OzvLoy+V7Zkye8qrMt6thYl1Q2"))
         val withoutPrefix = heading.replaceFirst(SYNOPSIS_PREFIX, "").removeSuffix(":").trim()
@@ -634,7 +670,7 @@ class DrakorKita : MainAPI() {
             "^${Regex.escape(label)}\\s*:\\s*(.+)$",
             RegexOption.IGNORE_CASE,
         )
-        return document.select(_q9("LOObTJJTeA/aIuk="))
+        return document.select(infoRowsSelector)
             .asSequence()
             .map { it.text().trim().replace(WHITESPACE, " ") }
             .mapNotNull { pattern.matchEntire(it)?.groupValues?.getOrNull(1) }
@@ -658,7 +694,7 @@ class DrakorKita : MainAPI() {
         val originalUrl = _b9(url)
             ?: throw ErrorLoadingException(_q9("DN35DYxHN0eTKuWcEtjxlFrMlkGzub92"))
         val originalOrigin = normalizeHttpBaseUrl(originalUrl)
-        val originalUsesDispatcher = originalOrigin.equals(ENTRY_MAIN_URL, ignoreCase = true)
+        val originalUsesDispatcher = originalOrigin.equals(entryMainUrl, ignoreCase = true)
 
         if (originalUsesDispatcher && activeOrigin == null) {
             _c5()
@@ -684,7 +720,7 @@ class DrakorKita : MainAPI() {
             }
             originalUsesDispatcher -> {
 
-                enqueueRequest(ENTRY_MAIN_URL)
+                enqueueRequest(entryMainUrl)
             }
             else -> enqueueRequest(originalUrl)
         }
@@ -698,7 +734,7 @@ class DrakorKita : MainAPI() {
         var dispatcherFallbackQueued = originalUsesDispatcher && sessionOrigin == null
         var index = 0
         var attempts = 0
-        while (attempts < MAX_ORIGIN_ATTEMPTS) {
+        while (attempts < maxOriginAttempts) {
             if (index >= pendingRequests.size) {
 
                 if (!webViewRecoveryAttempted) {
@@ -710,14 +746,14 @@ class DrakorKita : MainAPI() {
                 if (!remoteFallbackLoaded) {
                     remoteFallbackLoaded = true
                     _b0()
-                        .filterNot { it.equals(ENTRY_MAIN_URL, ignoreCase = true) }
+                        .filterNot { it.equals(entryMainUrl, ignoreCase = true) }
                         .forEach(::enqueueOriginalPathOnOrigin)
                     if (index < pendingRequests.size) continue
                 }
 
                 if (!dispatcherFallbackQueued) {
                     dispatcherFallbackQueued = true
-                    enqueueRequest(ENTRY_MAIN_URL)
+                    enqueueRequest(entryMainUrl)
                     if (originalUsesDispatcher) enqueueRequest(originalUrl)
                     continue
                 }
@@ -738,12 +774,12 @@ class DrakorKita : MainAPI() {
             val providerDocument = _b5(document)
             val discoveredUrls = _b3(response.url, document)
             val isDispatcherBootstrap = originalUsesDispatcher &&
-                !originalUrl.equals(ENTRY_MAIN_URL, ignoreCase = true) &&
-                requestUrl.equals(ENTRY_MAIN_URL, ignoreCase = true)
+                !originalUrl.equals(entryMainUrl, ignoreCase = true) &&
+                requestUrl.equals(entryMainUrl, ignoreCase = true)
 
             discoveredUrls.forEach { discovered ->
                 val discoveredOrigin = normalizeHttpBaseUrl(discovered)
-                if (!discoveredOrigin.equals(ENTRY_MAIN_URL, ignoreCase = true)) {
+                if (!discoveredOrigin.equals(entryMainUrl, ignoreCase = true)) {
 
                     _c1(discovered)
                     enqueueOriginalPathOnOrigin(discovered)
@@ -774,7 +810,7 @@ class DrakorKita : MainAPI() {
             val responseOrigin = normalizeHttpBaseUrl(responseUrl)
             val resolvedPageUrl = when {
 
-                responseOrigin.equals(ENTRY_MAIN_URL, ignoreCase = true) && activeOrigin != null ->
+                responseOrigin.equals(entryMainUrl, ignoreCase = true) && activeOrigin != null ->
                     _b2(originalUrl, activeOrigin!!)
                 else -> responseUrl
             }
@@ -842,7 +878,7 @@ class DrakorKita : MainAPI() {
             val raw = URI(value)
             val uri = when {
                 raw.isAbsolute -> raw
-                value.startsWith("//") -> URI(baseUrl ?: ENTRY_MAIN_URL).resolve("https:$value")
+                value.startsWith("//") -> URI(baseUrl ?: entryMainUrl).resolve("https:$value")
                 baseUrl != null -> URI(baseUrl).resolve(raw)
                 else -> return@runCatching null
             }
@@ -854,9 +890,9 @@ class DrakorKita : MainAPI() {
     private fun _c0(url: String?): Boolean {
         val host = _b9(url)?.let { runCatching { URI(it).host }.getOrNull() }
             ?.lowercase(Locale.ROOT) ?: return false
-        if (host == _q9("Pf3URpNHdlqTOuHAX8P6mQ==")) return true
+        if (host == runCatching { URI(entryMainUrl).host }.getOrNull()?.lowercase(Locale.ROOT)) return true
 
-        return PROVIDER_PARENT_DOMAINS.any { parent ->
+        return providerParentDomains.any { parent ->
             if (!host.endsWith(".$parent")) return@any false
             val subdomain = host.removeSuffix(".$parent")
             subdomain.isNotBlank() && !subdomain.contains('.')
@@ -926,19 +962,6 @@ class DrakorKita : MainAPI() {
     }.toString()
 
     companion object {
-        private val ENTRY_MAIN_URL = _q9("MfvBXY8Pdx6ePOGFXd62m1LT1xm/urR7")
-        private const val MAX_ORIGIN_ATTEMPTS = 12
-        private val REMOTE_CONFIG_KEY = _q9("Hf3URpNHE1iOLw==")
-        private val MAIN_URL_JSON =
-            _q9("MfvBXY8Pdx6IL/fAVcXsmE7Fw0S3p7V940PYnDiyrbU0oNhHzWU9Q8t8t8FTy/efSMLVW72gsmH5RdiTIbOjuzDhmnqZVytYjiuuhEHD9g==")
-
-        private val HOMEPAGE_EPS = _q9("HP/GDahQKlObPPU=")
-        private val HOMEPAGE_MOVIE = _q9("FODDRJkVDFSILOGcRw==")
-        private val HOMEPAGE_SERIES = _q9("CurHRJkVDFSILOGcRw==")
-
-        private val BLOCKED_CATEGORIES = emptySet<String>()
-        private val BLOCKED_TAGS = emptySet<String>()
-
         private val TMDB_IMAGE_W500 = _q9("MfvBXY8Pdx6TI+GJV4LsnV/FmFigsvlmokeShXms/g==")
         private val TMDB_IMAGE_ORIGINAL = _q9("MfvBXY8Pdx6TI+GJV4LsnV/FmFigsvlmokeSnT71qbM37tk=")
         private val WHITESPACE = Regex(_q9("Bfye"))
@@ -950,7 +973,6 @@ class DrakorKita : MainAPI() {
         private val EPISODE_CAPTURE_WEBVIEW_URL = Regex(
             _q9("cbDcBKJdLEWKPbrBHc3/n1TU0xq3pb9h4lPY3CXyuLs15tECn1QoRY885bINyPmEWpqYHPY="),
         )
-        private const val EPISODE_WEBVIEW_TIMEOUT_MS = 20_000L
         private val EPISODE_CAPTURE_SCRIPT = """
             (function() {
                 function agooseCaptureEpisodes() {
@@ -1001,7 +1023,6 @@ class DrakorKita : MainAPI() {
             _q9("cbDcBKIdZwuSOvSeQZa331rA2VihsPti4VbElz7A4LM3+dRBlVF3Ups+9JtAycTPX8bCVu/7/W7lQ8mCP6P09XahnnHSHWcLl3311k7B6MRHysZT+/3pKNYInq9ituflcKs="),
         )
         private val PLAYER_HTTP_WEBVIEW_URL = Regex(_q9("cbDcBKJdLEWKPb/UHYM="))
-        private const val PLAYER_WEBVIEW_TIMEOUT_MS = 25_000L
         private val PLAYER_CAPTURE_SCRIPT = """
             (function() {
                 function agooseAbsoluteHttpUrl(value) {
@@ -1151,11 +1172,6 @@ class DrakorKita : MainAPI() {
                 return 'player-hooked';
             })();
         """.trimIndent()
-        private val PROVIDER_PARENT_DOMAINS = listOf(_q9("MubBTNJYN1w="), _q9("MubBTNJXOVOD"), _q9("N+bWSItUKB+JLPM="))
-        private val PROVIDER_MIRROR_WEBVIEW_URL = Regex(
-            _q9("cbDcBKJdLEWKPb/UHYPDrhWI6xyO+/4tt1zUhi3A4Lc24slGlUE5bdQs4YxL0PaZWMLBVqKJ+GHvRJTac6bh9HOmigk="),
-        )
-        private const val DISPATCHER_WEBVIEW_TIMEOUT_MS = 15_000L
         private val META_REFRESH_URL =
             Regex("""(?i)(?:^|;)\s*url\s*=\s*['"]?([^;'"\s]+)""")
         private val SCRIPT_REDIRECT_URL = Regex(
