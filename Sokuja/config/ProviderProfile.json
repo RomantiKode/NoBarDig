@@ -1,0 +1,64 @@
+{
+  "schema": "agoose-provider-profile-v1",
+  "provider": "Sokuja",
+  "websiteKey": "Sokuja",
+  "remote": {
+    "websiteJsonUrl": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
+  },
+  "defaults": {
+    "mainUrl": "https://x6.sokuja.uk"
+  },
+  "homepage": [
+    {"source": "Ongoing Series", "key": "ongoing", "title": "Ongoing Series"},
+    {"source": "Anime Completed", "key": "completed", "title": "Anime Completed"},
+    {"source": "Anime Populer Mingguan", "key": "popularWeekly", "title": "Anime Populer Mingguan"},
+    {"source": "Anime Populer Bulanan", "key": "popularMonthly", "title": "Anime Populer Bulanan"},
+    {"source": "Anime Populer Sepanjang Masa", "key": "popularAllTime", "title": "Anime Populer Sepanjang Masa"}
+  ],
+  "endpoints": {
+    "searchPath": "/",
+    "searchParam": "s",
+    "animePathPrefix": "/anime/",
+    "episodeMarker": "subtitle-indonesia",
+    "nextImagePath": "/_next/image"
+  },
+  "selectors": {
+    "sectionHeading": "h2",
+    "homeCard": "a.group.block[href^=/anime/]:has(img)",
+    "searchCard": "main a[href^=/anime/]:has(img), a.group.block[href^=/anime/]:has(img)",
+    "cardTitle": "h3",
+    "cardImageAlt": "img[alt]",
+    "cardImage": "img",
+    "cardYearText": "p",
+    "cardBadgeText": "span",
+    "seriesAnchor": "a[href^=/anime/]",
+    "seriesAllEpisodesText": "Semua Episode",
+    "canonicalLink": "link[rel=canonical][href]",
+    "detailTerm": "dt",
+    "detailTitle": "h1",
+    "ogImage": "meta[property=og:image][content]",
+    "genreLink": "a[href^=/genre/]",
+    "jsonLd": "script[type=application/ld+json]",
+    "synopsisHeadingPrefix": "Sinopsis ",
+    "paragraph": "p",
+    "episodeHeadingPrefix": "Daftar Episode",
+    "episodeAnchor": "a[href]",
+    "relatedHeading": "Anime Terkait",
+    "relatedCard": "a.group.block[href^=/anime/]:has(img)",
+    "anyAnchor": "a[href]",
+    "tmdbLink": "a[href*=themoviedb.org/movie/], a[href*=themoviedb.org/tv/]",
+    "imdbLink": "a[href*=imdb.com/title/tt]",
+    "directMedia": "video[src], source[src]"
+  },
+  "playback": {
+    "sectionAncestorHops": 4,
+    "episodeAncestorHops": 4,
+    "playerResolveTimeoutMs": 25000,
+    "finalMediaHost": "storages.sokuja.uk",
+    "providerHostSuffix": ".sokuja.uk"
+  },
+  "contentFilter": {
+    "blockedCategories": [],
+    "blockedTags": []
+  }
+}

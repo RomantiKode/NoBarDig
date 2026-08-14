@@ -1,7 +1,7 @@
 // CANONICAL/READABLE SOURCE BUILD FILE. Protected public source is generated from this module.
 import java.util.Properties
 
-version = 3
+version = 4
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
@@ -16,8 +16,23 @@ val tmdbApiKey = System.getenv("TMDB_API_KEY")
     ?: localProperties.getProperty("tmdb.key")
     ?: ""
 
+// Agoose ProviderProfile Standard v1: canonical non-secret provider configuration.
+val providerProfileFile = project.file("config/ProviderProfile.json")
+require(providerProfileFile.isFile) {
+    "Missing config/ProviderProfile.json (Agoose ProviderProfile Standard v1)"
+}
+val providerProfileJson = providerProfileFile.readText(Charsets.UTF_8).trim()
+require(providerProfileJson.startsWith("{") && providerProfileJson.endsWith("}")) {
+    "config/ProviderProfile.json must contain a JSON object"
+}
+
 fun String.asBuildConfigString(): String =
-    "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+    "\"" + this
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\r", "\\r")
+        .replace("\n", "\\n")
+        .replace("\t", "\\t") + "\""
 
 android {
     namespace = "com.agooseangsa.Sokuja"
@@ -28,6 +43,7 @@ android {
     defaultConfig {
         buildConfigField("String", "TMDB_READ_ACCESS_TOKEN", tmdbReadAccessToken.asBuildConfigString())
         buildConfigField("String", "TMDB_API_KEY", tmdbApiKey.asBuildConfigString())
+        buildConfigField("String", "AGOOSE_PROVIDER_PROFILE_JSON", providerProfileJson.asBuildConfigString())
     }
 }
 
@@ -37,7 +53,7 @@ cloudstream {
     authors = listOf("Agoose")
     iconUrl = "https://x6.sokuja.uk/favicon.png"
 
-    // New provider delivery; kept beta-only until real Cloudstream runtime validation is performed.
+    // First Agoose Modular replacement; runtime playback gate remains beta until device validation.
     status = 3
 
     tvTypes = listOf(
