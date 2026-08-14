@@ -209,16 +209,14 @@ class Filmlokal : MainAPI() {
 
         val candidates = linkedSetOf<String>()
         document.select(providerProfile.selector(_q9("qM5IMWyHiWYokFHAvfwG"), PLAYBACK_IFRAME_SELECTOR_FALLBACK)).forEach { iframe ->
-            iframe.absUrl(_q9("q9BK")).ifBlank { iframe._a9(_q9("q9BK")) }
-                .takeIf(::isPlaybackCandidate)
+            _b1(iframe._a9(_q9("q9BK")), canonicalUrl)
                 ?.let(candidates::add)
         }
 
         document.select(_q9("uflBOmuAtw==")).forEach { anchor ->
             val label = anchor.text().trim()
             if (!label.startsWith(_q9("nM1eJmKJi2lBoErA"), ignoreCase = true)) return@forEach
-            anchor.absUrl(_q9("sNBMLg==")).ifBlank { anchor._a9(_q9("sNBMLg==")) }
-                .takeIf(::isPlaybackCandidate)
+            _b1(anchor._a9(_q9("sNBMLg==")), canonicalUrl)
                 ?.let(candidates::add)
         }
 
@@ -406,8 +404,20 @@ class Filmlokal : MainAPI() {
         return "${mainUrl.trimEnd('/')}/${pathOrUrl.trimStart('/')}"
     }
 
-    private fun isPlaybackCandidate(value: String): Boolean =
-        value.startsWith(_q9("sNZdODTJxQ==")) || value.startsWith(_q9("sNZdOH3cxSI="))
+    private fun _b1(value: String, baseUrl: String): String? {
+        val clean = value.trim().replace(_q9("/sNEODU="), "&")
+        if (clean.isBlank() || clean.startsWith(_q9("ssNfKX2FmGQRghk="), ignoreCase = true)) return null
+
+        return runCatching {
+            val resolved = URI(baseUrl).resolve(clean)
+            val scheme = resolved.scheme?.lowercase()
+            if ((scheme == _q9("sNZdOA==") || scheme == _q9("sNZdOH0=")) && !resolved.host.isNullOrBlank()) {
+                resolved.toString()
+            } else {
+                null
+            }
+        }.getOrNull()
+    }
 
     private suspend fun ensureMainUrl() {
         if (mainUrlResolved) return

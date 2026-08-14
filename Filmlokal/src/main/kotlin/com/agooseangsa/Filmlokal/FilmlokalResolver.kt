@@ -53,19 +53,7 @@ internal class _a0(
             return true
         }
 
-        var builtInProducedMedia = false
-        val extractorMatched = runCatching {
-            loadExtractor(
-                url = absoluteUrl,
-                referer = referer,
-                subtitleCallback = subtitleCallback,
-            ) { link ->
-                builtInProducedMedia = true
-                callback(link)
-            }
-        }.getOrDefault(false)
-
-        if (extractorMatched && builtInProducedMedia) return true
+        if (_b0(absoluteUrl, referer, subtitleCallback, callback)) return true
 
         val response = runCatching {
             app.get(absoluteUrl, referer = referer)
@@ -73,6 +61,24 @@ internal class _a0(
         if (!response.isSuccessful) return false
 
         val effectiveUrl = response.url.ifBlank { absoluteUrl }
+
+        if (effectiveUrl != absoluteUrl) {
+            if (isDirectMedia(effectiveUrl)) {
+                callback(
+                    newExtractorLink(
+                        source = _q9("nstFJWKJgWwN"),
+                        name = hostLabel(effectiveUrl),
+                        url = effectiveUrl,
+                    ) {
+                        this.referer = referer
+                    },
+                )
+                return true
+            }
+
+            if (_b0(effectiveUrl, referer, subtitleCallback, callback)) return true
+        }
+
         val document = response.document
         val candidates = linkedSetOf<String>()
 
@@ -109,6 +115,26 @@ internal class _a0(
             found = childFound || found
         }
         return found
+    }
+
+    private suspend fun _b0(
+        url: String,
+        referer: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+    ): Boolean {
+        var producedMedia = false
+        val matched = runCatching {
+            loadExtractor(
+                url = url,
+                referer = referer,
+                subtitleCallback = subtitleCallback,
+            ) { link ->
+                producedMedia = true
+                callback(link)
+            }
+        }.getOrDefault(false)
+        return matched && producedMedia
     }
 
     private fun org.jsoup.nodes.Element._a9(name: String): String =

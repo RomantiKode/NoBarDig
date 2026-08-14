@@ -2,7 +2,7 @@
 // Protected Public is generated from this source with embedded Agoose-SourceProtect-v1.
 import java.util.Properties
 
-version = 4
+version = 5
 
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
