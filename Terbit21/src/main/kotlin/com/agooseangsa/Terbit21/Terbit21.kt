@@ -15,8 +15,10 @@ import java.net.URI
 import java.util.Locale
 
 class Terbit21 : MainAPI() {
-    override var mainUrl = CURRENT_PUBLIC_MAIN_URL
-    override var name = "Terbit21"
+    private val providerProfile = AgooseProviderProfile.current
+
+    override var mainUrl = providerProfile.defaultMainUrl
+    override var name = providerProfile.provider
     override var lang = "id"
 
     override val supportedTypes = setOf(
@@ -26,20 +28,17 @@ class Terbit21 : MainAPI() {
 
     override val hasMainPage = true
     override val mainPage = mainPageOf(
-        "/" to _q9("M1/fFDsbKQ=="),
-        _q9("SE7bWQ==") to _q9("I0jMGzs="),
-        _q9("SFjIBS5ELte0VfewsA==") to _q9("JV/eAno7PcKpUv4="),
-        _q9("SFnCAzQdLs/vX/G+8c6D") to _q9("I0jMGztJH96pUvg="),
+        *providerProfile.homepage.map { it.source to it.title }.toTypedArray()
     )
 
     private val mainUrlMutex = Mutex()
     private var mainUrlResolved = false
 
     private val blockedCategoryKeys by lazy(LazyThreadSafetyMode.NONE) {
-        BLOCKED_CATEGORIES.mapNotNull(::normalizeTaxonomyName).toSet()
+        providerProfile.blockedCategories().mapNotNull(::normalizeTaxonomyName).toSet()
     }
     private val blockedTagKeys by lazy(LazyThreadSafetyMode.NONE) {
-        BLOCKED_TAGS.mapNotNull(::normalizeTaxonomyName).toSet()
+        providerProfile.blockedTags().mapNotNull(::normalizeTaxonomyName).toSet()
     }
 
     protected suspend fun ensureMainUrl() {
@@ -48,10 +47,10 @@ class Terbit21 : MainAPI() {
             if (mainUrlResolved) return@withLock
 
             val remoteCandidates = runCatching {
-                JSONObject(app.get(MAIN_URL_JSON).text).readMainUrlCandidates()
+                JSONObject(app.get(providerProfile.websiteJsonUrl).text).readMainUrlCandidates()
             }.getOrDefault(emptyList())
 
-            val candidates = (remoteCandidates + CURRENT_PUBLIC_CANDIDATES)
+            val candidates = (remoteCandidates + providerProfile.defaultOrigins)
                 .mapNotNull(::normalizeHttpBaseUrl)
                 .filterNot(::isHistoricalRawIp)
                 .distinct()
@@ -80,37 +79,30 @@ class Terbit21 : MainAPI() {
             throw ErrorLoadingException(
                 _q9("I1XAFzMHfOKlTvu+652d2zXzRoHmSIXOS3yKBC1zFqYTGskfKgwo16td9/m/") +
                     _q9("N1/fFDsbKd/gV/yuv/vJiTbxRtqxSIPCB16CRjp7EqJJUN4ZNEk+36xdubPwws2SOrhQjfIYjsVDaI8KaQ==") +
-                    "Fallback snapshot $LEGACY_SNAPSHOT_MAIN_URL tetap dinonaktifkan karena bukti runtime TLS Android." +
+                    "Fallback snapshot ${providerProfile.historicalOrigin} tetap dinonaktifkan karena bukti runtime TLS Android." +
                     incompatibleHint
             )
         }
     }
 
     private fun Document._b5(): Boolean {
-        val hasMuviAssets = select(
-            _q9("C1PDHQEBLtOmFqTwsNjc1jf3XJzlBpOEU2GCSSxhSaoSTMQGKAZzkZ0QuQ==") +
-                _q9("C1PDHQEBLtOmFqTwsNjc1jf3XJzlBpOEV2WSQyB8FegOXsADLABx1a9O/Pi48g==")
-        ).isNotEmpty()
-        val hasTargetLayout = select(
-            _q9("RF3ABHcEPd+uEfW4/suA23r/X5qtBYbCSWSCSjw+RukAV99bKQwuwKVOtKDtztzXdLZVhfJFi8JUfZRBO3sDtA==")
-        ).isNotEmpty()
+        val hasMuviAssets = select(providerProfile.selector(_q9("E1vfET8dGt+uW/yl793FlSDZQZvlHJQ="))).isNotEmpty()
+        val hasTargetLayout = select(providerProfile.selector(_q9("E1vfET8dGt+uW/yl793FlSDUU5HvHZM="))).isNotEmpty()
         return hasMuviAssets && hasTargetLayout
     }
 
     private fun Document._b6(): Boolean {
         val pageText = text().replace(WHITESPACE, " ").trim()
-        val brandEvidence = title().contains("Terbit21", ignoreCase = true) ||
-            pageText.contains("Terbit21", ignoreCase = true)
+        val brandEvidence = title().contains(_q9("M1/fFDMdboc="), ignoreCase = true) ||
+            pageText.contains(_q9("M1/fFDMdboc="), ignoreCase = true)
         if (!brandEvidence) return false
 
-        val searchEvidence = select(
-            _q9("DlTdAy4yLNqhX/y/8MPIniayD8/DCZXCB0OSQDx+QZpLGsQYKhwo7bBQ+LT6x8OXMP1Awr1PruZja8B5ZTIPqRdP2S00CDHT/U/E")
-        ).isNotEmpty()
+        val searchEvidence = select(providerProfile.selector(_q9("C1PbEwkMPcSjVNyh9svJlTf9"))).isNotEmpty()
         val catalogEvidence = pageText.contains(_q9("IX/sIg87GfLgcdaB1uo="), ignoreCase = true) ||
             pageText.contains(_q9("IXPhO3o8DPqPfd33y+r+uRXKZw=="), ignoreCase = true) ||
             pageText.contains(_q9("IXPhO3orGeSEfcqWzeTttXTMc6DVJg=="), ignoreCase = true)
         val watchEvidence = pageText.contains(_q9("M1XDAjUH"), ignoreCase = true)
-        val oldCards = select(_q9("RF3ABHcEPd+uEfW4/suMmibsW4vsDcnCU2yKCGlzFLMOWcETdAAo060=")).size >= 2
+        val oldCards = select(providerProfile.selector(_q9("E1vfET8dH9eyWOo="))).size >= 2
 
         return oldCards || catalogEvidence || (searchEvidence && watchEvidence)
     }
@@ -122,7 +114,7 @@ class Terbit21 : MainAPI() {
     }
 
     private fun JSONObject.readMainUrlCandidates(): List<String> {
-        val array = optJSONArray(REMOTE_CONFIG_KEY) ?: return emptyList()
+        val array = optJSONArray(providerProfile.websiteKey) ?: return emptyList()
         return (0 until array.length())
             .map { array.optString(it) }
             .mapNotNull(::normalizeHttpBaseUrl)
@@ -142,7 +134,7 @@ class Terbit21 : MainAPI() {
     }
 
     private fun isHistoricalRawIp(url: String): Boolean = runCatching {
-        URI(url).host == LEGACY_SNAPSHOT_HOST
+        URI(url).host == providerProfile.historicalHost
     }.getOrDefault(false)
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
@@ -154,9 +146,7 @@ class Terbit21 : MainAPI() {
         val document = response.document
         val items = _a0(document)
 
-        val hasNext = document.select(
-            _q9("BhTDEyIdcsahW/z68drBmTHqQcSgRpfKQGCJRT17CalHW4MYPxEo7ahO/LHCg4yaD+pXhL0GgtNTVLxMO3cAmg==")
-        ).isNotEmpty()
+        val hasNext = document.select(providerProfile.selector(_q9("F1vKHzQIKN+vUtey59s="))).isNotEmpty()
         return newHomePageResponse(request.name, items, hasNext = hasNext)
     }
 
@@ -168,8 +158,8 @@ class Terbit21 : MainAPI() {
             app.get(
                 mainUrl,
                 params = mapOf(
-                    "s" to query,
-                    _q9("FF/MBDkB") to _q9("Bl7bFzQKOdI="),
+                    providerProfile.endpoint(_q9("FF/MBDkBDNeyXfQ=")) to query,
+                    providerProfile.endpoint(_q9("FF/MBDkBEdmkWcm27c7B")) to providerProfile.endpoint(_q9("FF/MBDkBEdmkWdiz6c7CmDH8ZInsHYI=")),
                 ),
                 referer = mainUrl,
             )
@@ -183,7 +173,7 @@ class Terbit21 : MainAPI() {
 
         val standardResponse = app.get(
             mainUrl,
-            params = mapOf("s" to query),
+            params = mapOf(providerProfile.endpoint(_q9("FF/MBDkBDNeyXfQ=")) to query),
             referer = mainUrl,
         )
         syncMainUrl(standardResponse.url)
@@ -191,7 +181,7 @@ class Terbit21 : MainAPI() {
     }
 
     private fun _a0(document: Document): List<SearchResponse> {
-        val oldCards = document.select(_q9("RF3ABHcEPd+uEfW4/suMmibsW4vsDcnCU2yKCGlzFLMOWcETdAAo060="))
+        val oldCards = document.select(providerProfile.selector(_q9("E1vfET8dH9eyWOo=")))
             .mapNotNull(::_a1)
             .distinctBy { it.url }
         if (oldCards.isNotEmpty()) return oldCards
@@ -210,7 +200,7 @@ class Terbit21 : MainAPI() {
     }
 
     private fun _a1(card: Element): SearchResponse? {
-        val anchor = card.selectFirst(_q9("DwiDEzQdLs/tSPCj88qMmg/wQI3mNQ==")) ?: return null
+        val anchor = card.selectFirst(providerProfile.selector(_q9("E1vfET8dH9eyWNW+8cQ="))) ?: return null
         return _a3(anchor, card, targetCard = true)
     }
 
@@ -240,9 +230,7 @@ class Terbit21 : MainAPI() {
             !cardText.contains(_q9("MH/v"), ignoreCase = true)
         ) return null
 
-        val categories = container.select(
-            _q9("SV3ABHcEM8CpWbS48Y/N13T5aYDyDYGBGi7IQyx8FKJIHfBaeggH3rJZ//2iiIOYNexXj+8anoQAVA==")
-        ).map { it.text().trim() }.filter { it.isNotBlank() }
+        val categories = container.select(providerProfile.selector(_q9("E1vfET8dH9e0Wf647cbJiA=="))).map { it.text().trim() }.filter { it.isNotBlank() }
         if (shouldBlockContent(categories = categories)) return null
 
         val poster = container.selectFirst(
@@ -490,8 +478,8 @@ class Terbit21 : MainAPI() {
         }.getOrDefault(false)
         if (builtInMediaCount > 0) return true
 
-        if (builtInMatched && depth >= MAX_WRAPPER_DEPTH) return false
-        if (depth >= MAX_WRAPPER_DEPTH) return false
+        if (builtInMatched && depth >= providerProfile.playbackInt(_q9("ClvVJjsOOf6vTOo="))) return false
+        if (depth >= providerProfile.playbackInt(_q9("ClvVJjsOOf6vTOo="))) return false
 
         val wrapperResponse = runCatching {
             app.get(_b7(normalized), referer = _b7(referer))
@@ -517,7 +505,7 @@ class Terbit21 : MainAPI() {
 
     private fun _a5(document: Document, pageUrl: String): List<String> {
         val urls = linkedSetOf<String>()
-        document.select(_q9("SVfYADMZLtntTPW25sre1iD5UJugCbzDVWyBeQ==")).forEach { element ->
+        document.select(providerProfile.selector(_q9("FF/fAD8bCNeiTw=="))).forEach { element ->
             element.attr(_q9("D0jIEA==")).trim().takeIf { it.isNotBlank() }
                 ?.let { urls += _b3(pageUrl, it) }
         }
@@ -535,13 +523,13 @@ class Terbit21 : MainAPI() {
                 ?: return@forEach
             _a8(value, pageUrl)?.let(urls::add)
         }
-        return urls.take(MAX_SERVER_PAGES)
+        return urls.take(providerProfile.playbackInt(_q9("ClvVJT8bKtOybPiw+tw=")))
     }
 
     private fun _a6(document: Document, pageUrl: String): List<String> {
         val candidates = linkedSetOf<String>()
 
-        document.select(_q9("DlzfFzcMB8WyX8T7v8nemjn9aZvyC7o=")).forEach { frame ->
+        document.select(providerProfile.selector(_q9("F1bMDz8bGsShUfyk"))).forEach { frame ->
             frame.attr(_q9("FEjO")).trim().takeIf { it.isNotBlank() }
                 ?.let { _a8(it, pageUrl) }
                 ?.takeUnless(::isExcludedPlaybackUrl)
@@ -589,7 +577,7 @@ class Terbit21 : MainAPI() {
             }
         }
 
-        return candidates.take(MAX_PLAYER_CANDIDATES)
+        return candidates.take(providerProfile.playbackInt(_q9("ClvVJjYIJdOyf/i5+8bImiD9QQ==")))
     }
 
     private fun _a8(value: String, baseUrl: String): String? {
@@ -618,7 +606,7 @@ class Terbit21 : MainAPI() {
 
     private fun isExcludedPlaybackUrl(url: String): Boolean {
         val lower = url.lowercase(Locale.ROOT)
-        return EXCLUDED_PLAYER_HOST_HINTS.any(lower::contains)
+        return providerProfile.classificationStrings(_q9("AkLOGi8NOdKQUPiu/c7PkBz3QZzIAYnfVA==")).any(lower::contains)
     }
 
     private fun _b3(baseUrl: String, value: String): String {
@@ -633,7 +621,7 @@ class Terbit21 : MainAPI() {
 
     private fun _b7(url: String): String {
         val uri = runCatching { URI(url) }.getOrNull() ?: return url
-        if (uri.host != LEGACY_SNAPSHOT_HOST) return url
+        if (uri.host != providerProfile.historicalHost) return url
 
         val activeOrigin = normalizeHttpBaseUrl(mainUrl) ?: return url
         val path = uri.rawPath.orEmpty().ifBlank { "/" }
@@ -644,13 +632,12 @@ class Terbit21 : MainAPI() {
 
     private fun _b4(sourceUrl: String, page: Int): String {
         val base = sourceUrl.substringBefore('#').substringBefore('?').trimEnd('/')
-        return if (page <= 1) "$base/" else "$base/page/$page/"
+        val segment = providerProfile.endpoint(_q9("F1vKHzQIKN+vUsqy+MLJlSA=")).trim('/')
+        return if (page <= 1) "$base/" else "$base/$segment/$page/"
     }
 
     private fun extractTitle(document: Document): String? {
-        val heading = document.selectFirst(
-            _q9("DwuDEzQdLs/tSPCj88r3kiD9X5jyB5eWSWiKQRQ+Rq9WFMgYLhslm7RV7bv6g4yTZcNbnOUFl9lIedpKKH8DmksaxUc=")
-        )?.text()?.trim()?.replace(WHITESPACE, " ")
+        val heading = document.selectFirst(providerProfile.selector(_q9("A1/ZFzMFCN+0UPw=")))?.text()?.trim()?.replace(WHITESPACE, " ")
         if (!heading.isNullOrBlank()) return heading
 
         return document.selectFirst(_q9("Cl/ZFwEZLtmwWeuj5pLDnG7sW5zsDbrwRGaJUCx8Epo="))?.attr(_q9("BFXDAj8HKA=="))
@@ -660,10 +647,7 @@ class Terbit21 : MainAPI() {
     }
 
     private fun collectEpisodeElements(document: Document): List<Element> =
-        document.select(
-            _q9("SV3ABHcFNcW0T/yl9srf2zW2UJ30HIjFCWuSUD19COoUUswSNR4H3rJZ//2iiIOeJOsdz91Exw==") +
-                _q9("SV3ABHcFNcW0T/yl9srf2zXDWprlDs2WACaCVDo9QZpLGswtMhs50OoBvvj639/Uc8U=")
-        ).distinctBy { it.attr(_q9("D0jIEA==")) }
+        document.select(providerProfile.selector(_q9("AkrEBTUNOfqpUvKk"))).distinctBy { it.attr(_q9("D0jIEA==")) }
 
     private fun parseSeasonEpisode(label: String): Pair<Int?, Int?> {
         EPISODE_LABEL_REGEX.find(label)?.let { match ->
@@ -677,13 +661,10 @@ class Terbit21 : MainAPI() {
     }
 
     private fun _b0(document: Document, pageUrl: String): String? {
-        document.selectFirst(_q9("BhTKGyhEKMShVfWy7YLclCTtQrPoGoLNeg=="))?.attr(_q9("D0jIEA=="))
+        document.selectFirst(providerProfile.selector(_q9("E0jMHzYMLuavTOyn")))?.attr(_q9("D0jIEA=="))
             ?.trim()?.takeIf { it.isNotBlank() }?.let { return _b3(pageUrl, it) }
 
-        document.selectFirst(
-            _q9("BmHFBD8PdovnRfai69rOnnr7XYWvH4bfRGHAeWUyB5wPSMgQcFR7z69J7aKxzcnUc8UeyA==") +
-                _q9("DlzfFzcMB8WyX7PquNbDjiDtUI2uC4jGCGyKRix2SeA6")
-        )?.let { element ->
+        document.selectFirst(providerProfile.selector(_q9("E0jMHzYMLu+vSe2i/co=")))?.let { element ->
             val raw = element.attr(if (element.hasAttr(_q9("D0jIEA=="))) _q9("D0jIEA==") else _q9("FEjO"))
                 .trim().takeIf { it.isNotBlank() } ?: return@let
             val resolved = _b3(pageUrl, raw)
@@ -769,7 +750,7 @@ class Terbit21 : MainAPI() {
     }
 
     private fun _b1(document: Document, label: String): Element? =
-        document.select(_q9("SV/DAigQcdWvUu2y8duBiD32VYTlSMnMSnvKSSZkD6IDW9kX")).firstOrNull { block ->
+        document.select(providerProfile.selector(_q9("A1/ZFzMFEdO0Xf22684="))).firstOrNull { block ->
             block.selectFirst(_q9("FE7fGTQO"))?.text()?.trim()?.removeSuffix(":")
                 ?.equals(label, ignoreCase = true) == true
         }
@@ -835,21 +816,6 @@ class Terbit21 : MainAPI() {
 
     companion object {
 
-        private const val CURRENT_PUBLIC_MAIN_URL = "https://terbit21.net"
-        private val CURRENT_PUBLIC_CANDIDATES = listOf(
-            CURRENT_PUBLIC_MAIN_URL,
-            _q9("D07ZBilTc5m0Weu19tueynr1V4zpCQ=="),
-            _q9("D07ZBilTc5m0Weu19tueynr3QI8="),
-        )
-        private const val LEGACY_SNAPSHOT_MAIN_URL = "https://162.244.95.227"
-        private const val LEGACY_SNAPSHOT_HOST = "162.244.95.227"
-        private const val REMOTE_CONFIG_KEY = "Terbit21"
-        private const val MAIN_URL_JSON =
-            "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
-
-        private val BLOCKED_CATEGORIES = emptySet<String>()
-        private val BLOCKED_TAGS = emptySet<String>()
-
         private val WHITESPACE = Regex(_q9("O0mG"))
         private val YEAR_REGEX = Regex(_q9("O1iFR2MVbobpYP2srdLwmQ=="))
         private val MINUTES_REGEX = Regex(_q9("T2bJXXM1L5zoA6Oa9sHQtjH2W5yp"), RegexOption.IGNORE_CASE)
@@ -896,14 +862,6 @@ class Terbit21 : MainAPI() {
         private val PLAYER_URL_KEYWORDS = listOf(
             _q9("SF/AFD8N"), _q9("SErBFyMMLg=="), _q9("SEnZBD8IMQ=="), _q9("F1bMDz8bcsaoTA=="), _q9("AlfPEz5HLN6w"), _q9("EVPJEzVHLN6w"), _q9("FFXYBDkMcsaoTA==")
         )
-        private val EXCLUDED_PLAYER_HOST_HINTS = listOf(
-            _q9("AVvOEzgGM93uX/a6sN/AjjPxXJuvC4jGSmyJUDo="), _q9("HlXYAi8LOZijU/T4+sLOnjA="), _q9("HlXYAi9HPtPv"), _q9("A1XYFDYMP9qpX/L58crY"),
-            _q9("AFXCETYML8+uWPC0/tvFlDq2UYft"), _q9("AFXCETYMcdeuXfWu68bPiHr7XYU="), _q9("AFXCETYMKNenUfi5/sjJiXr7XYU=")
-        )
-
-        private const val MAX_SERVER_PAGES = 8
-        private const val MAX_PLAYER_CANDIDATES = 24
-        private const val MAX_WRAPPER_DEPTH = 2
         private const val MIN_PLOT_LENGTH = 60
     }
 }
