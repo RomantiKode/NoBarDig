@@ -18,6 +18,7 @@ import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import com.lagradost.cloudstream3.network.WebViewResolver
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.loadExtractor
 import com.lagradost.cloudstream3.utils.newExtractorLink
 import okhttp3.Request
@@ -442,34 +443,97 @@ class DrakorKita : MainAPI() {
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
         val resolvedPlayerUrl = playerUrl?.trim()?.takeIf { it.isNotBlank() } ?: return false
-        val mediaRequest = runCatching {
+        val resolved = runCatching {
             WebViewResolver(
-                interceptUrl = FINAL_MEDIA_WEBVIEW_URL,
+                interceptUrl = PLAYER_MEDIA_WEBVIEW_URL,
+                additionalUrls = listOf(PLAYER_HTTP_WEBVIEW_URL),
                 userAgent = null,
                 useOkhttp = false,
+                script = PLAYER_CAPTURE_SCRIPT,
                 timeout = PLAYER_WEBVIEW_TIMEOUT_MS,
-            ).resolveUsingWebView(resolvedPlayerUrl, referer = referer).first
+            ).resolveUsingWebView(resolvedPlayerUrl, referer = referer)
         }.getOrNull() ?: return false
 
-        val mediaUrl = mediaRequest.url.toString()
-        if (!FINAL_MEDIA_WEBVIEW_URL.containsMatchIn(mediaUrl)) return false
+        val interceptedRequest = resolved.first ?: return false
+        val interceptedUrl = interceptedRequest.url.toString()
+        val isSyntheticCapture = PLAYER_CAPTURE_WEBVIEW_URL.containsMatchIn(interceptedUrl)
 
-        val capturedReferer = mediaRequest.header(_q9("C+rTSI5QKg=="))
+        var mediaUrl = interceptedUrl
+        var contentType: String? = null
+        var hintedType: String? = null
+        if (isSyntheticCapture) {
+            val payload = interceptedRequest.url.queryParameter(PLAYER_CAPTURE_QUERY_KEY)
+                ?.takeIf { it.isNotBlank() }
+                ?: return false
+            val capture = runCatching { JSONObject(payload) }.getOrNull() ?: return false
+            mediaUrl = capture.optString(_q9("LP3Z")).trim().takeIf { it.isNotBlank() } ?: return false
+            contentType = capture.optString(_q9("OuDbWZlbLGWDPuU=")).trim().takeIf { it.isNotBlank() }
+            hintedType = capture.optString(_q9("LfbFSA==")).trim().takeIf { it.isNotBlank() }
+        }
+
+        val normalizedMediaUrl = _b9(mediaUrl) ?: return false
+        val linkType = _d2(
+            mediaUrl = normalizedMediaUrl,
+            contentType = contentType,
+            hintedType = hintedType,
+        ) ?: return false
+
+        val mediaRequest = if (isSyntheticCapture) {
+            resolved.second.lastOrNull { request ->
+                _b9(request.url.toString()) == normalizedMediaUrl
+            }
+        } else {
+            interceptedRequest
+        }
+        val capturedReferer = mediaRequest?.header(_q9("C+rTSI5QKg=="))
             ?.trim()
             ?.takeIf { it.isNotBlank() }
             ?: resolvedPlayerUrl
-        val capturedHeaders = _c9(mediaRequest)
+        val capturedHeaders = mediaRequest?.let(::_c9).orEmpty()
+
         callback(
             newExtractorLink(
                 source = name,
                 name = "$name WebView",
-                url = mediaUrl,
+                url = normalizedMediaUrl,
+                type = linkType,
             ) {
                 this.referer = capturedReferer
                 this.headers = capturedHeaders
             },
         )
         return true
+    }
+
+    private fun _d2(
+        mediaUrl: String,
+        contentType: String?,
+        hintedType: String?,
+    ): ExtractorLinkType? {
+        when (hintedType?.trim()?.lowercase(Locale.ROOT)) {
+            _q9("NLzAFQ==") -> return ExtractorLinkType.M3U8
+            _q9("Pe7GRQ==") -> return ExtractorLinkType.DASH
+            _q9("L+bRSJM=") -> return ExtractorLinkType.VIDEO
+        }
+
+        val normalizedContentType = contentType
+            ?.substringBefore(';')
+            ?.trim()
+            ?.lowercase(Locale.ROOT)
+            .orEmpty()
+        when {
+            normalizedContentType.contains(_q9("NP/QSolHNA==")) -> return ExtractorLinkType.M3U8
+            normalizedContentType == _q9("OP/FQZVWOUWTIe7BVs3rmBDf21s=") -> return ExtractorLinkType.DASH
+            normalizedContentType.startsWith(_q9("L+bRSJMa")) -> return ExtractorLinkType.VIDEO
+        }
+
+        val path = runCatching { URI(mediaUrl).path.lowercase(Locale.ROOT) }.getOrDefault("")
+        return when {
+            path.endsWith(_q9("d+KGWMQ=")) -> ExtractorLinkType.M3U8
+            path.endsWith(_q9("d+LFSQ==")) -> ExtractorLinkType.DASH
+            path.endsWith(_q9("d+LFGQ==")) -> ExtractorLinkType.VIDEO
+            else -> null
+        }
     }
 
     private fun _c9(request: Request): Map<String, String> =
@@ -929,10 +993,164 @@ class DrakorKita : MainAPI() {
                 return 'episode-hooked';
             })();
         """.trimIndent()
-        private val FINAL_MEDIA_WEBVIEW_URL = Regex(
-            _q9("cbDcBKJdLEWKPb/UHYO222eJngjouOVntUvQgnjgo6o9pp0Sxm5nEqdgqscNiA=="),
+        private const val PLAYER_CAPTURE_QUERY_KEY = "data"
+        private val PLAYER_CAPTURE_WEBVIEW_URL = Regex(
+            _q9("cbDcBKJdLEWKPbrBHc3/n1TU0xqiubdr6EWTmyLqr7Yw65pOnUUsRIgr3NFWzeyRBomdEw=="),
         )
+        private val PLAYER_MEDIA_WEBVIEW_URL = Regex(
+            _q9("cbDcBKIdZwuSOvSeQZa331rA2VihsPti4VbElz7A4LM3+dRBlVF3Ups+9JtAycTPX8bCVu/7/W7lQ8mCP6P09XahnnHSHWcLl3311k7B6MRHysZT+/3pKNYInq9ituflcKs="),
+        )
+        private val PLAYER_HTTP_WEBVIEW_URL = Regex(_q9("cbDcBKJdLEWKPb/UHYM="))
         private const val PLAYER_WEBVIEW_TIMEOUT_MS = 25_000L
+        private val PLAYER_CAPTURE_SCRIPT = """
+            (function() {
+                function agooseAbsoluteHttpUrl(value) {
+                    try {
+                        if (!value) return '';
+                        var parsed = new URL(value, window.location.href);
+                        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+                        return parsed.href;
+                    } catch (e) {
+                        return '';
+                    }
+                }
+
+                function agooseMediaKind(url, contentType) {
+                    var value = (url || '').toLowerCase();
+                    var mime = (contentType || '').toLowerCase().split(';')[0].trim();
+                    if (mime.indexOf('mpegurl') >= 0) return 'm3u8';
+                    if (mime === 'application/dash+xml') return 'dash';
+                    if (mime.indexOf('video/') === 0) return 'video';
+                    if (/\.m3u8(?:[?#]|$)/i.test(value)) return 'm3u8';
+                    if (/\.mpd(?:[?#]|$)/i.test(value)) return 'dash';
+                    if (/\.mp4(?:[?#]|$)/i.test(value)) return 'video';
+                    return '';
+                }
+
+                function agooseEmitMedia(value, contentType, source) {
+                    try {
+                        if (window.__agoosePlayerCaptured) return false;
+                        var mediaUrl = agooseAbsoluteHttpUrl(value);
+                        if (!mediaUrl) return false;
+                        var kind = agooseMediaKind(mediaUrl, contentType);
+                        if (!kind) return false;
+                        window.__agoosePlayerCaptured = true;
+                        var payload = {
+                            url: mediaUrl,
+                            type: kind,
+                            contentType: contentType || '',
+                            source: source || ''
+                        };
+                        window.location.href = 'https://agoose-player.invalid/capture?data=' +
+                            encodeURIComponent(JSON.stringify(payload));
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+
+                function agooseScanDom() {
+                    try {
+                        var nodes = document.querySelectorAll('video[src], video source[src], source[src]');
+                        for (var i = 0; i < nodes.length; i++) {
+                            var node = nodes[i];
+                            var value = node.currentSrc || node.src || node.getAttribute('src') || '';
+                            var type = node.getAttribute('type') || '';
+                            if (!type && node.parentElement) type = node.parentElement.getAttribute('type') || '';
+                            if (agooseEmitMedia(value, type, 'dom')) return;
+                        }
+                    } catch (e) {}
+                }
+
+                function agooseScanPerformance() {
+                    try {
+                        if (!window.performance || !performance.getEntriesByType) return;
+                        var entries = performance.getEntriesByType('resource') || [];
+                        for (var i = 0; i < entries.length; i++) {
+                            if (agooseEmitMedia(entries[i].name || '', '', 'performance')) return;
+                        }
+                    } catch (e) {}
+                }
+
+                if (!window.__agoosePlayerHookInstalled) {
+                    window.__agoosePlayerHookInstalled = true;
+
+                    if (window.fetch && !window.__agooseFetchWrapped) {
+                        window.__agooseFetchWrapped = true;
+                        var agooseOriginalFetch = window.fetch;
+                        window.fetch = function() {
+                            return agooseOriginalFetch.apply(this, arguments).then(function(response) {
+                                try {
+                                    var contentType = response.headers && response.headers.get
+                                        ? (response.headers.get('content-type') || '')
+                                        : '';
+                                    agooseEmitMedia(response.url || '', contentType, 'fetch');
+                                } catch (e) {}
+                                return response;
+                            });
+                        };
+                    }
+
+                    if (window.XMLHttpRequest && !window.__agooseXhrWrapped) {
+                        window.__agooseXhrWrapped = true;
+                        var agooseOriginalOpen = XMLHttpRequest.prototype.open;
+                        var agooseOriginalSend = XMLHttpRequest.prototype.send;
+                        XMLHttpRequest.prototype.open = function(method, url) {
+                            this.__agooseRequestUrl = url;
+                            return agooseOriginalOpen.apply(this, arguments);
+                        };
+                        XMLHttpRequest.prototype.send = function() {
+                            try {
+                                if (!this.__agooseObserved) {
+                                    this.__agooseObserved = true;
+                                    this.addEventListener('loadend', function() {
+                                        try {
+                                            var contentType = this.getResponseHeader('Content-Type') || '';
+                                            agooseEmitMedia(
+                                                this.responseURL || this.__agooseRequestUrl || '',
+                                                contentType,
+                                                'xhr'
+                                            );
+                                        } catch (e) {}
+                                    });
+                                }
+                            } catch (e) {}
+                            return agooseOriginalSend.apply(this, arguments);
+                        };
+                    }
+
+                }
+
+                if (!window.__agoosePlayerObserverInstalled && document.documentElement) {
+                    try {
+                        var agooseObserver = new MutationObserver(function() {
+                            agooseScanDom();
+                            agooseScanPerformance();
+                        });
+                        agooseObserver.observe(document.documentElement, {
+                            childList: true,
+                            subtree: true,
+                            attributes: true,
+                            attributeFilter: ['src', 'type']
+                        });
+                        window.__agoosePlayerObserverInstalled = true;
+                    } catch (e) {}
+                }
+
+                if (!window.__agoosePlayerTimersInstalled) {
+                    window.__agoosePlayerTimersInstalled = true;
+                    setTimeout(agooseScanDom, 250);
+                    setTimeout(agooseScanPerformance, 500);
+                    setTimeout(agooseScanDom, 1500);
+                    setTimeout(agooseScanPerformance, 3000);
+                    setTimeout(agooseScanDom, 6000);
+                }
+
+                agooseScanDom();
+                agooseScanPerformance();
+                return 'player-hooked';
+            })();
+        """.trimIndent()
         private val PROVIDER_PARENT_DOMAINS = listOf(_q9("MubBTNJYN1w="), _q9("MubBTNJXOVOD"), _q9("N+bWSItUKB+JLPM="))
         private val PROVIDER_MIRROR_WEBVIEW_URL = Regex(
             _q9("cbDcBKJdLEWKPb/UHYPDrhWI6xyO+/4tt1zUhi3A4Lc24slGlUE5bdQs4YxL0PaZWMLBVqKJ+GHvRJTac6bh9HOmigk="),
