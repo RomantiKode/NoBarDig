@@ -37,7 +37,9 @@ import java.net.URLEncoder
 import java.util.Locale
 
 class AnimeXin : MainAPI() {
-    override var mainUrl = DEFAULT_MAIN_URL
+    private val profile = AgooseProviderProfile.current
+
+    override var mainUrl = profile.defaultMainUrl
     override var name = _q9("UsRqz26TKnIs")
     override var lang = "id"
 
@@ -47,20 +49,18 @@ class AnimeXin : MainAPI() {
     )
 
     override val hasMainPage = true
-    override val mainPage = listOf(
-        MainPageData(_q9("X8t3x3jHUkknaDOtnmE="), HOME_LATEST),
-        MainPageData(_q9("Qc9gzWbeF3UmZSKlgmo="), HOME_RECOMMENDATION),
-        MainPageData(_q9("Xc90gkbcBHIn"), HOME_MOVIES),
-    )
+    override val mainPage = profile.homepage.map { item ->
+        MainPageData(item.title, item.key)
+    }
 
     private val mainUrlMutex = Mutex()
     private var mainUrlResolved = false
 
     private val blockedCategoryKeys by lazy(LazyThreadSafetyMode.NONE) {
-        BLOCKED_CATEGORIES.mapNotNull(::_b2).toSet()
+        profile.blockedCategories().mapNotNull(::_b2).toSet()
     }
     private val blockedTagKeys by lazy(LazyThreadSafetyMode.NONE) {
-        BLOCKED_TAGS.mapNotNull(::_b2).toSet()
+        profile.blockedTags().mapNotNull(::_b2).toSet()
     }
 
     protected suspend fun ensureMainUrl() {
@@ -69,10 +69,10 @@ class AnimeXin : MainAPI() {
             if (mainUrlResolved) return@withLock
 
             val remoteCandidates = runCatching {
-                JSONObject(app.get(MAIN_URL_JSON).text).readMainUrlCandidates()
+                JSONObject(app.get(profile.websiteJsonUrl).text).readMainUrlCandidates()
             }.getOrDefault(emptyList())
 
-            val candidates = (remoteCandidates + DEFAULT_MAIN_URL)
+            val candidates = (remoteCandidates + profile.defaultMainUrl)
                 .mapNotNull(::normalizeHttpBaseUrl)
                 .distinct()
 
@@ -84,7 +84,7 @@ class AnimeXin : MainAPI() {
                 mainUrlResolved = true
                 return@withLock
             }
-            mainUrl = DEFAULT_MAIN_URL
+            mainUrl = profile.defaultMainUrl
         }
     }
 
@@ -93,7 +93,7 @@ class AnimeXin : MainAPI() {
     }
 
     private fun JSONObject.readMainUrlCandidates(): List<String> {
-        val array = optJSONArray(REMOTE_CONFIG_KEY) ?: return emptyList()
+        val array = optJSONArray(profile.websiteKey) ?: return emptyList()
         return (0 until array.length())
             .map { index -> array.optString(index) }
             .mapNotNull(::normalizeHttpBaseUrl)
@@ -143,17 +143,14 @@ class AnimeXin : MainAPI() {
         syncMainUrl(response.url)
         val document = response.document
 
-        val items = when (request.data) {
-            HOME_LATEST -> _a2(document, _q9("X8t3x3jHUkknaDOtnmE="))
-                ?.select(_q9("Pchw2g=="))
+        val home = profile.homepage.firstOrNull { it.key == request.data }
+        val items = when (home?.source) {
+            _q9("f8t3x3jH"), _q9("Yc9gzWbeF3UmZSKlgmo=") -> _a2(document, home.heading)
+                ?.select(home.itemSelector)
                 ?.mapNotNull(::_a0)
                 ?: emptyList()
-            HOME_RECOMMENDATION -> _a2(document, _q9("Qc9gzWbeF3UmZSKlgmo="))
-                ?.select(_q9("Pchw2g=="))
-                ?.mapNotNull(::_a0)
-                ?: emptyList()
-            HOME_MOVIES -> _a2(document, _q9("Xc90gkbcBHIn"))
-                ?.select("li")
+            _q9("fsV1y27A") -> _a2(document, home.heading)
+                ?.select(home.itemSelector)
                 ?.mapNotNull { _a1(it) }
                 ?: emptyList()
             else -> emptyList()
@@ -168,10 +165,12 @@ class AnimeXin : MainAPI() {
         ensureMainUrl()
 
         val encoded = URLEncoder.encode(cleanQuery, _q9("Rv5FjzM="))
-        val response = app.get("$mainUrl/?s=$encoded")
+        val searchPath = profile.endpoint(_q9("YM9i0GjbIno2bA=="))
+        val searchParam = profile.endpoint(_q9("YM9i0GjbInowZTs="))
+        val response = app.get("$mainUrl$searchPath?$searchParam=$encoded")
         syncMainUrl(response.url)
 
-        return response.document.select(_q9("PcZq0X/GAn9iKjS/lQ=="))
+        return response.document.select(profile.selector(_q9("YM9i0GjbMXowYCU=")))
             .mapNotNull(::_a0)
             .filter { it.name.contains(cleanQuery, ignoreCase = true) }
             .distinctBy { it.url }
@@ -184,10 +183,10 @@ class AnimeXin : MainAPI() {
         var document = initialResponse.document
         var detailUrl = initialResponse.url
 
-        if (document.selectFirst(_q9("PdlqzGzfFzYrajCj")) != null) {
+        if (document.selectFirst(profile.selector(_q9("YMNtxWfWO3Ukaw=="))) != null) {
             val currentType = _a3(document)[_q9("R9Nzxw==")].orEmpty()
             if (!currentType.equals(_q9("XsV1y24="), ignoreCase = true)) {
-                val allEpisodes = document.selectFirst(_q9("PcRi1G7DATsjXze+hGW40VjH2V1zhkI1JcShokt9Yjlg9w=="))
+                val allEpisodes = document.selectFirst(profile.selector(_q9("csZv53vaAXQmYSWAhGr+")))
                     ?.attr(_q9("e9hmxA=="))
                     ?.takeIf { it.isNotBlank() }
                 if (allEpisodes != null) {
@@ -214,7 +213,7 @@ class AnimeXin : MainAPI() {
         syncMainUrl(response.url)
 
         var mediaResolved = false
-        response.document.select(_q9("YM9vx2jHXHYrdiSjnyT6zU3M018VsU81cOSM")).forEach { option ->
+        response.document.select(profile.selector(_q9("fsNx0GTBPWs2bTming=="))).forEach { option ->
             val label = option.text().trim()
             if (!_a9(label)) return@forEach
             val iframeUrl = _b0(option.attr(_q9("Zctv124="))) ?: return@forEach
@@ -235,15 +234,15 @@ class AnimeXin : MainAPI() {
 
     private suspend fun parseDetail(document: Document, detailUrl: String): LoadResponse {
         val info = _a3(document)
-        val websiteTitle = document.selectFirst(_q9("Pctty2bWFG4uaHbihGrz0kGF1ABi5wAqbO+2p10/bzJ1xSOMYt0UdDokPv4="))
+        val websiteTitle = document.selectFirst(profile.selector(_q9("d893w2LfJnI2aDM=")))
             ?.text()?.trim()?.takeIf { it.isNotBlank() }
-            ?: document.selectFirst(_q9("e5stx2XHAGJvcD+4gWE="))?.text()?.trim()?.takeIf { it.isNotBlank() }
+            ?: document.selectFirst(profile.selector(_q9("dsR30HLnG28uYQ==")))?.text()?.trim()?.takeIf { it.isNotBlank() }
             ?: throw ErrorLoadingException(_q9("Wd9n12eTFn42ZT+gzUX71FTA5Fgg51owYeC661x7cjl+32jDZQ=="))
-        val originalTitle = document.selectFirst(_q9("Pctv1m7B"))?.text()?.trim()?.takeIf { it.isNotBlank() }
-        val poster = document.selectFirst(_q9("PchqxWjcHG8naiLsw3D9yFTHnFgjoAJ5K/K4pV9+Y3F6xGXNK50GczdpNOyEafI="))
+        val originalTitle = document.selectFirst(profile.selector(_q9("fNhqxWLdE3cWbSKgiA==")))?.text()?.trim()?.takeIf { it.isNotBlank() }
+        val poster = document.selectFirst(profile.selector(_q9("Y8Vw1m7B")))
             ?.attr(_q9("YNhg"))?.takeIf { it.isNotBlank() }
         val websitePlot = _a4(document)
-        val websiteGenres = document.select(_q9("Pc1mzHPWFjsj")).map { it.text().trim() }.filter { it.isNotBlank() }
+        val websiteGenres = document.select(profile.selector(_q9("dM9t0G7A"))).map { it.text().trim() }.filter { it.isNotBlank() }
         enforceContentAllowed(categories = websiteGenres)
 
         val isMovie = info[_q9("R9Nzxw==")].equals(_q9("XsV1y24="), ignoreCase = true)
@@ -263,10 +262,10 @@ class AnimeXin : MainAPI() {
         val duration = tmdb?.runtimeMinutes ?: _a8(info[_q9("V99xw3/aHXU=")])
 
         if (isMovie) {
-            val directEpisodeUrl = if (document.selectFirst(_q9("YM9vx2jHXHYrdiSjnw==")) != null) {
+            val directEpisodeUrl = if (document.selectFirst(profile.selector(_q9("fsNx0GTBIHQtcA=="))) != null) {
                 detailUrl
             } else {
-                document.selectFirst(_q9("Pc9zwWPWEXBiKjO8gW3myVzXnF0n508CbfO0rWU="))
+                document.selectFirst(profile.selector(_q9("fsV1y272AnIxazKpoW371g==")))
                     ?.attr(_q9("e9hmxA=="))
                     ?.takeIf { it.isNotBlank() }
                     ?.let(::_b1)
@@ -314,14 +313,14 @@ class AnimeXin : MainAPI() {
     }
 
     private fun _a0(element: Element): SearchResponse? {
-        val anchor = element.selectFirst(_q9("coR3y3voGmknYgvgzWXO1UvA2mw=")) ?: return null
+        val anchor = element.selectFirst(profile.selector(_q9("cMtxxkrdEXMtdg=="))) ?: return null
         val href = anchor.attr(_q9("e9hmxA==")).takeIf { it.isNotBlank() } ?: return null
-        val title = element.selectFirst(_q9("Pd53gmOB"))?.text()?.trim()
+        val title = element.selectFirst(profile.selector(_q9("cMtxxl/aBncn")))?.text()?.trim()
             ?.takeIf { it.isNotBlank() }
             ?: anchor.attr(_q9("Z8N3zm4=")).trim().takeIf { it.isNotBlank() }
             ?: return null
-        val poster = element.selectFirst(_q9("esdk+XjBEUY="))?.attr(_q9("YNhg"))?.takeIf { it.isNotBlank() }
-        val typeBadge = element.selectFirst(_q9("Pd560m7JXjtsYTGrmX3l2A=="))?.text()?.trim().orEmpty()
+        val poster = element.selectFirst(profile.selector(_q9("cMtxxkLeE3wn")))?.attr(_q9("YNhg"))?.takeIf { it.isNotBlank() }
+        val typeBadge = element.selectFirst(profile.selector(_q9("cMtxxl/KAn4AZTKriA==")))?.text()?.trim().orEmpty()
         val type = if (typeBadge.equals(_q9("XsV1y24="), ignoreCase = true)) TvType.Movie else TvType.Anime
 
         return if (type == TvType.Movie) {
@@ -332,22 +331,22 @@ class AnimeXin : MainAPI() {
     }
 
     private fun _a1(element: Element): SearchResponse? {
-        val anchor = element.selectFirst(_q9("PcZmxH/AF2krYSXshTC13BfW2UMnol0CbfO0rWU+JnJ6x2TRbsEbfjEkN+KeYefUXNbnWTyiSAQ=")) ?: return null
+        val anchor = element.selectFirst(profile.selector(_q9("fsV1y27/G2g2RTivhWvn"))) ?: return null
         val href = anchor.attr(_q9("e9hmxA==")).takeIf { it.isNotBlank() } ?: return null
-        val title = element.selectFirst(_q9("PcZmxH/AF2krYSXshTC13BfW2UMnol0="))?.text()?.trim()?.takeIf { it.isNotBlank() }
+        val title = element.selectFirst(profile.selector(_q9("fsV1y27/G2g2UD+4gWE=")))?.text()?.trim()?.takeIf { it.isNotBlank() }
             ?: element.selectFirst(_q9("esdk+X/aBncnWQ=="))?.attr(_q9("Z8N3zm4="))?.trim()?.takeIf { it.isNotBlank() }
             ?: return null
-        val poster = element.selectFirst(_q9("PcNuxXjWAHInd3algGPOzkvG4Q=="))?.attr(_q9("YNhg"))?.takeIf { it.isNotBlank() }
+        val poster = element.selectFirst(profile.selector(_q9("fsV1y27/G2g2TTutimE=")))?.attr(_q9("YNhg"))?.takeIf { it.isNotBlank() }
         return newMovieSearchResponse(title, _b1(href), TvType.Movie) { posterUrl = poster }
     }
 
     private fun _a2(document: Document, heading: String): Element? = document
-        .select(_q9("d8N1jHnWHn4jdzO/"))
-        .firstOrNull { it.selectFirst("h3")?.text()?.trim() == heading }
+        .select(profile.selector(_q9("e8Vux3vSFX4QYTqpjHfw71bKyA==")))
+        .firstOrNull { it.selectFirst(profile.selector(_q9("e8Vux3vSFX4KYTeohGry")))?.text()?.trim() == heading }
         ?.nextElementSibling()
 
     private fun _a3(document: Document): Map<String, String> {
-        val root = document.selectFirst(_q9("Pctty2bWFG4uaHbinnTwkRmLz1ggoEI8KOi/rVcyKC9jzw==")) ?: return emptyMap()
+        val root = document.selectFirst(profile.selector(_q9("esRlzVncHW8="))) ?: return emptyMap()
         return root.select(_q9("YNpizA==")).mapNotNull { span ->
             val keyElement = span.selectFirst("b") ?: return@mapNotNull null
             val key = keyElement.text().removeSuffix(":").trim()
@@ -359,7 +358,7 @@ class AnimeXin : MainAPI() {
     }
 
     private fun _a4(document: Document): String? {
-        val root = document.selectFirst(_q9("Pctty2bWFG4uaHbiiGrhz0CI314gs0s3ca3x5Ut7aDt/zy7LZdUdO2xtOKqCfLWTXMvIQzfqTTZr9bSlTA==")) ?: return null
+        val root = document.selectFirst(profile.selector(_q9("Y8Zs1lncHW8="))) ?: return null
         val paragraphs = root.select("p")
         val index = paragraphs.indexOfFirst { it.text().trim().equals(_q9("WsRnzWXWAXIj"), ignoreCase = true) }
         if (index >= 0 && index + 1 < paragraphs.size) {
@@ -368,11 +367,11 @@ class AnimeXin : MainAPI() {
         return paragraphs.firstOrNull { it.text().trim().isNotBlank() }?.text()?.trim()
     }
 
-    private fun _a5(document: Document) = document.select(_q9("Pc9zwWPWEXBiKjO8gW3myVzXnEQi50Iw")).mapNotNull { item ->
-        val anchor = item.selectFirst(_q9("cvFr0G7VLw==")) ?: return@mapNotNull null
+    private fun _a5(document: Document) = document.select(profile.selector(_q9("dtpq0WTXF1I2YTu/"))).mapNotNull { item ->
+        val anchor = item.selectFirst(profile.selector(_q9("dtpq0WTXF1craj0="))) ?: return@mapNotNull null
         val href = anchor.attr(_q9("e9hmxA==")).takeIf { it.isNotBlank() } ?: return@mapNotNull null
-        val number = item.selectFirst(_q9("Pc9zzibdB3Y="))?.text()?.trim()?.toIntOrNull()
-        val episodeTitle = item.selectFirst(_q9("Pc9zzibHG28uYQ=="))?.text()?.trim()?.takeIf { it.isNotBlank() }
+        val number = item.selectFirst(profile.selector(_q9("dtpq0WTXF1U3aTSpnw==")))?.text()?.trim()?.toIntOrNull()
+        val episodeTitle = item.selectFirst(profile.selector(_q9("dtpq0WTXF08rcDqp")))?.text()?.trim()?.takeIf { it.isNotBlank() }
         newEpisode(_b1(href)) {
             name = episodeTitle
             episode = number
@@ -380,7 +379,7 @@ class AnimeXin : MainAPI() {
     }.sortedBy { it.episode ?: Int.MAX_VALUE }
 
     private fun _a7(document: Document): Double? = document
-        .selectFirst(_q9("Pctty2bWFG4uaHbin2Xh1FfCnEI6tUE3Yq3x5Ut7aDt/zy7LZdUdO2x2N7iEavKdStHOXiCg"))
+        .selectFirst(profile.selector(_q9("Yct3y2XU")))
         ?.text()
         ?.let { RATING_REGEX.find(it)?.groupValues?.getOrNull(1)?.toDoubleOrNull() }
 
@@ -396,7 +395,7 @@ class AnimeXin : MainAPI() {
 
     private fun _b0(value: String): String? {
         val decoded = runCatching { base64Decode(value) }.getOrNull()?.takeIf { it.isNotBlank() } ?: return null
-        val src = Jsoup.parse(decoded).selectFirst(_q9("esxxw2bWKWgwZws="))?.attr(_q9("YNhg"))?.trim()?.takeIf { it.isNotBlank() }
+        val src = Jsoup.parse(decoded).selectFirst(profile.selector(_q9("fsNx0GTBO30wZTup")))?.attr(_q9("YNhg"))?.trim()?.takeIf { it.isNotBlank() }
             ?: return null
         return when {
             src.startsWith("//") -> "https:$src"
@@ -416,18 +415,6 @@ class AnimeXin : MainAPI() {
     }
 
     companion object {
-        private const val DEFAULT_MAIN_URL = "https://animexin.dev"
-        private const val REMOTE_CONFIG_KEY = "AnimeXin"
-        private const val MAIN_URL_JSON =
-            "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
-
-        private const val HOME_LATEST = "home:latest"
-        private const val HOME_RECOMMENDATION = "home:recommendation"
-        private const val HOME_MOVIES = "home:movies"
-
-        private val BLOCKED_CATEGORIES = emptySet<String>()
-        private val BLOCKED_TAGS = emptySet<String>()
-
         private val WHITESPACE = Regex(_q9("T9ko"))
         private val YEAR_REGEX = Regex(_q9("T8grkzLPQCtrWDK333nJ3w=="))
         private val RATING_REGEX = Regex(_q9("O/EzjzLuWTN9PgritjS4hGSOlQ5n"))
