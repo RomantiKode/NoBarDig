@@ -63,10 +63,10 @@
     },
     {
         "iconUrl": "https://tv1.filmlokal.me/wp-content/uploads/2022/01/cropped-02B03F76-64AE-4D9C-8DE7-C4EE4DC115B2.jpeg",
-        "fileHash": "sha256-7342c73d478d42cb0297585e10936f24a08db50a975050db06641953a00f3d87",
+        "fileHash": "sha256-ed1b522c87317a0ad39dddcd3f6a75c7f33d6e5990659fdbd327d4a12a2348ed",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 60571,
+        "fileSize": 66363,
         "status": 3,
         "language": "id",
         "authors": [
@@ -76,7 +76,7 @@
             "Movie",
             "TvSeries"
         ],
-        "version": 8,
+        "version": 11,
         "internalName": "Filmlokal",
         "description": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekomendasi sekali karena selalu update film setiap hari dan Anda dapat mendownload film dari situs tersebut layaknya situs penyedia bioskop lainnya.",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/Filmlokal.cs3",
