@@ -24,7 +24,10 @@ import com.lagradost.cloudstream3.newMovieSearchResponse
 import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.newExtractorLink
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import org.jsoup.nodes.Document
@@ -55,6 +58,23 @@ class Filmlokal : MainAPI() {
     private var mainUrlResolved = false
     private val _a2 = _a0(
         maxDepth = providerProfile.playbackInt(_q9("tcNRGG+Bj0UOhlA="), 5),
+    )
+    private val _c4 = providerProfile._c4(true)
+    private val _c5 = providerProfile._d6(_q9("tc1NLQ=="), _d3)
+        .lowercase(Locale.ROOT)
+    private val _c6 = providerProfile._c6()
+    private val _c2 = providerProfile._d7(
+        _q9("q8dbPmuUuGgSmU/Xtc0ciP2mRCfh9A=="),
+        providerProfile.playbackInt(
+            _q9("q8dbPmuUuGgSmU/Xtc0ciP2mRCfh9A=="),
+            _c3.toInt(),
+        ),
+    ).coerceAtLeast(1_000).toLong()
+    private val _c7 = providerProfile._c7(false)
+    private val _c8 = providerProfile._d8(_q9("tcdNIW+1hXgTlUY="))
+    private val _c9 = providerProfile._d8(
+        _q9("tMNLLWI="),
+        _d5,
     )
 
     private val _a3 by lazy(LazyThreadSafetyMode.NONE) {
@@ -207,10 +227,12 @@ class Filmlokal : MainAPI() {
         val taxonomySlugs = _a8(document)
         enforceContentAllowed(categories, nativeTags, taxonomySlugs)
 
-        val candidates = linkedSetOf<String>()
+        val serverCandidates = linkedMapOf<String, LinkedHashSet<String>>()
+
         document.select(providerProfile.selector(_q9("qM5IMWyHiWYokFHAvfwG"), PLAYBACK_IFRAME_SELECTOR_FALLBACK)).forEach { iframe ->
-            _b1(iframe._a9(_q9("q9BK")), canonicalUrl)
-                ?.let(candidates::add)
+            val iframeUrl = _b1(iframe._a9(_q9("q9BK")), canonicalUrl)
+                ?: return@forEach
+            _b9(serverCandidates, _c1(iframeUrl), iframeUrl)
         }
 
         document.select(_q9("uflBOmuAtw==")).forEach { anchor ->
@@ -218,24 +240,122 @@ class Filmlokal : MainAPI() {
             if (!label.startsWith(_q9("nM1eJmKJi2lBoErA"), ignoreCase = true)) return@forEach
             val downloadUrl = _b1(anchor._a9(_q9("sNBMLg==")), canonicalUrl)
                 ?: return@forEach
+            val serverLabel = _c0(label, downloadUrl)
 
-            _b8(label, downloadUrl).forEach(candidates::add)
-            candidates.add(downloadUrl)
+            _b8(label, downloadUrl).forEach { playerUrl ->
+                _b9(serverCandidates, serverLabel, playerUrl)
+            }
+            _b9(serverCandidates, serverLabel, downloadUrl)
         }
 
+        if (serverCandidates.isEmpty()) return false
+
+        val orderedServers = _d1(serverCandidates)
+        val serversToTry = if (_c4) orderedServers else orderedServers.take(1)
+        val collectAll = _c4 && _c5 == _d4
         var emitted = false
-        for (candidate in candidates) {
-            val resolved = _a2.resolve(
-                url = candidate,
+
+        for ((_, candidates) in serversToTry) {
+            val serverResolved = _d0(
+                candidates = candidates,
                 referer = canonicalUrl,
                 subtitleCallback = subtitleCallback,
-            ) { link ->
-                emitted = true
-                callback(link)
+                callback = callback,
+            )
+            emitted = serverResolved || emitted
+
+            if (serverResolved && !collectAll) {
+                return true
             }
-            emitted = resolved || emitted
         }
-        return emitted
+
+        if (emitted) return true
+
+        val allDiscoveredServersWereTried =
+            orderedServers.isNotEmpty() && serversToTry.size == orderedServers.size
+        if (allDiscoveredServersWereTried && _d2(subtitleCallback, callback)) {
+            return true
+        }
+
+        return false
+    }
+
+    private suspend fun _d0(
+        candidates: Collection<String>,
+        referer: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+    ): Boolean {
+        var serverEmitted = false
+        return try {
+            val resolved = withTimeoutOrNull(_c2) {
+                for (candidate in candidates) {
+                    var candidateEmitted = false
+                    val candidateResolved = _a2.resolve(
+                        url = candidate,
+                        referer = referer,
+                        subtitleCallback = subtitleCallback,
+                    ) { link ->
+                        candidateEmitted = true
+                        serverEmitted = true
+                        callback(link)
+                    }
+                    if (candidateResolved || candidateEmitted) return@withTimeoutOrNull true
+                }
+                false
+            } ?: false
+            resolved || serverEmitted
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun _d1(
+        groups: LinkedHashMap<String, LinkedHashSet<String>>,
+    ): List<Pair<String, LinkedHashSet<String>>> {
+        if (_c6.isEmpty()) return groups.map { it.key to it.value }
+
+        val remaining = LinkedHashMap(groups)
+        val ordered = mutableListOf<Pair<String, LinkedHashSet<String>>>()
+        for (preferredLabel in _c6) {
+            val match = remaining.entries.firstOrNull { entry ->
+                entry.key.equals(preferredLabel, ignoreCase = true)
+            } ?: continue
+            ordered += match.key to match.value
+            remaining.remove(match.key)
+        }
+        ordered += remaining.map { it.key to it.value }
+        return ordered
+    }
+
+    private suspend fun _d2(
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit,
+    ): Boolean {
+        if (!_c7) return false
+        val mediaSource = _b1(_c8, mainUrl) ?: return false
+
+        if (_e0.containsMatchIn(mediaSource.substringBefore('?').substringBefore('#'))) {
+            callback(
+                newExtractorLink(
+                    source = _c9,
+                    name = _c9,
+                    url = mediaSource,
+                ) {
+                    referer = mainUrl
+                },
+            )
+            return true
+        }
+
+        return _d0(
+            candidates = listOf(mediaSource),
+            referer = mainUrl,
+            subtitleCallback = subtitleCallback,
+            callback = callback,
+        )
     }
 
     private fun _a4(item: Element): SearchResponse? {
@@ -407,6 +527,38 @@ class Filmlokal : MainAPI() {
         return "${mainUrl.trimEnd('/')}/${pathOrUrl.trimStart('/')}"
     }
 
+    private fun _b9(
+        groups: MutableMap<String, LinkedHashSet<String>>,
+        serverLabel: String,
+        url: String,
+    ) {
+        groups.getOrPut(serverLabel) { linkedSetOf() }.add(url)
+    }
+
+    private fun _c0(label: String, url: String): String {
+        val clean = label.removePrefix(_q9("nM1eJmKJi2lBoErA")).trim()
+        return when {
+            clean.contains(_q9("nsdEKmuC"), ignoreCase = true) -> _q9("nsdEKmuC")
+            clean.contains(_q9("mcFMLmeKjw=="), ignoreCase = true) -> _q9("mcFMLmeKjw==")
+            clean.contains(_q9("n49tOmeQjw=="), ignoreCase = true) || clean.contains(_q9("n+ZbIXiD"), ignoreCase = true) -> _q9("n+ZbIXiD")
+            clean.contains(_q9("jdJdJ32SmGgAmw=="), ignoreCase = true) || clean.contains(_q9("jdJdJ2yJkg=="), ignoreCase = true) -> _q9("jdJdJ32SmGgAmw==")
+            clean.isNotBlank() -> clean
+            else -> _c1(url)
+        }
+    }
+
+    private fun _c1(url: String): String {
+        val host = runCatching { URI(url).host?.lowercase(Locale.ROOT).orEmpty() }.getOrDefault("")
+        return when {
+            host.contains(_q9("v8ZbIXiDmmEAj0bT")) -> _q9("n+ZbIXiD")
+            host == _q9("ucZaLmeKh2EOnULN/uockf0=") || host.endsWith(_q9("9sNNO2iPhmANmUjAvLcGjOys")) -> _q9("nsdEKmuC")
+            host == _q9("ucFMLmeKjyMCmQ==") || host.endsWith(_q9("9sNKLWiPhmhPlUw=")) -> _q9("mcFMLmeKjw==")
+            host == _q9("rdJdJ32SmGgAmw3Cv/Q=") || host.endsWith(_q9("9tdZPGGVnn8El06Ps/YY")) -> _q9("jdJdJ32SmGgAmw==")
+            host.isNotBlank() -> host.removePrefix(_q9("r9VeZg=="))
+            else -> _q9("jcxCJmGRhA==")
+        }
+    }
+
     private fun _b8(label: String, downloadUrl: String): List<String> {
         val uri = runCatching { URI(downloadUrl) }.getOrNull() ?: return emptyList()
         val scheme = uri.scheme?.lowercase(Locale.ROOT) ?: return emptyList()
@@ -512,6 +664,11 @@ class Filmlokal : MainAPI() {
     private fun tmdbBackdropUrl(path: String): String = "https://image.tmdb.org/t/p/w1280$path"
 
     companion object {
+        private const val _c3 = 10_000L
+        private const val _d3 = "first_success"
+        private const val _d4 = "collect_all"
+        private const val _d5 = "SOURCE VIDEO OFFLINE"
+        private val _e0 = Regex(_q9("hIwBdzSL2XhZik7R5OUCgPqkTT7c469G"), RegexOption.IGNORE_CASE)
         private const val LISTING_SELECTOR_FALLBACK =
             "article.item-infinite, article.item.has-post-thumbnail, article.item"
         private const val SERIES_EPISODE_SELECTOR_FALLBACK = ".gmr-listseries a[href*='/eps/']"

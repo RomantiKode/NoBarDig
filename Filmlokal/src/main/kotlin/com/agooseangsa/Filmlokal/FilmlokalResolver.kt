@@ -7,6 +7,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.getAndUnpack
 import com.lagradost.cloudstream3.utils.loadExtractor
 import com.lagradost.cloudstream3.utils.newExtractorLink
+import kotlinx.coroutines.CancellationException
 import java.net.URI
 
 internal class _a0(
@@ -51,9 +52,13 @@ internal class _a0(
 
         if (_b6(absoluteUrl) && _b2(absoluteUrl, callback)) return true
 
-        val response = runCatching {
+        val response = try {
             app.get(absoluteUrl, referer = referer)
-        }.getOrNull() ?: return false
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            return false
+        }
         if (!response.isSuccessful) return false
 
         val effectiveUrl = response.url.ifBlank { absoluteUrl }
@@ -115,7 +120,7 @@ internal class _a0(
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
         var producedMedia = false
-        val matched = runCatching {
+        val matched = try {
             loadExtractor(
                 url = url,
                 referer = referer,
@@ -124,7 +129,11 @@ internal class _a0(
                 producedMedia = true
                 callback(link)
             }
-        }.getOrDefault(false)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            false
+        }
         return matched && producedMedia
     }
 
@@ -132,7 +141,13 @@ internal class _a0(
         url: String,
         callback: (ExtractorLink) -> Unit,
     ): Boolean {
-        val response = runCatching { app.get(url) }.getOrNull() ?: return false
+        val response = try {
+            app.get(url)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            return false
+        }
         if (!response.isSuccessful) return false
         val effectiveUrl = response.url.ifBlank { url }
         return _b3(response.document, effectiveUrl, callback)

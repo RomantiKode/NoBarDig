@@ -41,7 +41,23 @@
     "playbackIframes": ".gmr-server-wrap iframe[src], .muvipro_player_content iframe[src]"
   },
   "playback": {
-    "maxPageHops": 5
+    "maxPageHops": 5,
+    "failover": {
+      "enabled": true,
+      "mode": "first_success",
+      "serverResolveTimeoutMs": 10000,
+      "serverOrder": [
+        "GDrive",
+        "Fembed",
+        "Acefile",
+        "Uptostream"
+      ]
+    },
+    "offlineIndicator": {
+      "enabled": true,
+      "mediaSource": "https://youtu.be/K-7olbaOelg?si=HMGXjdG269xIpWZQ",
+      "label": "SOURCE VIDEO OFFLINE"
+    }
   },
   "contentFilter": {
     "blockedCategories": [],
