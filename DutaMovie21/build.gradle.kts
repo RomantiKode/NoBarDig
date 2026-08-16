@@ -1,5 +1,5 @@
 // CANONICAL/READABLE SOURCE BUILD FILE.
-version = 1
+version = 2
 
 val providerProfileFile = project.file("config/ProviderProfile.json")
 require(providerProfileFile.isFile) {

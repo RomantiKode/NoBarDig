@@ -1,12 +1,11 @@
 package com.agooseangsa.DutaMovie21.shared
 
-import com.agooseangsa.DutaMovie21._q9
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
 
 data class AgooseFailoverPolicy(
     val enabled: Boolean = false,
-    val mode: String = _q9("yzdgqvoAXJdA92btrg=="),
+    val mode: String = "first_success",
     val serverResolveTimeoutMs: Long = 10_000L,
 )
 
@@ -28,16 +27,16 @@ object AgoosePlaybackFailover {
         resolver: suspend (T) -> Boolean,
     ): AgooseFailoverResult {
         if (candidates.isEmpty()) return AgooseFailoverResult(false, emptyList())
-        require(policy.mode == _q9("yzdgqvoAXJdA92btrg==")) { "Unsupported failover mode: ${policy.mode}" }
+        require(policy.mode == "first_success") { "Unsupported failover mode: ${policy.mode}" }
 
-        val selected = if (policy.enabled) candidates else candidates.take(1)
-        val attempts = mutableListOf<AgooseFailoverAttempt>()
-        val timeoutMs = policy.serverResolveTimeoutMs.coerceIn(1_000L, 60_000L)
+        val _f0 = if (policy.enabled) candidates else candidates.take(1)
+        val _f1 = mutableListOf<AgooseFailoverAttempt>()
+        val _f2 = policy.serverResolveTimeoutMs.coerceIn(1_000L, 60_000L)
 
-        for (candidate in selected) {
+        for (candidate in _f0) {
             val label = labelOf(candidate)
             val resolved = try {
-                withTimeoutOrNull(timeoutMs) { resolver(candidate) }
+                withTimeoutOrNull(_f2) { resolver(candidate) }
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (_: Throwable) {
@@ -46,14 +45,14 @@ object AgoosePlaybackFailover {
 
             when (resolved) {
                 true -> {
-                    attempts += AgooseFailoverAttempt(label, _q9("/gtRmssMfA=="))
-                    return AgooseFailoverResult(true, attempts)
+                    _f1 += AgooseFailoverAttempt(label, "SUCCESS")
+                    return AgooseFailoverResult(true, _f1)
                 }
-                null -> attempts += AgooseFailoverAttempt(label, _q9("+RdfnMEKew=="))
-                false -> attempts += AgooseFailoverAttempt(label, _q9("6x9blcsb"))
+                null -> _f1 += AgooseFailoverAttempt(label, "TIMEOUT")
+                false -> _f1 += AgooseFailoverAttempt(label, "FAILED")
             }
         }
 
-        return AgooseFailoverResult(false, attempts)
+        return AgooseFailoverResult(false, _f1)
     }
 }

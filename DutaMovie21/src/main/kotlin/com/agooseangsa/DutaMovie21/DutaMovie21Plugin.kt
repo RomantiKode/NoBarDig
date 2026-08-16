@@ -6,7 +6,7 @@ import com.lagradost.cloudstream3.plugins.Plugin
 
 @CloudstreamPlugin
 class DutaMovie21Plugin : Plugin() {
-    override fun load(_d0: Context) {
+    override fun load(_c0: Context) {
         registerMainAPI(DutaMovie21())
     }
 }

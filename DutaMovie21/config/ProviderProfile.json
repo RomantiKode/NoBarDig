@@ -9,14 +9,46 @@
     "mainUrl": "https://204.3.234.75"
   },
   "homepage": [
-    { "source": "/", "key": "latest", "title": "Terbaru" },
-    { "source": "/movie/", "key": "movie", "title": "Movie" },
-    { "source": "/film-action-terbaru/", "key": "action", "title": "Action" },
-    { "source": "/drama/", "key": "drama", "title": "Drama" },
-    { "source": "/comedy/", "key": "comedy", "title": "Comedy" },
-    { "source": "/tag/thriller/", "key": "thriller", "title": "Thriller" },
-    { "source": "/romance/", "key": "romance", "title": "Romance" },
-    { "source": "/anime/", "key": "anime", "title": "Anime" }
+    {
+      "source": "/",
+      "key": "latest",
+      "title": "Terbaru"
+    },
+    {
+      "source": "/movie/",
+      "key": "movie",
+      "title": "Movie"
+    },
+    {
+      "source": "/film-action-terbaru/",
+      "key": "action",
+      "title": "Action"
+    },
+    {
+      "source": "/drama/",
+      "key": "drama",
+      "title": "Drama"
+    },
+    {
+      "source": "/comedy/",
+      "key": "comedy",
+      "title": "Comedy"
+    },
+    {
+      "source": "/tag/thriller/",
+      "key": "thriller",
+      "title": "Thriller"
+    },
+    {
+      "source": "/romance/",
+      "key": "romance",
+      "title": "Romance"
+    },
+    {
+      "source": "/anime/",
+      "key": "anime",
+      "title": "Anime"
+    }
   ],
   "endpoints": {
     "searchPath": "/",
@@ -35,7 +67,11 @@
     "episodeLinks": ".gmr-listseries a.button[href*=\"/eps/\"]",
     "mainPlayerIframe": ".gmr-server-wrap .gmr-embed-responsive iframe[src]",
     "wrapperServerLinks": "#servers a[onclick*=\"playSelectedVideo\"]",
-    "wrapperCurrentIframe": "#videoPlayer iframe[src]"
+    "wrapperCurrentIframe": "#videoPlayer iframe[src]",
+    "detailDescription": "[itemprop=\"description\"] > p",
+    "playerTabs": "ul.muvipro-player-tabs li a[href]",
+    "playerAjaxId": "div#muvipro_player_content_id[data-id]",
+    "playerAjaxTabs": "div.tab-content-ajax[id]"
   },
   "playback": {
     "maxPageHops": 3,
@@ -49,7 +85,7 @@
     },
     "offlineIndicator": {
       "enabled": true,
-      "mediaSource": "https://youtu.be/CONTOH_VIDEO_OFFLINE",
+      "mediaSource": "https://www.youtube.com/watch?v=aagzghhHZbI",
       "label": "SOURCE VIDEO OFFLINE"
     }
   },
