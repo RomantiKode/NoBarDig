@@ -63,10 +63,10 @@
     },
     {
         "iconUrl": "https://backupdata.b-cdn.net/image/dutamovie21-icon.png",
-        "fileHash": "sha256-8bb8a225155fedb88a3e1bb4cdc75ef3d0db82e9ab201dfa17f1f1fdd424612f",
+        "fileHash": "sha256-a03f62a7b281571c7d6326efa857d4d9ec720d2695bcd6088f3018d7c3ad0042",
         "apiVersion": 1,
         "repositoryUrl": "https://github.com/mj1Per127/agoosecloudstream",
-        "fileSize": 54110,
+        "fileSize": 72504,
         "status": 3,
         "language": "id",
         "authors": [
@@ -76,7 +76,7 @@
             "Movie",
             "TvSeries"
         ],
-        "version": 2,
+        "version": 3,
         "internalName": "DutaMovie21",
         "description": "DUTAMOVIE21 tempat Nonton Movie Film Online Bioskop Online Sub Indo. Kamu harus mencoba nonton film disini. 204.3.234.75, Bioskop Online Terbaik Indonesia.",
         "url": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/builds/DutaMovie21.cs3",
