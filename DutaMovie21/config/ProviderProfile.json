@@ -1,0 +1,63 @@
+{
+  "schema": "agoose-provider-profile-v1",
+  "provider": "DutaMovie21",
+  "websiteKey": "DutaMovie21",
+  "remote": {
+    "websiteJsonUrl": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
+  },
+  "defaults": {
+    "mainUrl": "https://204.3.234.75"
+  },
+  "homepage": [
+    { "source": "/", "key": "latest", "title": "Terbaru" },
+    { "source": "/movie/", "key": "movie", "title": "Movie" },
+    { "source": "/film-action-terbaru/", "key": "action", "title": "Action" },
+    { "source": "/drama/", "key": "drama", "title": "Drama" },
+    { "source": "/comedy/", "key": "comedy", "title": "Comedy" },
+    { "source": "/tag/thriller/", "key": "thriller", "title": "Thriller" },
+    { "source": "/romance/", "key": "romance", "title": "Romance" },
+    { "source": "/anime/", "key": "anime", "title": "Anime" }
+  ],
+  "endpoints": {
+    "searchPath": "/",
+    "searchParam": "s"
+  },
+  "selectors": {
+    "card": "article.item-infinite",
+    "cardTitle": "h2.entry-title a[href]",
+    "cardPoster": ".content-thumbnail img",
+    "cardCategories": ".gmr-movie-on a[rel=\"category tag\"]",
+    "cardTypeMarker": ".gmr-posttype-item",
+    "cardEpisode": ".gmr-numbeps span",
+    "detailHeading": "h1.entry-title[itemprop=\"name\"]",
+    "detailPoster": ".gmr-movie-data figure img",
+    "detailMetadata": ".content-moviedata .gmr-moviedata",
+    "episodeLinks": ".gmr-listseries a.button[href*=\"/eps/\"]",
+    "mainPlayerIframe": ".gmr-server-wrap .gmr-embed-responsive iframe[src]",
+    "wrapperServerLinks": "#servers a[onclick*=\"playSelectedVideo\"]",
+    "wrapperCurrentIframe": "#videoPlayer iframe[src]"
+  },
+  "playback": {
+    "maxPageHops": 3,
+    "wrapperTimeoutMs": 20000,
+    "mediaRequestRegex": "(?i)(?:\\.m3u8|\\.mp4)(?:[?#]|$)",
+    "primaryWrapperHost": "playsobat.xyz",
+    "failover": {
+      "enabled": true,
+      "mode": "first_success",
+      "serverResolveTimeoutMs": 10000
+    },
+    "offlineIndicator": {
+      "enabled": true,
+      "mediaSource": "https://youtu.be/CONTOH_VIDEO_OFFLINE",
+      "label": "SOURCE VIDEO OFFLINE"
+    }
+  },
+  "contentFilter": {
+    "blockedCategories": [],
+    "blockedTags": []
+  },
+  "diagnostics": {
+    "playbackTraceEnabled": false
+  }
+}
