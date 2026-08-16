@@ -30,7 +30,7 @@ object AgoosePlaybackFailover {
         require(policy.mode == "first_success") { "Unsupported failover mode: ${policy.mode}" }
 
         val _f0 = if (policy.enabled) candidates else candidates.take(1)
-        val _f1 = mutableListOf<AgooseFailoverAttempt>()
+        val attempts = mutableListOf<AgooseFailoverAttempt>()
         val _f2 = policy.serverResolveTimeoutMs.coerceIn(1_000L, 60_000L)
 
         for (candidate in _f0) {
@@ -45,14 +45,14 @@ object AgoosePlaybackFailover {
 
             when (resolved) {
                 true -> {
-                    _f1 += AgooseFailoverAttempt(label, "SUCCESS")
-                    return AgooseFailoverResult(true, _f1)
+                    attempts += AgooseFailoverAttempt(label, "SUCCESS")
+                    return AgooseFailoverResult(true, attempts)
                 }
-                null -> _f1 += AgooseFailoverAttempt(label, "TIMEOUT")
-                false -> _f1 += AgooseFailoverAttempt(label, "FAILED")
+                null -> attempts += AgooseFailoverAttempt(label, "TIMEOUT")
+                false -> attempts += AgooseFailoverAttempt(label, "FAILED")
             }
         }
 
-        return AgooseFailoverResult(false, _f1)
+        return AgooseFailoverResult(false, attempts)
     }
 }

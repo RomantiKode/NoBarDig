@@ -71,7 +71,8 @@
     "detailDescription": "[itemprop=\"description\"] > p",
     "playerTabs": "ul.muvipro-player-tabs li a[href]",
     "playerAjaxId": "div#muvipro_player_content_id[data-id]",
-    "playerAjaxTabs": "div.tab-content-ajax[id]"
+    "playerAjaxTabs": "div.tab-content-ajax[id]",
+    "downloadLinks": ".gmr-download-list a[href*=\"dlv2.playsobat.xyz/download.php\"]"
   },
   "playback": {
     "maxPageHops": 3,
@@ -85,7 +86,7 @@
     },
     "offlineIndicator": {
       "enabled": true,
-      "mediaSource": "https://www.youtube.com/watch?v=aagzghhHZbI",
+      "mediaSource": "https://youtu.be/CONTOH_VIDEO_OFFLINE",
       "label": "SOURCE VIDEO OFFLINE"
     }
   },
