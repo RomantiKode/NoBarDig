@@ -14,22 +14,22 @@
     {
       "source": "movie",
       "key": "latest-movies",
-      "title": "Film Terbaru"
+      "title": "LK21 TERBARU"
     },
     {
       "source": "movie",
       "key": "top-series-today",
-      "title": "Serial Unggulan"
+      "title": "SERIES UNGGULAN"
     },
     {
       "source": "series",
       "key": "latest-series",
-      "title": "Serial Terbaru"
+      "title": "TERBARU"
     },
     {
       "source": "movie",
       "key": "latest-action",
-      "title": "Aksi Terbaru"
+      "title": "Action Terbaru"
     },
     {
       "source": "movie",
@@ -44,7 +44,7 @@
     {
       "source": "movie",
       "key": "latest-comedy",
-      "title": "Komedi Terbaru"
+      "title": "Comedy Terbaru"
     },
     {
       "source": "movie",

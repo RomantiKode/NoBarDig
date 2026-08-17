@@ -1,6 +1,7 @@
 package com.agooseangsa.Layarkaca21
 
 import com.lagradost.cloudstream3.Actor
+import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.ErrorLoadingException
 import com.lagradost.cloudstream3.HomePageResponse
 import com.lagradost.cloudstream3.LoadResponse
@@ -782,11 +783,10 @@ class Layarkaca21 : MainAPI() {
         score = tmdb?.voteAverage?.let { Score.from10(it) }
             ?: site.score?.let { Score.from10(it) }
         duration = tmdb?.runtimeMinutes ?: site.runtimeMinutes
-        actors = if (!tmdb?.actors.isNullOrEmpty()) {
-            tmdb!!.actors.map { Actor(it.name, it.imageUrl) }.map { com.lagradost.cloudstream3.ActorData(it) }
-        } else {
-            site.actors.map { Actor(it) }.map { com.lagradost.cloudstream3.ActorData(it) }.takeIf { it.isNotEmpty() }
-        }
+        val webActors = site.actors
+            .map { ActorData(Actor(it)) }
+            .takeIf { it.isNotEmpty() }
+        actors = _d17(webActors, tmdb?.actors)
         backgroundPosterUrl = tmdb?.backdropUrl
         logoUrl = tmdb?.logoUrl
         contentRating = tmdb?.contentRating ?: site.contentRating

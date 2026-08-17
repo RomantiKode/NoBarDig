@@ -1,5 +1,7 @@
 package com.agooseangsa.Layarkaca21
 
+import com.lagradost.cloudstream3.Actor
+import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.app
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -14,6 +16,8 @@ private val TMDB_API_KEY: String
     get() = BuildConfig.TMDB_API_KEY
 private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w500"
 private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original"
+private const val _d14 = "https://image.tmdb.org/t/p/w342"
+internal const val _d13 = 20
 
 internal data class _d0(
     val tmdbId: Int? = null,
@@ -27,6 +31,8 @@ internal data class _d0(
 internal data class _d1(
     val name: String,
     val imageUrl: String? = null,
+    val character: String? = null,
+    val order: Int = Int.MAX_VALUE,
 )
 
 internal data class _d2(
@@ -189,7 +195,7 @@ private fun JSONObject._d8(identity: _d0): Boolean {
 private suspend fun _d9(tmdbId: Int, isTv: Boolean, language: String): _d2? {
     val typePath = if (isTv) "tv" else _q9("RaB3U5A=")
     val append = if (isTv) {
-        _q9("Tbd1X4caR0CnqbiCO/HknO9j2cuGglyhpO8o3vK3OYlNvC1ZmhpSSZa0g4N25v+X7Hk=")
+        _q9("Tbd1X4caR0CnqbiCO/PxnvlvytnekWqms+U/m++pdJhBq2RVhlhPQZmnuYI78fmX/2/DzPWGVLGo7jyB")
     } else {
         _q9("Tbd1X4caR0CnqbiCO/HknO9j2cuGglyhpO8o3vK3OYlNvC1IkBhDTYulg5V25vOK")
     }
@@ -218,7 +224,7 @@ private suspend fun _d9(tmdbId: Int, isTv: Boolean, language: String): _d2? {
     }
     val logos = json.optJSONObject(_q9("QaJgXZAH"))?.optJSONArray(_q9("RKBmVYY="))
     val logoPath = _e2(logos)
-    val cast = json.optJSONObject(_q9("S71kXpwAVQ=="))?.optJSONArray(_q9("S65yTg=="))
+    val castCredits = json.optJSONObject(if (isTv) _q9("SahmSJATR1idn7+Dcvb/jfg=") else _q9("S71kXpwAVQ=="))
     val videos = json.optJSONObject(_q9("XqZlX5oH"))?.optJSONArray(_q9("WqpyT5kAVQ=="))
 
     return _d2(
@@ -232,7 +238,7 @@ private suspend fun _d9(tmdbId: Int, isTv: Boolean, language: String): _d2? {
         runtimeMinutes = runtime,
         voteAverage = json.optDouble(_q9("XqB1X6oVUEmKobuU")).takeIf { !it.isNaN() && it > 0.0 },
         genres = json.optJSONArray(_q9("T6pvSJAH"))._e5(_q9("Rq5sXw==")),
-        actors = cast._e3(),
+        actors = _d15(castCredits, aggregateTv = isTv),
         trailerUrls = videos._e4(),
         contentRating = if (isTv) _e0(json) else _e1(json),
     )
@@ -278,17 +284,67 @@ private fun _e2(logos: JSONArray?): String? {
     return logos.optJSONObject(0)?.optStringOrNull(_q9("TqZtX6oER1iQ"))
 }
 
-private fun JSONArray?._e3(): List<_d1> {
-    if (this == null) return emptyList()
-    val actors = mutableListOf<_d1>()
-    for (index in 0 until minOf(length(), 20)) {
-        val item = optJSONObject(index) ?: continue
-        val name = item.optStringOrNull(_q9("Rq5sXw==")) ?: continue
-        val image = item.optStringOrNull(_q9("WL1uXJwYQ3OIoaiZ"))?.let { "$TMDB_POSTER_BASE$it" }
-        actors += _d1(name, image)
-    }
-    return actors
+private fun _d15(
+    credits: JSONObject?,
+    aggregateTv: Boolean,
+): List<_d1> {
+    val cast = credits?.optJSONArray(_q9("S65yTg==")) ?: return emptyList()
+    return (0 until cast.length())
+        .mapNotNull { index ->
+            val item = cast.optJSONObject(index) ?: return@mapNotNull null
+            val name = item.optStringOrNull(_q9("Rq5sXw==")) ?: return@mapNotNull null
+            val character = if (aggregateTv) {
+                item.optJSONArray(_q9("WqBtX4Y="))
+                    ?.let { roles ->
+                        (0 until roles.length())
+                            .mapNotNull { roleIndex -> roles.optJSONObject(roleIndex)?.optStringOrNull(_q9("S6dgSJQXUkmK")) }
+                            .distinct()
+                            .take(3)
+                            .joinToString(_q9("COAh"))
+                            .takeIf { it.isNotBlank() }
+                    }
+            } else {
+                item.optStringOrNull(_q9("S6dgSJQXUkmK"))
+            }
+
+            _d1(
+                name = name,
+                imageUrl = item.optStringOrNull(_q9("WL1uXJwYQ3OIoaiZ"))?.let { _d14 + it },
+                character = character,
+                order = item.optInt(_q9("R71lX4c="), Int.MAX_VALUE),
+            )
+        }
+        .sortedBy { it.order }
+        .distinctBy { _d18(it.name) }
+        .take(_d13)
 }
+
+internal fun _d1._d16(): ActorData = ActorData(
+    actor = Actor(
+        name = name,
+        image = imageUrl,
+    ),
+    roleString = character?.takeIf { it.isNotBlank() },
+)
+
+internal fun _d17(
+    webActors: List<ActorData>?,
+    tmdbActors: List<_d1>?,
+): List<ActorData>? {
+    val enriched = tmdbActors.orEmpty()
+        .take(_d13)
+        .map { it._d16() }
+        .filter { it.actor.name.isNotBlank() }
+
+    return enriched.takeIf { it.isNotEmpty() }
+        ?: webActors?.takeIf { it.isNotEmpty() }
+}
+
+private fun _d18(value: String): String = value
+    .trim()
+    .lowercase(Locale.ROOT)
+    .replace(Regex(_q9("c5FdSo44W3CIu5KMSrk=")), " ")
+    .trim()
 
 private fun JSONArray?._e4(): List<String> {
     if (this == null) return emptyList()
