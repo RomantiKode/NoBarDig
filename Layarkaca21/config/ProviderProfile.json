@@ -1,0 +1,157 @@
+{
+  "schema": "agoose-provider-profile-v1",
+  "provider": "Layarkaca21",
+  "websiteKey": "Layarkaca21",
+  "remote": {
+    "websiteJsonUrl": "https://raw.githubusercontent.com/RomantiKode/NoBarDig/main/Website.json"
+  },
+  "defaults": {
+    "mainUrl": "https://tv7.nontondrama.my",
+    "seriesUrl": "https://tv7.nontondrama.my",
+    "movieUrl": "https://tv12.lk21official.cc"
+  },
+  "homepage": [
+    {
+      "source": "movie",
+      "key": "latest-movies",
+      "title": "Film Terbaru"
+    },
+    {
+      "source": "movie",
+      "key": "top-series-today",
+      "title": "Serial Unggulan"
+    },
+    {
+      "source": "series",
+      "key": "latest-series",
+      "title": "Serial Terbaru"
+    },
+    {
+      "source": "movie",
+      "key": "latest-action",
+      "title": "Aksi Terbaru"
+    },
+    {
+      "source": "movie",
+      "key": "latest-horror",
+      "title": "Horror Terbaru"
+    },
+    {
+      "source": "movie",
+      "key": "latest-romance",
+      "title": "Romance Terbaru"
+    },
+    {
+      "source": "movie",
+      "key": "latest-comedy",
+      "title": "Komedi Terbaru"
+    },
+    {
+      "source": "movie",
+      "key": "latest-korea",
+      "title": "Korea Terbaru"
+    },
+    {
+      "source": "movie",
+      "key": "latest-thailand",
+      "title": "Thailand Terbaru"
+    },
+    {
+      "source": "movie",
+      "key": "latest-india",
+      "title": "India Terbaru"
+    },
+    {
+      "source": "series",
+      "key": "latest-china",
+      "title": "China Terbaru"
+    }
+  ],
+  "endpoints": {
+    "searchPath": "/search",
+    "searchParam": "s",
+    "seriesRedirectPath": "/nontondrama",
+    "seriesRedirectQueryParam": "page"
+  },
+  "selectors": {
+    "homepageWidgetTemplate": ".widget[data-type=\"{key}\"]",
+    "seriesMarker": "#season-data",
+    "playerMarker": "#player-list",
+    "activeEpisode": "ul.episode-list a.active[href]",
+    "cardRoot": "a",
+    "cardPoster": ".poster",
+    "cardTitle": ".poster-title",
+    "cardGenre": ".genre",
+    "cardYear": ".year",
+    "cardImage": "img",
+    "cardEpisode": ".episode",
+    "watchHistory": "#watch-history-data",
+    "detailHeading": ".movie-info h1",
+    "detailPoster": ".detail.hidden img",
+    "ogImage": "meta[property=og:image]",
+    "synopsis": ".synopsis",
+    "infoTags": ".info-tag span",
+    "genreLinks": ".tag-list a[href^='/genre/']",
+    "tagLinks": ".tag-list a[href^='/tag/']",
+    "detailParagraphs": ".detail.hidden p",
+    "jsonLd": "script[type='application/ld+json']",
+    "trailerAnchors": "a.yt-lightbox[href]",
+    "trailerIframes": "iframe[src*='youtube.com/embed'], iframe[src*='youtube-nocookie.com/embed']",
+    "playerAnchors": "#player-list a[data-url], #player-list a[href]",
+    "playerOptions": "#player-select option[value]",
+    "mainPlayerIframe": "iframe#main-player[src]",
+    "episodeLinks": "ul.episode-list a[href]",
+    "seriesPlaybackMarkers": "#season-data, ul.episode-list a[href]"
+  },
+  "playback": {
+    "sourceMode": "auto",
+    "serverResolveTimeoutMs": 20000,
+    "maxPageHops": 3,
+    "wrapperTimeoutMs": 20000,
+    "mediaRequestRegex": "(?i)(?:\\.m3u8|\\.mp4)(?:[?#]|$)",
+    "runtimeDiscovery": {
+      "enabled": true,
+      "timeoutMs": 20000
+    },
+    "offline": {
+      "enabled": false,
+      "mediaSource": "",
+      "label": "SOURCE VIDEO OFFLINE"
+    },
+    "primaryWrapperHost": "videonode.de",
+    "detectedPlayerHosts": [
+      "videonode.de",
+      "www.youtube.com"
+    ]
+  },
+  "metadata": {
+    "tmdb": {
+      "enabled": true,
+      "language": "id-ID",
+      "descriptionPolicy": "prefer_indonesian",
+      "invalidWebDescriptionFallback": "empty",
+      "descriptionQuality": {
+        "enabled": true
+      }
+    },
+    "descriptionFilter": {
+      "enabled": true,
+      "genericRules": true,
+      "boundaryMarkers": [],
+      "stripPatterns": [],
+      "invalidPatterns": [],
+      "allowPatterns": [],
+      "minimumCleanLength": 40
+    }
+  },
+  "diagnostics": {
+    "enabled": true
+  },
+  "contentFilter": {
+    "blockedCategories": [],
+    "blockedTags": []
+  },
+  "labels": {
+    "actorPrefix": "Bintang Film"
+  }
+}
