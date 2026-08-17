@@ -1,0 +1,55 @@
+{
+  "schema": "agoose-provider-profile-v1",
+  "provider": "Filmlokal",
+  "websiteKey": "Filmlokal",
+  "remote": {
+    "websiteJsonUrl": "https://raw.githubusercontent.com/RomantiKode/NoBarDig/main/Website.json"
+  },
+  "defaults": {
+    "movieUrl": "https://tv1.filmlokal.me"
+  },
+  "homepage": [],
+  "endpoints": {
+    "searchPath": "/",
+    "searchParam": "s"
+  },
+  "selectors": {
+    "cardTitle": "[class*=\"title\"]",
+    "cardYear": "[class*=\"year\"]",
+    "cardImage": "img[src]",
+    "detailHeading": "main h1",
+    "detailPoster": "article img",
+    "ogImage": "meta[property=\"og:image\"]",
+    "synopsis": "[itemprop=\"description\"]",
+    "tagLinks": "a[href*=\"/tag/\"]",
+    "detailParagraphs": "article p",
+    "jsonLd": "script[type=\"application/ld+json\"]",
+    "trailerAnchors": "a[href*=\"youtube.com/watch\"]",
+    "mainPlayerIframe": "iframe[src]",
+    "subtitleLinks": "a[href*=\"subtitle\" i]",
+    "subtitleContainers": "[class*=\"caption\" i]"
+  },
+  "playback": {
+    "maxPageHops": 3,
+    "wrapperTimeoutMs": 20000,
+    "mediaRequestRegex": "(?i)(?:\\.m3u8|\\.mp4)(?:[?#]|$)",
+    "primaryWrapperHost": "tv1.filmlokal.me",
+    "detectedPlayerHosts": [
+      "tv1.filmlokal.me",
+      "disqus.com",
+      "streamtape.xyz",
+      "watch.asiastream.cc",
+      "morencius.com"
+    ]
+  },
+  "contentFilter": {
+    "blockedCategories": [],
+    "blockedTags": []
+  },
+  "labels": {
+    "actorPrefix": "Cast"
+  },
+  "diagnostics": {
+    "playbackTraceEnabled": false
+  }
+}

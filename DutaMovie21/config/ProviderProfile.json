@@ -3,7 +3,7 @@
   "provider": "DutaMovie21",
   "websiteKey": "DutaMovie21",
   "remote": {
-    "websiteJsonUrl": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
+    "websiteJsonUrl": "https://raw.githubusercontent.com/RomantiKode/NoBarDig/main/Website.json"
   },
   "defaults": {
     "mainUrl": "https://204.3.234.75"

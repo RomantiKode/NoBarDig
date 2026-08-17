@@ -1,0 +1,1560 @@
+{
+  "schema": "agoose-provider-profile-evidence-v1",
+  "provider": "Filmlokal",
+  "generatedAt": "2026-08-15T20:46:12.052Z",
+  "tool": {
+    "name": "Agoose ProviderProfile Scout",
+    "version": "1.0.8",
+    "profileSchema": "agoose-provider-profile-v1",
+    "adFilterPolicy": "agoose-ad-filter-v1"
+  },
+  "warning": "DRAFT HEURISTIC ONLY. Cross-check selectors/endpoints/player/subtitle classification against Target and runtime before release.",
+  "session": {
+    "createdAt": "2026-08-15T20:42:33.502Z",
+    "updatedAt": "2026-08-15T20:45:49.556Z",
+    "pageCount": 2,
+    "navigationEventCount": 1,
+    "sourceSaveCount": 4,
+    "lastActionLabel": "Movie Detail",
+    "lastActionAt": "2026-08-15T20:45:49.556Z",
+    "importedProfile": false
+  },
+  "pages": [
+    {
+      "role": "movie",
+      "roleLabel": "Movie Detail",
+      "captureState": "movie-detail",
+      "stateLabel": "Movie detail state",
+      "url": "https://tv1.filmlokal.me/contamination-2025-sub/",
+      "urlDetails": {
+        "url": "https://tv1.filmlokal.me/contamination-2025-sub/",
+        "origin": "https://tv1.filmlokal.me",
+        "path": "/contamination-2025-sub/",
+        "queryKeys": [],
+        "hasSensitiveQuery": false
+      },
+      "referrer": "https://tv1.filmlokal.me/",
+      "origin": "https://tv1.filmlokal.me",
+      "path": "/contamination-2025-sub/",
+      "baseUrlCandidate": "https://tv1.filmlokal.me",
+      "queryKeys": [],
+      "title": "Nonton Contamination (2025) Sub Film Subtitle Indonesia Terbaru Streaming Download Gratis LK21 Layarkaca21 Indoxx1 Dunia21 Filmlokal",
+      "pageDescription": {
+        "selected": {
+          "selector": "meta[name=\"description\"]",
+          "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+          "confidence": 0.92
+        },
+        "candidates": [
+          {
+            "selector": "meta[name=\"description\"]",
+            "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+            "confidence": 0.92
+          },
+          {
+            "selector": "meta[property=\"og:description\"]",
+            "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+            "confidence": 0.92
+          },
+          {
+            "selector": "main p",
+            "value": "Contamination (2025) Sub A top secret Alaskan lab goes dark due to an unexplained incident, prompting the military to send a black ops team to recover sensitive",
+            "confidence": 0.65
+          },
+          {
+            "selector": "article p",
+            "value": "Contamination (2025) Sub A top secret Alaskan lab goes dark due to an unexplained incident, prompting the military to send a black ops team to recover sensitive",
+            "confidence": 0.65
+          }
+        ]
+      },
+      "scannedAt": "2026-08-15T20:45:49.551Z",
+      "domStats": {
+        "elements": 1896,
+        "links": 453,
+        "iframes": 4,
+        "forms": 2,
+        "scripts": 115,
+        "videos": 0,
+        "tracks": 0,
+        "dataTypeWidgets": 0
+      },
+      "selectors": {
+        "cardTitle": "[class*=\"title\"]",
+        "cardYear": "[class*=\"year\"]",
+        "cardImage": "img[src]",
+        "detailHeading": "main h1",
+        "detailPoster": "article img",
+        "ogImage": "meta[property=\"og:image\"]",
+        "synopsis": "[itemprop=\"description\"]",
+        "tagLinks": "a[href*=\"/tag/\"]",
+        "detailParagraphs": "article p",
+        "jsonLd": "script[type=\"application/ld+json\"]",
+        "trailerAnchors": "a[href*=\"youtube.com/watch\"]",
+        "mainPlayerIframe": "iframe[src]",
+        "subtitleLinks": "a[href*=\"subtitle\" i]",
+        "subtitleContainers": "[class*=\"caption\" i]"
+      },
+      "selectorEvidence": {
+        "cardTitle": {
+          "selector": "[class*=\"title\"]",
+          "count": 25,
+          "filteredAds": 0,
+          "sample": "Contamination (2025) Sub",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "cardYear": {
+          "selector": "[class*=\"year\"]",
+          "count": 48,
+          "filteredAds": 0,
+          "sample": "2026",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "cardImage": {
+          "selector": "img[src]",
+          "count": 19,
+          "filteredAds": 0,
+          "sample": "https://tv1.filmlokal.me/wp-content/uploads/2020/05/filmlokal-logo.png",
+          "confidence": 0.78,
+          "alternatives": [
+            {
+              "selector": "img",
+              "count": 19,
+              "filteredAds": 0,
+              "sample": "https://tv1.filmlokal.me/wp-content/uploads/2020/05/filmlokal-logo.png",
+              "confidence": 0.78
+            }
+          ]
+        },
+        "detailHeading": {
+          "selector": "main h1",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "Contamination (2025) Sub",
+          "confidence": 0.78,
+          "alternatives": [
+            {
+              "selector": "article h1",
+              "count": 1,
+              "filteredAds": 0,
+              "sample": "Contamination (2025) Sub",
+              "confidence": 0.78
+            },
+            {
+              "selector": "h1",
+              "count": 1,
+              "filteredAds": 0,
+              "sample": "Contamination (2025) Sub",
+              "confidence": 0.78
+            }
+          ]
+        },
+        "detailPoster": {
+          "selector": "article img",
+          "count": 6,
+          "filteredAds": 0,
+          "sample": "https://tv1.filmlokal.me/wp-content/uploads/2026/08/Contamination-2025-Sub-60x90.jpg",
+          "confidence": 0.78,
+          "alternatives": [
+            {
+              "selector": "main img",
+              "count": 6,
+              "filteredAds": 0,
+              "sample": "https://tv1.filmlokal.me/wp-content/uploads/2026/08/Contamination-2025-Sub-60x90.jpg",
+              "confidence": 0.78
+            }
+          ]
+        },
+        "ogImage": {
+          "selector": "meta[property=\"og:image\"]",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "https://tv1.filmlokal.me/wp-content/uploads/2026/08/Contamination-2025-Sub.jpg",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "synopsis": {
+          "selector": "[itemprop=\"description\"]",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "Contamination (2025) Sub A top secret Alaskan lab goes dark due to an unexplained incident, prompting the military to send a black ops team to recover sensitive",
+          "confidence": 0.9,
+          "alternatives": []
+        },
+        "tagLinks": {
+          "selector": "a[href*=\"/tag/\"]",
+          "count": 139,
+          "filteredAds": 0,
+          "sample": "21moviemania",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "detailParagraphs": {
+          "selector": "article p",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "Contamination (2025) Sub A top secret Alaskan lab goes dark due to an unexplained incident, prompting the military to send a black ops team to recover sensitive",
+          "confidence": 0.78,
+          "alternatives": [
+            {
+              "selector": "main p",
+              "count": 1,
+              "filteredAds": 0,
+              "sample": "Contamination (2025) Sub A top secret Alaskan lab goes dark due to an unexplained incident, prompting the military to send a black ops team to recover sensitive",
+              "confidence": 0.78
+            }
+          ]
+        },
+        "jsonLd": {
+          "selector": "script[type=\"application/ld+json\"]",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "{\"@context\":\"https:\\/\\/schema.org\",\"@graph\":[{\"@type\":\"Article\",\"@id\":\"https:\\/\\/tv1.filmlokal.me\\/contamination-2025-sub\\/#article\",\"isPartOf\":{\"@id\":\"https:\\/",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "trailerAnchors": {
+          "selector": "a[href*=\"youtube.com/watch\"]",
+          "count": 5,
+          "filteredAds": 0,
+          "sample": "Trailer",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "mainPlayerIframe": {
+          "selector": "iframe[src]",
+          "count": 3,
+          "filteredAds": 0,
+          "sample": "about:blank",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "subtitleLinks": {
+          "selector": "a[href*=\"subtitle\" i]",
+          "count": 5,
+          "filteredAds": 0,
+          "sample": "Nonton Cinema21 Subtitle Indonesia",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "subtitleContainers": {
+          "selector": "[class*=\"caption\" i]",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "Contamination (2025) Sub",
+          "confidence": 0.78,
+          "alternatives": []
+        }
+      },
+      "unresolvedSelectors": [
+        "seriesMarker",
+        "playerMarker",
+        "activeEpisode",
+        "cardPoster",
+        "cardGenre",
+        "cardEpisode",
+        "watchHistory",
+        "infoTags",
+        "genreLinks",
+        "trailerIframes",
+        "playerAnchors",
+        "playerOptions",
+        "episodeLinks",
+        "seriesPlaybackMarkers",
+        "subtitleTracks",
+        "subtitleOptions"
+      ],
+      "homepage": {
+        "items": [],
+        "widgetTemplate": "",
+        "description": {
+          "selected": {
+            "selector": "meta[name=\"description\"]",
+            "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+            "confidence": 0.92
+          },
+          "candidates": [
+            {
+              "selector": "meta[name=\"description\"]",
+              "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+              "confidence": 0.92
+            },
+            {
+              "selector": "meta[property=\"og:description\"]",
+              "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+              "confidence": 0.92
+            },
+            {
+              "selector": "main p",
+              "value": "Contamination (2025) Sub A top secret Alaskan lab goes dark due to an unexplained incident, prompting the military to send a black ops team to recover sensitive",
+              "confidence": 0.65
+            },
+            {
+              "selector": "article p",
+              "value": "Contamination (2025) Sub A top secret Alaskan lab goes dark due to an unexplained incident, prompting the military to send a black ops team to recover sensitive",
+              "confidence": 0.65
+            }
+          ]
+        },
+        "itemEvidence": []
+      },
+      "search": {
+        "searchPath": "/",
+        "searchParam": "s",
+        "evidence": {
+          "action": "https://tv1.filmlokal.me/",
+          "inputName": "s",
+          "placeholder": "Search Movie"
+        }
+      },
+      "playerHosts": [
+        {
+          "host": "tv1.filmlokal.me",
+          "count": 10
+        },
+        {
+          "host": "watch.asiastream.cc",
+          "count": 1
+        },
+        {
+          "host": "disqus.com",
+          "count": 1
+        }
+      ],
+      "playerEvidence": [
+        {
+          "selector": "iframe[src]",
+          "tag": "iframe",
+          "id": "",
+          "classes": [
+            "adguard-rules-limits-exceeded-iframe"
+          ],
+          "text": "about:blank",
+          "url": {
+            "url": "about:blank",
+            "origin": "null",
+            "path": "blank",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "src",
+          "host": ""
+        },
+        {
+          "selector": "iframe[src]",
+          "tag": "iframe",
+          "id": "",
+          "classes": [],
+          "text": "https://watch.asiastream.cc/watch?v=LFRWACQN",
+          "url": {
+            "url": "https://watch.asiastream.cc/watch?v=LFRWACQN",
+            "origin": "https://watch.asiastream.cc",
+            "path": "/watch",
+            "queryKeys": [
+              "v"
+            ],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "src",
+          "host": "watch.asiastream.cc"
+        },
+        {
+          "selector": "iframe[src]",
+          "tag": "iframe",
+          "id": "dsq-app5511",
+          "classes": [],
+          "text": "https://disqus.com/embed/comments/?base=default&f=https-199-231-164-30&t_i=165046%20https%3A%2F%2Ftv1.filmlokal.me%2F%3Fp%3D165046&t_u=https%3A%2F%2Ftv1.filmlok",
+          "url": {
+            "url": "https://disqus.com/embed/comments/?base=default&f=https-199-231-164-30&t_i=165046%20https%3A%2F%2Ftv1.filmlokal.me%2F%3Fp%3D165046&t_u=https%3A%2F%2Ftv1.filmlokal.me%2Fcontamination-2025-sub%2F&t_e=Contamination%20(2025)%20Sub&t_d=Nonton%20Contamination%20(2025)%20Sub%20Film%20Subtitle%20Indonesia%20Terbaru%20Streaming%20Download%20Gratis%20LK21%20Layarkaca21%20Indoxx1%20Dunia21%20Filmlokal&t_t=Contamination%20(2025)%20Sub&s_o=default",
+            "origin": "https://disqus.com",
+            "path": "/embed/comments/",
+            "queryKeys": [
+              "base",
+              "f",
+              "s_o",
+              "t_d",
+              "t_e",
+              "t_i",
+              "t_t",
+              "t_u"
+            ],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "src",
+          "host": "disqus.com"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Jeruk Live Igo",
+          "url": {
+            "url": "https://tv1.filmlokal.me/live-streaming-igo/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/live-streaming-igo/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Download Streaming Movie Gratis",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/download-streaming-movie-gratis/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/download-streaming-movie-gratis/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Streaming",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-streaming/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-streaming/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Streaming Online",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-streaming-online/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-streaming-online/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Streaming Online Subtitle Indonesia",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-streaming-online-subtitle-indonesia/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-streaming-online-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Streaming Movie Gratis",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/streaming-movie-gratis/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/streaming-movie-gratis/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Streaming Movie Online Terbaru",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/streaming-movie-online-terbaru/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/streaming-movie-online-terbaru/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Streaming Online",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/streaming-online/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/streaming-online/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "website nonton film",
+          "url": {
+            "url": "http://tv1.filmlokal.me/tag/nonton-streaming-online/",
+            "origin": "http://tv1.filmlokal.me",
+            "path": "/tag/nonton-streaming-online/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "streaming dan download",
+          "url": {
+            "url": "http://tv1.filmlokal.me/tag/streaming-movie-gratis/",
+            "origin": "http://tv1.filmlokal.me",
+            "path": "/tag/streaming-movie-gratis/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        }
+      ],
+      "subtitleEvidence": [
+        {
+          "selector": "a[href*=\".vtt\"], a[href*=\".srt\"], a[href*=\"subtitle\" i], a[href*=\"caption\" i]",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Cinema21 Subtitle Indonesia",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-cinema21-subtitle-indonesia/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-cinema21-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href"
+        },
+        {
+          "selector": "a[href*=\".vtt\"], a[href*=\".srt\"], a[href*=\"subtitle\" i], a[href*=\"caption\" i]",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Film Online Subtitle Indonesia",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-film-online-subtitle-indonesia/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-film-online-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href"
+        },
+        {
+          "selector": "a[href*=\".vtt\"], a[href*=\".srt\"], a[href*=\"subtitle\" i], a[href*=\"caption\" i]",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Movie Online Subtitle Indonesia",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-movie-online-subtitle-indonesia/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-movie-online-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href"
+        },
+        {
+          "selector": "a[href*=\".vtt\"], a[href*=\".srt\"], a[href*=\"subtitle\" i], a[href*=\"caption\" i]",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Streaming Online Subtitle Indonesia",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-streaming-online-subtitle-indonesia/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-streaming-online-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href"
+        },
+        {
+          "selector": "a[href*=\".vtt\"], a[href*=\".srt\"], a[href*=\"subtitle\" i], a[href*=\"caption\" i]",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Film Online Subtitle Indonesia",
+          "url": {
+            "url": "http://tv1.filmlokal.me/tag/nonton-film-online-subtitle-indonesia/",
+            "origin": "http://tv1.filmlokal.me",
+            "path": "/tag/nonton-film-online-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href"
+        }
+      ],
+      "actorPrefix": "Cast",
+      "adFilter": {
+        "policy": "agoose-ad-filter-v1",
+        "ignoredNodeCount": 0,
+        "ignoredHosts": [],
+        "ignoredSignatures": [],
+        "note": "Heuristic filter. Manual cross-check remains required; legitimate content can resemble ads and vice versa."
+      },
+      "warnings": [
+        "State 'movie-detail' is user-labeled by the selected Agoose button; the tool cannot independently prove the website action occurred before capture."
+      ],
+      "pageKey": "movie|movie-detail|https://tv1.filmlokal.me/contamination-2025-sub/"
+    },
+    {
+      "role": "movie",
+      "roleLabel": "Movie Detail",
+      "captureState": "movie-detail",
+      "stateLabel": "Movie detail state",
+      "url": "https://tv1.filmlokal.me/star-wars-the-mandalorian-and-grogu-2026/",
+      "urlDetails": {
+        "url": "https://tv1.filmlokal.me/star-wars-the-mandalorian-and-grogu-2026/",
+        "origin": "https://tv1.filmlokal.me",
+        "path": "/star-wars-the-mandalorian-and-grogu-2026/",
+        "queryKeys": [],
+        "hasSensitiveQuery": false
+      },
+      "referrer": "https://tv1.filmlokal.me/",
+      "origin": "https://tv1.filmlokal.me",
+      "path": "/star-wars-the-mandalorian-and-grogu-2026/",
+      "baseUrlCandidate": "https://tv1.filmlokal.me",
+      "queryKeys": [],
+      "title": "Nonton Star Wars: The Mandalorian and Grogu (2026) Film Subtitle Indonesia Terbaru Streaming Download Gratis LK21 Layarkaca21 Indoxx1 Dunia21 Filmlokal",
+      "pageDescription": {
+        "selected": {
+          "selector": "meta[name=\"description\"]",
+          "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+          "confidence": 0.92
+        },
+        "candidates": [
+          {
+            "selector": "meta[name=\"description\"]",
+            "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+            "confidence": 0.92
+          },
+          {
+            "selector": "meta[property=\"og:description\"]",
+            "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+            "confidence": 0.92
+          },
+          {
+            "selector": "main p",
+            "value": "Star Wars: The Mandalorian and Grogu (2026) The evil Empire has fallen, and Imperial warlords remain scattered throughout the galaxy. As the fledgling New Repub",
+            "confidence": 0.65
+          },
+          {
+            "selector": "article p",
+            "value": "Star Wars: The Mandalorian and Grogu (2026) The evil Empire has fallen, and Imperial warlords remain scattered throughout the galaxy. As the fledgling New Repub",
+            "confidence": 0.65
+          }
+        ]
+      },
+      "scannedAt": "2026-08-15T20:44:53.596Z",
+      "domStats": {
+        "elements": 1935,
+        "links": 462,
+        "iframes": 4,
+        "forms": 2,
+        "scripts": 116,
+        "videos": 0,
+        "tracks": 0,
+        "dataTypeWidgets": 0
+      },
+      "selectors": {
+        "cardTitle": "[class*=\"title\"]",
+        "cardYear": "[class*=\"year\"]",
+        "cardImage": "img[src]",
+        "detailHeading": "main h1",
+        "detailPoster": "article img",
+        "ogImage": "meta[property=\"og:image\"]",
+        "synopsis": "[itemprop=\"description\"]",
+        "tagLinks": "a[href*=\"/tag/\"]",
+        "detailParagraphs": "article p",
+        "jsonLd": "script[type=\"application/ld+json\"]",
+        "trailerAnchors": "a[href*=\"youtube.com/watch\"]",
+        "mainPlayerIframe": "iframe[src]",
+        "subtitleLinks": "a[href*=\"subtitle\" i]",
+        "subtitleContainers": "[class*=\"caption\" i]"
+      },
+      "selectorEvidence": {
+        "cardTitle": {
+          "selector": "[class*=\"title\"]",
+          "count": 26,
+          "filteredAds": 0,
+          "sample": "Star Wars: The Mandalorian and Grogu (2026)",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "cardYear": {
+          "selector": "[class*=\"year\"]",
+          "count": 48,
+          "filteredAds": 0,
+          "sample": "2026",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "cardImage": {
+          "selector": "img[src]",
+          "count": 19,
+          "filteredAds": 0,
+          "sample": "https://tv1.filmlokal.me/wp-content/uploads/2020/05/filmlokal-logo.png",
+          "confidence": 0.78,
+          "alternatives": [
+            {
+              "selector": "img",
+              "count": 19,
+              "filteredAds": 0,
+              "sample": "https://tv1.filmlokal.me/wp-content/uploads/2020/05/filmlokal-logo.png",
+              "confidence": 0.78
+            }
+          ]
+        },
+        "detailHeading": {
+          "selector": "main h1",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "Star Wars: The Mandalorian and Grogu (2026)",
+          "confidence": 0.78,
+          "alternatives": [
+            {
+              "selector": "article h1",
+              "count": 1,
+              "filteredAds": 0,
+              "sample": "Star Wars: The Mandalorian and Grogu (2026)",
+              "confidence": 0.78
+            },
+            {
+              "selector": "h1",
+              "count": 1,
+              "filteredAds": 0,
+              "sample": "Star Wars: The Mandalorian and Grogu (2026)",
+              "confidence": 0.78
+            }
+          ]
+        },
+        "detailPoster": {
+          "selector": "article img",
+          "count": 6,
+          "filteredAds": 0,
+          "sample": "https://tv1.filmlokal.me/wp-content/uploads/2026/08/Star-Wars-The-Mandalorian-and-Grogu-2026-60x90.jpg",
+          "confidence": 0.78,
+          "alternatives": [
+            {
+              "selector": "main img",
+              "count": 6,
+              "filteredAds": 0,
+              "sample": "https://tv1.filmlokal.me/wp-content/uploads/2026/08/Star-Wars-The-Mandalorian-and-Grogu-2026-60x90.jpg",
+              "confidence": 0.78
+            }
+          ]
+        },
+        "ogImage": {
+          "selector": "meta[property=\"og:image\"]",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "https://tv1.filmlokal.me/wp-content/uploads/2026/08/Star-Wars-The-Mandalorian-and-Grogu-2026.jpg",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "synopsis": {
+          "selector": "[itemprop=\"description\"]",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "Star Wars: The Mandalorian and Grogu (2026) The evil Empire has fallen, and Imperial warlords remain scattered throughout the galaxy. As the fledgling New Repub",
+          "confidence": 0.9,
+          "alternatives": []
+        },
+        "tagLinks": {
+          "selector": "a[href*=\"/tag/\"]",
+          "count": 139,
+          "filteredAds": 0,
+          "sample": "21moviemania",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "detailParagraphs": {
+          "selector": "article p",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "Star Wars: The Mandalorian and Grogu (2026) The evil Empire has fallen, and Imperial warlords remain scattered throughout the galaxy. As the fledgling New Repub",
+          "confidence": 0.78,
+          "alternatives": [
+            {
+              "selector": "main p",
+              "count": 1,
+              "filteredAds": 0,
+              "sample": "Star Wars: The Mandalorian and Grogu (2026) The evil Empire has fallen, and Imperial warlords remain scattered throughout the galaxy. As the fledgling New Repub",
+              "confidence": 0.78
+            }
+          ]
+        },
+        "jsonLd": {
+          "selector": "script[type=\"application/ld+json\"]",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "{\"@context\":\"https:\\/\\/schema.org\",\"@graph\":[{\"@type\":\"Article\",\"@id\":\"https:\\/\\/tv1.filmlokal.me\\/star-wars-the-mandalorian-and-grogu-2026\\/#article\",\"isPartOf",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "trailerAnchors": {
+          "selector": "a[href*=\"youtube.com/watch\"]",
+          "count": 4,
+          "filteredAds": 0,
+          "sample": "Trailer",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "mainPlayerIframe": {
+          "selector": "iframe[src]",
+          "count": 3,
+          "filteredAds": 0,
+          "sample": "https://morencius.com/embed/a06ngven53n8",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "subtitleLinks": {
+          "selector": "a[href*=\"subtitle\" i]",
+          "count": 5,
+          "filteredAds": 0,
+          "sample": "Nonton Cinema21 Subtitle Indonesia",
+          "confidence": 0.78,
+          "alternatives": []
+        },
+        "subtitleContainers": {
+          "selector": "[class*=\"caption\" i]",
+          "count": 1,
+          "filteredAds": 0,
+          "sample": "Star Wars: The Mandalorian and Grogu (2026)",
+          "confidence": 0.78,
+          "alternatives": []
+        }
+      },
+      "unresolvedSelectors": [
+        "seriesMarker",
+        "playerMarker",
+        "activeEpisode",
+        "cardPoster",
+        "cardGenre",
+        "cardEpisode",
+        "watchHistory",
+        "infoTags",
+        "genreLinks",
+        "trailerIframes",
+        "playerAnchors",
+        "playerOptions",
+        "episodeLinks",
+        "seriesPlaybackMarkers",
+        "subtitleTracks",
+        "subtitleOptions"
+      ],
+      "homepage": {
+        "items": [],
+        "widgetTemplate": "",
+        "description": {
+          "selected": {
+            "selector": "meta[name=\"description\"]",
+            "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+            "confidence": 0.92
+          },
+          "candidates": [
+            {
+              "selector": "meta[name=\"description\"]",
+              "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+              "confidence": 0.92
+            },
+            {
+              "selector": "meta[property=\"og:description\"]",
+              "value": "Filmlokal merupakan Situs Nonton Layarkaca21 Online Terlengkap yang menyediakan film-film berkualitas dan tentunya sangat cocok untuk Anda yang ingin menghabiskan waktu luang di antara kesibukan Anda. Biasanya, weekend seseorang akan diisi dengan liburan dan nonton, di situs ini anda akan mendapatkan banyak sekali film bioskop 21 terbaru di semua genre dan negara, bahkan sangat memuaskan bagi Anda yang movie-holic dan suka menghabiskan waktu di rumah sambil menonton film. Situs ini sangat rekome",
+              "confidence": 0.92
+            },
+            {
+              "selector": "main p",
+              "value": "Star Wars: The Mandalorian and Grogu (2026) The evil Empire has fallen, and Imperial warlords remain scattered throughout the galaxy. As the fledgling New Repub",
+              "confidence": 0.65
+            },
+            {
+              "selector": "article p",
+              "value": "Star Wars: The Mandalorian and Grogu (2026) The evil Empire has fallen, and Imperial warlords remain scattered throughout the galaxy. As the fledgling New Repub",
+              "confidence": 0.65
+            }
+          ]
+        },
+        "itemEvidence": []
+      },
+      "search": {
+        "searchPath": "/",
+        "searchParam": "s",
+        "evidence": {
+          "action": "https://tv1.filmlokal.me/",
+          "inputName": "s",
+          "placeholder": "Search Movie"
+        }
+      },
+      "playerHosts": [
+        {
+          "host": "tv1.filmlokal.me",
+          "count": 10
+        },
+        {
+          "host": "streamtape.xyz",
+          "count": 2
+        },
+        {
+          "host": "morencius.com",
+          "count": 1
+        },
+        {
+          "host": "disqus.com",
+          "count": 1
+        }
+      ],
+      "playerEvidence": [
+        {
+          "selector": "iframe[src]",
+          "tag": "iframe",
+          "id": "",
+          "classes": [],
+          "text": "https://morencius.com/embed/a06ngven53n8",
+          "url": {
+            "url": "https://morencius.com/embed/a06ngven53n8",
+            "origin": "https://morencius.com",
+            "path": "/embed/a06ngven53n8",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "src",
+          "host": "morencius.com"
+        },
+        {
+          "selector": "iframe[src]",
+          "tag": "iframe",
+          "id": "",
+          "classes": [],
+          "text": "https://streamtape.xyz/e/oQkvlx6l1OfJyqO/Star_Wars-_The_Mandalorian_and_Grogu_%282026%29.mp4",
+          "url": {
+            "url": "https://streamtape.xyz/e/oQkvlx6l1OfJyqO/Star_Wars-_The_Mandalorian_and_Grogu_%282026%29.mp4",
+            "origin": "https://streamtape.xyz",
+            "path": "/e/oQkvlx6l1OfJyqO/Star_Wars-_The_Mandalorian_and_Grogu_%282026%29.mp4",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "src",
+          "host": "streamtape.xyz"
+        },
+        {
+          "selector": "iframe[src]",
+          "tag": "iframe",
+          "id": "dsq-app5629",
+          "classes": [],
+          "text": "https://disqus.com/embed/comments/?base=default&f=https-199-231-164-30&t_i=164941%20https%3A%2F%2Ftv1.filmlokal.me%2F%3Fp%3D164941&t_u=https%3A%2F%2Ftv1.filmlok",
+          "url": {
+            "url": "https://disqus.com/embed/comments/?base=default&f=https-199-231-164-30&t_i=164941%20https%3A%2F%2Ftv1.filmlokal.me%2F%3Fp%3D164941&t_u=https%3A%2F%2Ftv1.filmlokal.me%2Fstar-wars-the-mandalorian-and-grogu-2026%2F&t_e=Star%20Wars%3A%20The%20Mandalorian%20and%20Grogu%20(2026)&t_d=Nonton%20Star%20Wars%3A%20The%20Mandalorian%20and%20Grogu%20(2026)%20Film%20Subtitle%20Indonesia%20Terbaru%20Streaming%20Download%20Gratis%20LK21%20Layarkaca21%20Indoxx1%20Dunia21%20Filmlokal&t_t=Star%20Wars%3A%20The%20Mandalorian%20and%20Grogu%20(2026)&s_o=default",
+            "origin": "https://disqus.com",
+            "path": "/embed/comments/",
+            "queryKeys": [
+              "base",
+              "f",
+              "s_o",
+              "t_d",
+              "t_e",
+              "t_i",
+              "t_t",
+              "t_u"
+            ],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "src",
+          "host": "disqus.com"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Jeruk Live Igo",
+          "url": {
+            "url": "https://tv1.filmlokal.me/live-streaming-igo/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/live-streaming-igo/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Download Streaming Movie Gratis",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/download-streaming-movie-gratis/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/download-streaming-movie-gratis/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Streaming",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-streaming/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-streaming/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Streaming Online",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-streaming-online/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-streaming-online/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Streaming Online Subtitle Indonesia",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-streaming-online-subtitle-indonesia/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-streaming-online-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Streaming Movie Gratis",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/streaming-movie-gratis/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/streaming-movie-gratis/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Streaming Movie Online Terbaru",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/streaming-movie-online-terbaru/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/streaming-movie-online-terbaru/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Streaming Online",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/streaming-online/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/streaming-online/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [
+            "button",
+            "button-shadow"
+          ],
+          "text": "Download Via ST",
+          "url": {
+            "url": "https://streamtape.xyz/v/oQkvlx6l1OfJyqO",
+            "origin": "https://streamtape.xyz",
+            "path": "/v/oQkvlx6l1OfJyqO",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "streamtape.xyz"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "website nonton film",
+          "url": {
+            "url": "http://tv1.filmlokal.me/tag/nonton-streaming-online/",
+            "origin": "http://tv1.filmlokal.me",
+            "path": "/tag/nonton-streaming-online/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        },
+        {
+          "selector": "a[href] player-like",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "streaming dan download",
+          "url": {
+            "url": "http://tv1.filmlokal.me/tag/streaming-movie-gratis/",
+            "origin": "http://tv1.filmlokal.me",
+            "path": "/tag/streaming-movie-gratis/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href",
+          "host": "tv1.filmlokal.me"
+        }
+      ],
+      "subtitleEvidence": [
+        {
+          "selector": "a[href*=\".vtt\"], a[href*=\".srt\"], a[href*=\"subtitle\" i], a[href*=\"caption\" i]",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Cinema21 Subtitle Indonesia",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-cinema21-subtitle-indonesia/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-cinema21-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href"
+        },
+        {
+          "selector": "a[href*=\".vtt\"], a[href*=\".srt\"], a[href*=\"subtitle\" i], a[href*=\"caption\" i]",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Film Online Subtitle Indonesia",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-film-online-subtitle-indonesia/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-film-online-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href"
+        },
+        {
+          "selector": "a[href*=\".vtt\"], a[href*=\".srt\"], a[href*=\"subtitle\" i], a[href*=\"caption\" i]",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Movie Online Subtitle Indonesia",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-movie-online-subtitle-indonesia/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-movie-online-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href"
+        },
+        {
+          "selector": "a[href*=\".vtt\"], a[href*=\".srt\"], a[href*=\"subtitle\" i], a[href*=\"caption\" i]",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Streaming Online Subtitle Indonesia",
+          "url": {
+            "url": "https://tv1.filmlokal.me/tag/nonton-streaming-online-subtitle-indonesia/",
+            "origin": "https://tv1.filmlokal.me",
+            "path": "/tag/nonton-streaming-online-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href"
+        },
+        {
+          "selector": "a[href*=\".vtt\"], a[href*=\".srt\"], a[href*=\"subtitle\" i], a[href*=\"caption\" i]",
+          "tag": "a",
+          "id": "",
+          "classes": [],
+          "text": "Nonton Film Online Subtitle Indonesia",
+          "url": {
+            "url": "http://tv1.filmlokal.me/tag/nonton-film-online-subtitle-indonesia/",
+            "origin": "http://tv1.filmlokal.me",
+            "path": "/tag/nonton-film-online-subtitle-indonesia/",
+            "queryKeys": [],
+            "hasSensitiveQuery": false
+          },
+          "kind": "",
+          "label": "",
+          "srclang": "",
+          "attribute": "href"
+        }
+      ],
+      "actorPrefix": "Cast",
+      "adFilter": {
+        "policy": "agoose-ad-filter-v1",
+        "ignoredNodeCount": 0,
+        "ignoredHosts": [],
+        "ignoredSignatures": [],
+        "note": "Heuristic filter. Manual cross-check remains required; legitimate content can resemble ads and vice versa."
+      },
+      "warnings": [
+        "State 'movie-detail' is user-labeled by the selected Agoose button; the tool cannot independently prove the website action occurred before capture."
+      ],
+      "pageKey": "movie|movie-detail|https://tv1.filmlokal.me/star-wars-the-mandalorian-and-grogu-2026/"
+    }
+  ],
+  "navigationEvents": [
+    {
+      "at": "2026-08-15T20:44:11.787Z",
+      "reason": "pushState",
+      "from": {
+        "url": "https://gigglemagnetismunaired.com/2102386/?var=ylz95kxt6a",
+        "origin": "https://gigglemagnetismunaired.com",
+        "path": "/2102386/",
+        "queryKeys": [
+          "var"
+        ],
+        "hasSensitiveQuery": false
+      },
+      "to": {
+        "url": "https://gigglemagnetismunaired.com/collect?v=2095712&var=2102386&prpsrc=",
+        "origin": "https://gigglemagnetismunaired.com",
+        "path": "/collect",
+        "queryKeys": [
+          "prpsrc",
+          "v",
+          "var"
+        ],
+        "hasSensitiveQuery": false
+      }
+    }
+  ],
+  "sourceSaves": [
+    {
+      "at": "2026-08-15T20:42:48.139Z",
+      "filename": "Movie_Detail_Agoose_Source_Filmlokal_tv1.filmlokal.me_contamination-2025-sub_2026-08-15T20-42-48-132Z.html",
+      "url": {
+        "url": "https://tv1.filmlokal.me/contamination-2025-sub/",
+        "origin": "https://tv1.filmlokal.me",
+        "path": "/contamination-2025-sub/",
+        "queryKeys": [],
+        "hasSensitiveQuery": false
+      },
+      "bytes": 183942,
+      "actionLabel": "Movie Detail",
+      "actionPrefix": "Movie_Detail",
+      "note": "Local DOM snapshot. Filename prefix records the most recent Agoose scan/action button. Not embedded into ProviderProfile.generated.json."
+    },
+    {
+      "at": "2026-08-15T20:43:22.342Z",
+      "filename": "Movie_Detail_Agoose_Source_Filmlokal_tv1.filmlokal.me_contamination-2025-sub_2026-08-15T20-43-22-334Z.html",
+      "url": {
+        "url": "https://tv1.filmlokal.me/contamination-2025-sub/",
+        "origin": "https://tv1.filmlokal.me",
+        "path": "/contamination-2025-sub/",
+        "queryKeys": [],
+        "hasSensitiveQuery": false
+      },
+      "bytes": 184086,
+      "actionLabel": "Movie Detail",
+      "actionPrefix": "Movie_Detail",
+      "note": "Local DOM snapshot. Filename prefix records the most recent Agoose scan/action button. Not embedded into ProviderProfile.generated.json."
+    },
+    {
+      "at": "2026-08-15T20:44:04.421Z",
+      "filename": "Movie_Detail_Agoose_Source_Filmlokal_tv1.filmlokal.me_star-wars-the-mandalorian-and-grogu-2026_2026-08-15T20-44-04-414Z.html",
+      "url": {
+        "url": "https://tv1.filmlokal.me/star-wars-the-mandalorian-and-grogu-2026/",
+        "origin": "https://tv1.filmlokal.me",
+        "path": "/star-wars-the-mandalorian-and-grogu-2026/",
+        "queryKeys": [],
+        "hasSensitiveQuery": false
+      },
+      "bytes": 190154,
+      "actionLabel": "Movie Detail",
+      "actionPrefix": "Movie_Detail",
+      "note": "Local DOM snapshot. Filename prefix records the most recent Agoose scan/action button. Not embedded into ProviderProfile.generated.json."
+    },
+    {
+      "at": "2026-08-15T20:45:00.009Z",
+      "filename": "Movie_Detail_Agoose_Source_Filmlokal_tv1.filmlokal.me_star-wars-the-mandalorian-and-grogu-2026_2026-08-15T20-44-59-997Z.html",
+      "url": {
+        "url": "https://tv1.filmlokal.me/star-wars-the-mandalorian-and-grogu-2026/",
+        "origin": "https://tv1.filmlokal.me",
+        "path": "/star-wars-the-mandalorian-and-grogu-2026/",
+        "queryKeys": [],
+        "hasSensitiveQuery": false
+      },
+      "bytes": 190596,
+      "actionLabel": "Movie Detail",
+      "actionPrefix": "Movie_Detail",
+      "note": "Local DOM snapshot. Filename prefix records the most recent Agoose scan/action button. Not embedded into ProviderProfile.generated.json."
+    }
+  ],
+  "conflicts": [],
+  "unresolvedFields": [
+    "selectors.activeEpisode",
+    "selectors.cardEpisode",
+    "selectors.cardGenre",
+    "selectors.cardPoster",
+    "selectors.episodeLinks",
+    "selectors.genreLinks",
+    "selectors.infoTags",
+    "selectors.playerAnchors",
+    "selectors.playerMarker",
+    "selectors.playerOptions",
+    "selectors.seriesMarker",
+    "selectors.seriesPlaybackMarkers",
+    "selectors.subtitleOptions",
+    "selectors.subtitleTracks",
+    "selectors.trailerIframes",
+    "selectors.watchHistory"
+  ],
+  "summary": {
+    "pagesByRole": {
+      "movie": 2
+    },
+    "afterPlayClickCaptures": 0,
+    "playerClickCaptures": 0,
+    "searchResultCaptures": 0,
+    "allEpisodeCaptures": 0,
+    "captureStates": {
+      "movie-detail": 2
+    },
+    "selectorCount": 14,
+    "homepageSectionCount": 0,
+    "detectedPlayerHosts": [
+      "tv1.filmlokal.me",
+      "disqus.com",
+      "streamtape.xyz",
+      "watch.asiastream.cc",
+      "morencius.com"
+    ],
+    "detectedSubtitleSelectorKeys": [
+      "subtitleLinks",
+      "subtitleContainers"
+    ],
+    "ignoredAdNodeCount": 0,
+    "conflictCount": 0,
+    "unresolvedFieldCount": 16
+  },
+  "generatedProfileSummary": {
+    "defaults": {
+      "movieUrl": "https://tv1.filmlokal.me"
+    },
+    "endpoints": {
+      "searchPath": "/",
+      "searchParam": "s"
+    },
+    "selectorKeys": [
+      "cardTitle",
+      "cardYear",
+      "cardImage",
+      "detailHeading",
+      "detailPoster",
+      "ogImage",
+      "synopsis",
+      "tagLinks",
+      "detailParagraphs",
+      "jsonLd",
+      "trailerAnchors",
+      "mainPlayerIframe",
+      "subtitleLinks",
+      "subtitleContainers"
+    ],
+    "homepage": [],
+    "playback": {
+      "maxPageHops": 3,
+      "wrapperTimeoutMs": 20000,
+      "mediaRequestRegex": "(?i)(?:\\.m3u8|\\.mp4)(?:[?#]|$)",
+      "primaryWrapperHost": "tv1.filmlokal.me",
+      "detectedPlayerHosts": [
+        "tv1.filmlokal.me",
+        "disqus.com",
+        "streamtape.xyz",
+        "watch.asiastream.cc",
+        "morencius.com"
+      ]
+    }
+  }
+}

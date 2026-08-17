@@ -3,7 +3,7 @@
   "provider": "Terbit21",
   "websiteKey": "Terbit21",
   "remote": {
-    "websiteJsonUrl": "https://raw.githubusercontent.com/mj1Per127/agoosecloudstream/main/Website.json"
+    "websiteJsonUrl": "https://raw.githubusercontent.com/RomantiKode/NoBarDig/main/Website.json"
   },
   "defaults": {
     "mainUrl": "https://terbit21.net",
