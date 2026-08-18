@@ -143,6 +143,11 @@ class Layarkaca21 : MainAPI() {
         _c0(rawTaxonomy.categories, rawTaxonomy.tags)
 
         val site = _b1(document, finalUrl)
+
+        val metadataContext = _p34(
+            features = _j2.metadata.features,
+            providers = _j2.metadata.providers,
+        )
         val tmdb = _d5(
             _d0(
                 tmdbId = null,
@@ -153,28 +158,70 @@ class Layarkaca21 : MainAPI() {
                 isTv = isSeries,
             ),
             profile = _j2.metadata.tmdb,
+            context = metadataContext,
         )
 
         return if (isSeries) {
             val episodeBase = _c2(finalUrl) ?: _a1
-            val episodes = _b6(document, episodeBase)
+            val providerEpisodes = _b6(document, episodeBase)
+            val tmdbEpisodes = _p84(
+                tmdb = tmdb,
+                providerEpisodes = providerEpisodes,
+                profile = _j2.metadata.tmdb,
+                context = metadataContext,
+            )
+            val displayEpisodes = _p87(
+                providerEpisodes = providerEpisodes,
+                tmdbEpisodes = tmdbEpisodes,
+                context = metadataContext,
+            )
+            val mappedRecommendations = _p90(
+                websiteRecommendations = emptyList(),
+                tmdb = tmdb,
+                currentProviderUrl = finalUrl,
+                providerApiName = name,
+                context = metadataContext,
+                providerSearch = { recommendationQuery -> search(recommendationQuery) },
+            )
             newTvSeriesLoadResponse(
                 name = site.title,
                 url = finalUrl,
                 type = TvType.TvSeries,
-                episodes = episodes,
+                episodes = displayEpisodes,
             ) {
-                _b8(site, tmdb)
-            }
+                _b8(
+                    site = site,
+                    tmdb = tmdb,
+                    isTv = true,
+                    providerEpisodes = providerEpisodes,
+                    mappedRecommendations = mappedRecommendations,
+                    metadataContext = metadataContext,
+                )
+            }.also { modularMetadataTrace.context(metadataContext) }
         } else {
+            val mappedRecommendations = _p90(
+                websiteRecommendations = emptyList(),
+                tmdb = tmdb,
+                currentProviderUrl = finalUrl,
+                providerApiName = name,
+                context = metadataContext,
+                providerSearch = { recommendationQuery -> search(recommendationQuery) },
+            )
             newMovieLoadResponse(
                 name = site.title,
                 url = finalUrl,
                 type = TvType.Movie,
                 dataUrl = finalUrl,
             ) {
-                _b8(site, tmdb)
-            }
+                _b8(
+                    site = site,
+                    tmdb = tmdb,
+                    isTv = false,
+                    providerEpisodes = emptyList(),
+                    mappedRecommendations = mappedRecommendations,
+                    metadataContext = metadataContext,
+                )
+            }.also { modularMetadataTrace.context(metadataContext) }
         }
     }
 
@@ -592,14 +639,14 @@ class Layarkaca21 : MainAPI() {
             ?.let { runCatching { JSONObject(it) }.getOrNull() }
 
         val heading = document.selectFirst(_j2.selector(_q9("TKp1W5wYbkmZpLWfcA==")))?.text()?.trim()
-        val watchTitle = watch?.optStringOrNull(_q9("XKZ1VpA="))
+        val watchTitle = watch?._p105(_q9("XKZ1VpA="))
         val watchYear = watch?.optInt(_q9("UapgSA=="))?.takeIf { it > 0 }
         val headingYear = heading?.let { Regex(_q9("dOcpZpEPElHRnPWtZLiy")).find(it)?.groupValues?.getOrNull(1)?.toIntOrNull() }
         val title = watchTitle
             ?: heading?.replace(Regex(_q9("dLwrZt0oQlfMvYDYS+G83Q==")), "")?.trim()?.takeIf { it.isNotBlank() }
             ?: throw ErrorLoadingException(_q9("YrplT5lUQkmMobWdN+b/nephjdzDgFCotOs6nA=="))
 
-        val poster = watch?.optStringOrNull(_q9("WKByTpAG"))
+        val poster = watch?._p105(_q9("WKByTpAG"))
             ?: document.selectFirst(_j2.selector(_q9("TKp1W5wYdkOLtLmD")))?.attr(_q9("TK51W9gHVE8="))?.trim()?.takeIf { it.startsWith(_q9("QLt1Sg==")) }
             ?: document.selectFirst(_j2.selector(_q9("R6hIV5QTQw==")))?.attr(_q9("S6BvTpAaUg=="))?.trim()?.takeIf { it.startsWith(_q9("QLt1Sg==")) }
         val plotNode = document.selectFirst(_j2.selector(_q9("W7ZvVYUHT18=")))
@@ -609,8 +656,8 @@ class Layarkaca21 : MainAPI() {
         val rawTaxonomy = _b2(document)
         val actors = _b3(document)
         val trailerUrls = _b4(document)
-        val score = watch?.optStringOrNull(_q9("Wq51U5sT"))
-        val runtime = watch?.optStringOrNull(_q9("WrpvTpwZQw=="))?.let(::_c4)
+        val score = watch?._p105(_q9("Wq51U5sT"))
+        val runtime = watch?._p105(_q9("WrpvTpwZQw=="))?.let(::_c4)
             ?: document.select(_j2.selector(_q9("QaFnVaEVQV8="))).map { it.text().trim() }
                 .firstNotNullOfOrNull(::_c5)
         val contentRating = document.select(_j2.selector(_q9("QaFnVaEVQV8=")))
@@ -664,7 +711,7 @@ class Layarkaca21 : MainAPI() {
             val json = runCatching { JSONObject(raw) }.getOrNull() ?: continue
             val actors = json.optJSONArray(_q9("Sax1VYc=")) ?: continue
             val names = (0 until actors.length()).mapNotNull { index ->
-                actors.optJSONObject(index)?.optStringOrNull(_q9("Rq5sXw=="))
+                actors.optJSONObject(index)?._p105(_q9("Rq5sXw=="))
             }.distinct()
             if (names.isNotEmpty()) return names
         }
@@ -705,9 +752,9 @@ class Layarkaca21 : MainAPI() {
                 for (index in 0 until values.length()) {
                     val item = values.optJSONObject(index) ?: continue
                     val episodeNumber = item.optInt(_q9("Tb9oSZoQQ3OWrw==")).takeIf { it > 0 } ?: continue
-                    val slug = item.optStringOrNull(_q9("W6N0XQ==")) ?: continue
+                    val slug = item._p105(_q9("W6N0XQ==")) ?: continue
                     val episodeUrl = _c3(base, "/$slug") ?: continue
-                    val episodeTitle = item.optStringOrNull(_q9("XKZ1VpA="))
+                    val episodeTitle = item._p105(_q9("XKZ1VpA="))
                     episodes += newEpisode(
                         episodeUrl,
                         initializer = {
@@ -768,33 +815,76 @@ class Layarkaca21 : MainAPI() {
     private suspend fun LoadResponse._b8(
         site: _c7,
         tmdb: _d2?,
+        isTv: Boolean,
+        providerEpisodes: List<com.lagradost.cloudstream3.Episode>,
+        mappedRecommendations: List<SearchResponse>,
+        metadataContext: _p34,
     ) {
-        posterUrl = site.posterUrl ?: tmdb?.posterUrl
-        year = site.year ?: tmdb?.year
+        val websiteScore = site.score
+            ?.replace(',', '.')
+            ?.toDoubleOrNull()
+            ?.takeIf { it in 0.0..10.0 }
+
+        val core = _p70(
+            web = _p68(
+                posterUrl = site.posterUrl,
+                backgroundPosterUrl = null,
+                year = site.year,
+                displayGenres = site.genres,
+                score10 = websiteScore,
+                durationMinutes = site.runtimeMinutes,
+                verifiedTmdbId = null,
+                verifiedImdbId = null,
+            ),
+            tmdb = tmdb,
+            isTv = isTv,
+            context = metadataContext,
+        )
+        _p71(core)
+
         val descriptionDecision = _m4(
             webDescription = site.plot,
             tmdbOverview = tmdb?.overview,
             profile = _j2.metadata.tmdb,
             filterProfile = _j2.metadata.descriptionFilter,
         )
+        metadataContext._p101(descriptionDecision)
         modularMetadataTrace.description(descriptionDecision)
         plot = descriptionDecision.value
-        tags = tmdb?.genres?.takeIf { it.isNotEmpty() } ?: site.genres.takeIf { it.isNotEmpty() }
-        score = tmdb?.voteAverage?.let { Score.from10(it) }
-            ?: site.score?.let { Score.from10(it) }
-        duration = tmdb?.runtimeMinutes ?: site.runtimeMinutes
+
         val webActors = site.actors
             .map { ActorData(Actor(it)) }
             .takeIf { it.isNotEmpty() }
-        actors = _d17(webActors, tmdb?.actors)
-        backgroundPosterUrl = tmdb?.backdropUrl
-        logoUrl = tmdb?.logoUrl
-        contentRating = tmdb?.contentRating ?: site.contentRating
+        actors = _d17(
+            webActors = webActors,
+            tmdbActors = tmdb?.actors,
+            context = metadataContext,
+        )
 
-        val trailers = (tmdb?.trailerUrls.orEmpty() + site.trailerUrls).distinct()
-        if (trailers.isNotEmpty()) addTrailer(trailers)
-        tmdb?.tmdbId?.let { addTMDbId(it.toString()) }
-        tmdb?.imdbId?.let { addImdbId(it) }
+        val visual = _p74(
+            web = _p72(
+                trailerUrls = site.trailerUrls,
+                logoUrl = null,
+                contentRating = site.contentRating,
+            ),
+            tmdb = tmdb,
+            context = metadataContext,
+        )
+        _p75(visual)
+
+        if (isTv) {
+            val tvDisplay = _p80(
+                web = _p78(
+                    episodeSeasonNumbers = providerEpisodes.mapNotNull { it.season },
+                    durationMinutes = site.runtimeMinutes,
+                ),
+                tmdb = tmdb,
+                context = metadataContext,
+            )
+            _p81(tvDisplay)
+        }
+
+        recommendations = mappedRecommendations.takeIf { it.isNotEmpty() }
     }
 
     private fun _b9(
@@ -879,7 +969,7 @@ class Layarkaca21 : MainAPI() {
         return (hours * 60 + minutes).takeIf { it > 0 }
     }
 
-    private fun JSONObject.optStringOrNull(key: String): String? =
+    private fun JSONObject._p105(key: String): String? =
         optString(key).trim().takeIf { it.isNotBlank() && it != _q9("RrptVg==") }
 
     private fun _n4(

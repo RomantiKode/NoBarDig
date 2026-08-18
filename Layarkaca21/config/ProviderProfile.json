@@ -142,6 +142,29 @@
       "invalidPatterns": [],
       "allowPatterns": [],
       "minimumCleanLength": 40
+    },
+    "features": {
+      "core": true,
+      "visual": true,
+      "actors": true,
+      "tv": true,
+      "episodes": true,
+      "recommendations": true
+    },
+    "providers": {
+      "order": [
+        "tmdb",
+        "tvmaze",
+        "thetvdb",
+        "omdb"
+      ],
+      "fallbackPolicy": "no_match_only",
+      "enabled": {
+        "tmdb": true,
+        "tvmaze": false,
+        "thetvdb": false,
+        "omdb": false
+      }
     }
   },
   "diagnostics": {

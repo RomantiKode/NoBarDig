@@ -17,4 +17,9 @@ internal class _l7(
                 "sanitized=${decision.assessment.sanitized}",
         )
     }
+
+    fun context(context: _p34) {
+        if (!enabled) return
+        context.safeDiagnosticLines().forEach { line -> Log.d(tag, line) }
+    }
 }

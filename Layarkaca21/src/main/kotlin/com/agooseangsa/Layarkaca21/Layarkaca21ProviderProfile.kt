@@ -64,9 +64,65 @@ internal data class _k8(
     val explicitlyConfigured: Boolean,
 )
 
+internal data class _p118(
+    val core: Boolean = true,
+    val visual: Boolean = true,
+    val actors: Boolean = true,
+    val tv: Boolean = true,
+    val episodes: Boolean = true,
+    val recommendations: Boolean = true,
+) {
+    val anyEnabled: Boolean
+        get() = core || visual || actors || tv || episodes || recommendations
+}
+
+internal enum class _p119 {
+    TMDB,
+    TVMAZE,
+    THETVDB,
+    OMDB,
+}
+
+internal enum class _p120 {
+    NO_MATCH_ONLY,
+    NO_MATCH_OR_MISSING_FIELDS,
+}
+
+internal data class _p121(
+    val tmdb: Boolean = true,
+    val tvmaze: Boolean = false,
+    val thetvdb: Boolean = false,
+    val omdb: Boolean = false,
+) {
+    fun isEnabled(id: _p119): Boolean = when (id) {
+        _p119.TMDB -> tmdb
+        _p119.TVMAZE -> tvmaze
+        _p119.THETVDB -> thetvdb
+        _p119.OMDB -> omdb
+    }
+}
+
+internal data class _p122(
+    val order: List<_p119> = listOf(
+        _p119.TMDB,
+        _p119.TVMAZE,
+        _p119.THETVDB,
+        _p119.OMDB,
+    ),
+    val enabled: _p121 = _p121(),
+    val fallbackPolicy: _p120 = _p120.NO_MATCH_ONLY,
+) {
+    val effectiveOrder: List<_p119>
+        get() = (order + _p119.values().toList())
+            .distinct()
+            .filter { enabled.isEnabled(it) }
+}
+
 internal data class _k9(
     val tmdb: _k8,
     val descriptionFilter: _k7,
+    val features: _p118,
+    val providers: _p122,
 )
 
 internal object _j0 {
@@ -93,6 +149,8 @@ internal object _j0 {
     private val metadataObject get() = root.optJSONObject(_q9("Rap1W5EVUk0="))
     private val tmdbObject get() = metadataObject?.optJSONObject(_q9("XKJlWA=="))
     private val descriptionFilterObject get() = metadataObject?.optJSONObject(_q9("TKpyWYcdVliRr7K3fv7inPk="))
+    private val metadataFeaturesObject get() = metadataObject?.optJSONObject(_q9("TqpgToAGQ18="))
+    private val metadataProvidersObject get() = metadataObject?.optJSONObject(_q9("WL1uTJwQQ16L"))
 
     val _j7: String get() = root.getString(_q9("X6pjSZwAQ2eduQ=="))
     val _j6: String get() = remote.optString(_q9("X6pjSZwAQ2aLr7KkZf4=")).trim()
@@ -195,6 +253,8 @@ internal object _j0 {
     val metadata: _k9 get() = _k9(
         tmdb = parseTmdbMetadataProfile(),
         descriptionFilter = parseDescriptionFilterProfile(),
+        features = parseMetadataFeatureProfile(),
+        providers = parseMetadataProvidersProfile(),
     )
 
     val _j18: Set<String> by lazy(LazyThreadSafetyMode.PUBLICATION) {
@@ -236,6 +296,65 @@ internal object _j0 {
             },
             descriptionQuality = _k6(quality.optBoolean(_q9("TaFgWJkRQg=="), true)),
             explicitlyConfigured = true,
+        )
+    }
+
+    private fun parseMetadataFeatureProfile(): _p118 {
+        val features = metadataFeaturesObject ?: return _p118()
+        fun enabled(key: String): Boolean = when (val raw = features.opt(key)) {
+            null -> true
+            is Boolean -> raw
+            else -> true
+        }
+        return _p118(
+            core = enabled(_q9("S6BzXw==")),
+            visual = enabled(_q9("XqZyT5QY")),
+            actors = enabled(_q9("Sax1VYcH")),
+            tv = enabled("tv"),
+            episodes = enabled(_q9("Tb9oSZoQQ18=")),
+            recommendations = enabled(_q9("WqpiVZgZQ0KcoaiYePzl")),
+        )
+    }
+
+    private fun parseMetadataProvidersProfile(): _p122 {
+        val providers = metadataProvidersObject ?: return _p122()
+        val enabledObject = providers.optJSONObject(_q9("TaFgWJkRQg==")) ?: JSONObject()
+
+        fun safeEnabled(key: String, fallback: Boolean): Boolean = when (val raw = enabledObject.opt(key)) {
+            null -> fallback
+            is Boolean -> raw
+            else -> fallback
+        }
+
+        fun parseProviderId(raw: String): _p119? = when (raw.trim().lowercase()) {
+            _q9("XKJlWA==") -> _p119.TMDB
+            _q9("XLlsW48R") -> _p119.TVMAZE
+            _q9("XKdkToMQRA=="), _q9("XLllWA==") -> _p119.THETVDB
+            _q9("R6JlWA==") -> _p119.OMDB
+            else -> null
+        }
+
+        val defaultOrder = _p122().order
+        val configuredOrder = providers.optJSONArray(_q9("R71lX4c="))?.let { array ->
+            (0 until array.length())
+                .mapNotNull { parseProviderId(array.optString(it)) }
+                .distinct()
+        }.orEmpty().ifEmpty { defaultOrder }
+
+        val fallbackPolicy = when (providers.optString(_q9("Tq5tVpcVRUeor7CYdOs=")).trim().lowercase()) {
+            _q9("RqBeV5QARUSnr66uevvliuJkyufMnVCppfM=") -> _p120.NO_MATCH_OR_MISSING_FIELDS
+            else -> _p120.NO_MATCH_ONLY
+        }
+
+        return _p122(
+            order = configuredOrder,
+            enabled = _p121(
+                tmdb = safeEnabled(_q9("XKJlWA=="), true),
+                tvmaze = safeEnabled(_q9("XLlsW48R"), false),
+                thetvdb = safeEnabled(_q9("XKdkToMQRA=="), false),
+                omdb = safeEnabled(_q9("R6JlWA=="), false),
+            ),
+            fallbackPolicy = fallbackPolicy,
         )
     }
 
