@@ -318,6 +318,109 @@ jobs:
           print(f"ProviderProfile files validated: {validated}")
           PYPROFILE
 
+      - name: Verify Layarkaca21 generated TMDB BuildConfig
+        if: steps.detect_modules.outputs.module_count != '0'
+        working-directory: src
+        shell: bash
+        env:
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -f "Layarkaca21/build.gradle.kts" ] && \
+             [ ! -f "Layarkaca21/build.gradle" ]; then
+            echo "Layarkaca21 tidak ada pada checkout ini; gate BuildConfig dilewati."
+            exit 0
+          fi
+
+          echo "Generating fresh Layarkaca21 BuildConfig with TMDB environment..."
+          ./gradlew \
+            :Layarkaca21:clean \
+            :Layarkaca21:generateDebugBuildConfig \
+            --no-daemon \
+            --max-workers=1 \
+            --console=plain \
+            --stacktrace
+
+          python3 - <<'PYBUILDCONFIG'
+          import os
+          import re
+          from pathlib import Path
+
+          generated_root = Path("Layarkaca21/build/generated")
+          candidates = sorted(
+              p for p in generated_root.rglob("BuildConfig.*")
+              if p.is_file()
+          )
+
+          selected = None
+          text = None
+          for path in candidates:
+              candidate_text = path.read_text(encoding="utf-8", errors="ignore")
+              if (
+                  "TMDB_READ_ACCESS_TOKEN" in candidate_text
+                  and "TMDB_API_KEY" in candidate_text
+              ):
+                  selected = path
+                  text = candidate_text
+                  break
+
+          if selected is None or text is None:
+              raise SystemExit(
+                  "ERROR: Generated BuildConfig Layarkaca21 dengan field TMDB tidak ditemukan."
+              )
+
+          print(f"Generated BuildConfig detected: {selected}")
+
+          def java_escape(value: str) -> str:
+              return (
+                  value.replace("\\", "\\\\")
+                  .replace('"', '\\"')
+                  .replace("\r", "\\r")
+                  .replace("\n", "\\n")
+                  .replace("\t", "\\t")
+              )
+
+          def generated_literal(name: str):
+              match = re.search(
+                  rf'\b{name}\s*=\s*"((?:\\.|[^"\\])*)"',
+                  text,
+              )
+              return None if match is None else match.group(1)
+
+          failures = []
+          for name in ("TMDB_READ_ACCESS_TOKEN", "TMDB_API_KEY"):
+              expected = os.environ.get(name, "")
+              actual = generated_literal(name)
+
+              if not expected:
+                  status = "NOT_SET"
+              elif actual is None:
+                  status = "MISSING"
+                  failures.append(name)
+              elif actual == java_escape(expected):
+                  status = "MATCH"
+              else:
+                  status = "MISMATCH"
+                  failures.append(name)
+
+              print(f"Generated BuildConfig {name}: {status}")
+
+          if not os.environ.get("TMDB_READ_ACCESS_TOKEN", "") and not os.environ.get("TMDB_API_KEY", ""):
+              raise SystemExit(
+                  "ERROR: Layarkaca21 membutuhkan TMDB enrichment tetapi kedua credential tidak tersedia pada workflow."
+              )
+
+          if failures:
+              raise SystemExit(
+                  "ERROR: Generated BuildConfig tidak identik dengan credential GitHub Actions untuk: "
+                  + ", ".join(failures)
+              )
+
+          print("Layarkaca21 generated TMDB BuildConfig gate: PASS")
+          PYBUILDCONFIG
+
       - name: Build every detected module
         if: steps.detect_modules.outputs.module_count != '0'
         working-directory: src
