@@ -1,7 +1,7 @@
 // CANONICAL/READABLE SOURCE BUILD FILE — Agoose Modular v3r4r13
 import java.util.Properties
 
-version = 7
+version = 8
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.isFile) file.inputStream().use(::load)
