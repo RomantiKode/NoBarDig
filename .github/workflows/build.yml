@@ -459,6 +459,9 @@ jobs:
         if: steps.detect_modules.outputs.module_count != '0'
         working-directory: src
         shell: bash
+        env:
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           set -euo pipefail
 
@@ -467,6 +470,95 @@ jobs:
             --max-workers=1 \
             --console=plain \
             --stacktrace
+
+      - name: Verify Layarkaca21 final packaged TMDB credential
+        if: steps.detect_modules.outputs.module_count != '0'
+        working-directory: src
+        shell: bash
+        env:
+          TMDB_READ_ACCESS_TOKEN: ${{ secrets.TMDB_READ_ACCESS_TOKEN }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PYFINALTMDB'
+          import os
+          import re
+          import zipfile
+          from pathlib import Path
+
+          build_config_files = sorted(Path('Layarkaca21/build/generated').rglob('BuildConfig.*'))
+          selected = None
+          text = None
+          for path in build_config_files:
+              candidate = path.read_text(encoding='utf-8', errors='ignore')
+              if 'TMDB_READ_ACCESS_TOKEN' in candidate and 'TMDB_API_KEY' in candidate:
+                  selected = path
+                  text = candidate
+                  break
+
+          if selected is None or text is None:
+              raise SystemExit('ERROR: Final generated BuildConfig Layarkaca21 tidak ditemukan.')
+
+          def java_escape(value: str) -> str:
+              return (
+                  value.replace('\\', '\\\\')
+                  .replace('"', '\\"')
+                  .replace('\r', '\\r')
+                  .replace('\n', '\\n')
+                  .replace('\t', '\\t')
+              )
+
+          def generated_literal(name: str):
+              m = re.search(rf'\b{name}\s*=\s*"((?:\\.|[^"\\])*)"', text)
+              return None if m is None else m.group(1)
+
+          failures = []
+          expected_values = {}
+          for name in ('TMDB_READ_ACCESS_TOKEN', 'TMDB_API_KEY'):
+              expected = os.environ.get(name, '')
+              expected_values[name] = expected
+              actual = generated_literal(name)
+              if not expected:
+                  status = 'NOT_SET'
+              elif actual is None:
+                  status = 'MISSING'
+                  failures.append(name)
+              elif actual == java_escape(expected):
+                  status = 'MATCH'
+              else:
+                  status = 'MISMATCH'
+                  failures.append(name)
+              print(f'Final generated BuildConfig {name}: {status}')
+
+          if failures:
+              raise SystemExit('ERROR: Final BuildConfig berubah setelah makePluginsJson: ' + ', '.join(failures))
+
+          cs3 = Path('Layarkaca21/build/Layarkaca21.cs3')
+          if not cs3.is_file():
+              raise SystemExit('ERROR: Layarkaca21.cs3 final tidak ditemukan.')
+
+          with zipfile.ZipFile(cs3) as zf:
+              try:
+                  dex = zf.read('classes.dex')
+              except KeyError as exc:
+                  raise SystemExit('ERROR: classes.dex tidak ditemukan dalam Layarkaca21.cs3.') from exc
+
+          packaged = []
+          for name, value in expected_values.items():
+              if not value:
+                  continue
+              present = value.encode('utf-8') in dex
+              print(f'Final packaged {name}: ' + ('PRESENT' if present else 'MISSING'))
+              if present:
+                  packaged.append(name)
+
+          if expected_values['TMDB_READ_ACCESS_TOKEN'] or expected_values['TMDB_API_KEY']:
+              if not packaged:
+                  raise SystemExit('ERROR: Credential TMDB tidak ditemukan di classes.dex final.')
+
+          print('Layarkaca21 final packaged TMDB credential gate: PASS')
+          PYFINALTMDB
 
       - name: Collect publish files
         if: steps.detect_modules.outputs.module_count != '0'
