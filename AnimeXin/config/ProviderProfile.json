@@ -1,0 +1,185 @@
+{
+  "schema": "agoose-provider-profile-v1",
+  "provider": "AnimeXin",
+  "websiteKey": "AnimeXin",
+  "remote": {
+    "websiteJsonUrl": "https://raw.githubusercontent.com/RomantiKode/NoBarDig/main/Website.json"
+  },
+  "defaults": {
+    "mainUrl": "https://animexin.dev"
+  },
+  "homepage": [
+    {
+      "source": "/",
+      "key": "popular",
+      "title": "Popular Today"
+    },
+    {
+      "source": "/",
+      "key": "latest",
+      "title": "Latest Release"
+    },
+    {
+      "source": "/",
+      "key": "recommendation",
+      "title": "Recommendation"
+    }
+  ],
+  "endpoints": {
+    "searchPath": "/",
+    "searchParam": "s",
+    "seriesArchive": "/anime/"
+  },
+  "selectors": {
+    "homePopular": ".listupd.popularslider .bsx",
+    "homeLatest": ".listupd.normal .bsx",
+    "homeRecommendation": ".series-gen .listupd .bsx",
+    "card": ".bsx",
+    "cardLink": "a[href]",
+    "cardTitle": ".eggtitle, .tt h2",
+    "cardPoster": "img[itemprop=image], img",
+    "detailSeriesInfo": ".bigcontent .infox",
+    "detailEpisodeInfo": ".single-info .infox",
+    "detailSeriesTitle": ".bigcontent .infox h1",
+    "detailEpisodeTitle": ".single-info .infox .infolimit h2",
+    "detailAltTitle": ".alter",
+    "detailMetadata": ".spe span",
+    "detailGenres": ".genxed a",
+    "detailPoster": ".bigcontent .thumb img, .single-info .thumb img",
+    "detailDescription": ".desc.mindes, .entry-content[itemprop=description]",
+    "seriesEpisodes": ".eplister ul li",
+    "episodeLink": "a[href]",
+    "episodeNumber": ".epl-num",
+    "episodeTitle": ".epl-title",
+    "episodeDate": ".epl-date",
+    "playerOptions": "select.mirror option[value]"
+  },
+  "playback": {
+    "sourceMode": "all_available",
+    "serverResolveTimeoutMs": 10000,
+    "maxPageHops": 3,
+    "wrapperTimeoutMs": 20000,
+    "runtimeDiscovery": {
+      "enabled": false,
+      "timeoutMs": 7000
+    },
+    "offline": {
+      "enabled": false,
+      "mediaSource": "",
+      "label": "SOURCE VIDEO OFFLINE"
+    }
+  },
+  "metadata": {
+    "tmdb": {
+      "enabled": false,
+      "language": "id-ID",
+      "descriptionPolicy": "web_only",
+      "invalidWebDescriptionFallback": "web",
+      "descriptionQuality": {
+        "enabled": true
+      }
+    },
+    "descriptionFilter": {
+      "enabled": true,
+      "genericRules": true,
+      "boundaryMarkers": [],
+      "stripPatterns": [],
+      "invalidPatterns": [],
+      "allowPatterns": [],
+      "minimumCleanLength": 40
+    },
+    "features": {
+      "core": false,
+      "visual": false,
+      "actors": false,
+      "tv": false,
+      "episodes": false,
+      "recommendations": false
+    },
+    "tagEnrichment": {
+      "enabled": false,
+      "maxTags": 15,
+      "maxEnrichedTags": 8,
+      "anilistMinimumRank": 60,
+      "include": [],
+      "exclude": [],
+      "mapping": {}
+    },
+    "providers": {
+      "order": [
+        "tmdb",
+        "tvmaze",
+        "thetvdb",
+        "wikimedia",
+        "omdb"
+      ],
+      "animeAsianOrder": [
+        "anilist",
+        "tmdb",
+        "bangumi",
+        "kitsu",
+        "myanimelist",
+        "thetvdb",
+        "wikimedia",
+        "tvmaze",
+        "omdb"
+      ],
+      "fallbackPolicy": "no_match_only",
+      "enabled": {
+        "tmdb": false,
+        "tvmaze": false,
+        "thetvdb": false,
+        "omdb": false,
+        "wikimedia": false,
+        "anilist": false,
+        "bangumi": false,
+        "kitsu": false,
+        "myanimelist": false
+      }
+    },
+    "fieldEnrichment": {
+      "enabled": true,
+      "nativeOutputPolicy": "map_to_cloudstream_native_first",
+      "identityFields": [
+        "canonicalUrl",
+        "originalTitle",
+        "translatedTitle",
+        "alternativeTitle"
+      ],
+      "evidenceFields": [
+        "DETAIL_READABLE",
+        "PLAYER_DISCOVERED",
+        "EXTRACTOR_MATCHED",
+        "WRAPPER_RESOLVED",
+        "MEDIA_RESOLVED",
+        "PLAYBACK_RUNTIME_PASS"
+      ],
+      "playbackCapabilityFields": [
+        "playerUrl",
+        "embedUrl",
+        "mediaUrl",
+        "referer",
+        "headers",
+        "sessionState",
+        "subtitleTracks",
+        "resolverChain"
+      ]
+    }
+  },
+  "diagnostics": {
+    "enabled": true
+  },
+  "contentFilter": {
+    "blockedCategories": [],
+    "blockedTags": []
+  },
+  "fieldRegistry": {
+    "version": "v1.1",
+    "registry": "standards/CLOUDSTREAM_FIELD_REGISTRY_v1.md",
+    "enrichment": "standards/AGOose_ENRICHMENT_FIELD_REGISTRY_v1.md",
+    "mapping": "standards/FIELD_MAPPING_MATRIX_v1.md",
+    "dependencyMap": "standards/MASTER_FIELD_DEPENDENCY_MAP_v1.md",
+    "audit": "standards/FIELD_EXISTING_AUDIT_v1.md",
+    "strictNativeMapping": true
+  }
+}
